@@ -1,0 +1,23 @@
+# Render の設定（Blueprint）。このリポジトリを Render につなぐと、自動で読み取って「静的サイト」として公開する。
+# サーバーのいらないゲームなので、ファイルをそのまま配るだけ。無料で、眠ることもない。
+services:
+  - type: web
+    name: hidamari-island
+    runtime: static
+    buildCommand: echo "files are ready"
+    staticPublishPath: .
+    pullRequestPreviewsEnabled: false
+    headers:
+      # ゲーム本体とオフライン用の仕組みは、いつも最新を取りに行く（更新がすぐ届くように）
+      - path: /
+        name: Cache-Control
+        value: no-cache
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache
+      - path: /manifest.webmanifest
+        name: Cache-Control
+        value: no-cache
