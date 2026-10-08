@@ -1,6 +1,6 @@
 // ひだまり島ぐらし：オフラインでも遊べるようにする仕組み（Service Worker）
-// 版が上がるとキャッシュ名が変わり、古いキャッシュは消える。0.918 は build.sh が埋める。
-const CACHE = 'hidamari-0.918';
+// 版が上がるとキャッシュ名が変わり、古いキャッシュは消える。0.919 は build.sh が埋める。
+const CACHE = 'hidamari-0.919';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
