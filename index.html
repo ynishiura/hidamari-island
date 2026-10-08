@@ -135,6 +135,16 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
 @media (pointer:coarse){#touch{display:block}}
 /* 会話中はスティック・Aボタン・メニューを隠して、文章と選択肢を読みやすくする */
 #app.talking #touch,#app.talking #menubtns{display:none}
+/* 家具のレイアウト（家の中だけ）：ボタンと、レイアウト中の帯。レイアウト中はほかの操作を隠す */
+#bLayout{pointer-events:auto;min-width:0;padding:5px 12px;font-size:12px}
+#app.talking #bLayout{display:none}
+#layoutBar{position:absolute;left:50%;bottom:calc(12px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(calc(100% - 24px),460px);box-sizing:border-box;background:var(--panel);border:3px solid var(--sun);border-radius:18px;box-shadow:0 4px 0 #c8851c;padding:8px 12px;display:flex;flex-direction:column;gap:6px;align-items:center;z-index:6}
+#lbTxt{font-size:13px;font-weight:700;text-align:center;line-height:1.5}
+#layoutBar .lbBtns{display:flex;gap:8px}
+#layoutBar .mbtn{min-width:72px;text-align:center;font-size:14px;padding:6px 12px}
+#layoutBar .mbtn:disabled{opacity:.4}
+#lbSave{background:var(--sun);border-color:#c8851c}
+#app.layout #toolbar,#app.layout #touch,#app.layout #menubtns,#app.layout #hBars,#app.layout #bMenu,#app.layout #tasks,#app.layout #minimap,#app.layout .mvol{display:none!important}
 /* メニューの画面を開いている間も、スティックとAボタンを隠す（画面の上に重なって押しにくいため） */
 #panel:not([hidden])~#touch{display:none}
 
@@ -355,7 +365,8 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 <div id="app">
   <canvas id="cv"></canvas>
   <div id="hudLeft"><div id="hud-tl" class="plate"><div class="day" id="hDay">春 1日目</div><div class="clock" id="hClock">6:00</div><div class="wx" id="hWx">晴れ</div></div>
-  <div id="tasks" class="plate"><button id="tHead">今日のやること</button><ul id="tList"></ul></div></div>
+  <div id="tasks" class="plate"><button id="tHead">今日のやること</button><ul id="tList"></ul></div>
+  <button class="mbtn" id="bLayout" hidden>レイアウト</button></div>
   <div id="hud-tr">
     <div class="row"><div class="plate" id="lvplate">Lv<b id="hLv">1</b></div><div class="plate"><span id="bells">0</span></div><button class="mbtn" id="bMenu" aria-expanded="false" aria-controls="menubtns">メニュー</button></div>
     <div class="plate" id="hBars"><div class="barlabel"><span>体力</span><span id="hSta">50/50</span></div><div class="bar sta"><i id="hStaBar" style="width:100%"></i></div>
@@ -376,6 +387,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
     <div class="mvol"><label for="volIn">音量 <b id="volNum">100</b></label><input id="volIn" type="range" min="0" max="100" step="5" value="100" aria-label="音量"></div>
   </div>
   <div id="toasts"></div>
+  <div id="layoutBar" hidden><div id="lbTxt"></div><div class="lbBtns"><button class="mbtn" id="lbRot">回転</button><button class="mbtn" id="lbSave">保存</button><button class="mbtn" id="lbCancel">やめる</button></div></div>
   <div id="dialog" hidden><img id="dPortrait" alt="" hidden><div class="who" id="dWho"></div><div class="txt" id="dTxt"></div><div class="choices" id="dCh"></div><div class="next" id="dNext">▼</div></div>
   <div id="panel" hidden><div class="box"><header><h2 id="pTitle"></h2><button class="x" id="pClose" aria-label="閉じる">×</button></header><div class="tabs" id="pTabs"></div><div id="pbody"></div></div></div>
   <div id="touch"><div id="dpad"><i id="knob"></i></div><button id="abtn">A</button></div>
@@ -446,7 +458,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.924";</script>
+<script>const GAME_VERSION="0.925";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -677,7 +689,7 @@ const HOUSE=[
   {name:'木の家',cap:50,bells:20000,mat:'wood',n:20},
   {name:'大きな家',cap:70,bells:60000,mat:'gold',n:3},
 ];
-const BOX_CAP=300;
+const BOX_CAP=50;   // 家の収納箱に入る数
 const TITLES=[[1,'島の新入り'],[3,'見習い島民'],[5,'ひだまりの住人'],[8,'島の物知り'],[12,'自然の友'],[16,'島のたつじん'],[20,'ひだまりの名人'],[25,'島の伝説']];
 function titleFor(lv){let t=TITLES[0][1];for(const [l,n] of TITLES)if(lv>=l)t=n;return t}
 const MAX_LV=30, MAX_SK=10;
@@ -1532,6 +1544,7 @@ function skyTint(){
 }
 function hintText(){
   if(RT.fishing)return RT.fishing.state==='bite'?'今だ！':'じっと待つ…';
+  if(RT.layout)return null;
   if(inHome())return homeHint();
   if(inCave()){
     const [fx,fy]=facingTile(),ptx=Math.floor(S.px/T),pty=Math.floor((S.py-6)/T);
@@ -1580,12 +1593,15 @@ function drawToolInHand(g,x,y){
 function render(t){
   const s=season();
   ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=W.home?'#1f1712':'#4a9fcd';ctx.fillRect(0,0,cv.width,cv.height);
-  const vw=VW/Z,vh=VH/Z;
+  // レイアウト中は部屋全体が入るように引いて映す（下の帯のぶん、上に寄せる）
+  let ZZ=Z;if(RT.layout&&W.room)ZZ=Math.min(Z,VW/(W.room.x1-W.room.x0),(VH-120)/(W.room.y1-W.room.y0));
+  RT.camZ=ZZ;
+  const vw=VW/ZZ,vh=VH/ZZ;
   // 家の中は部屋の範囲だけを映す（部屋が画面より小さければ真ん中に置く）
-  const R=W.room||{x0:0,y0:0,x1:MW*T,y1:MH*T};
+  const R0=W.room||{x0:0,y0:0,x1:MW*T,y1:MH*T},R=RT.layout?{...R0,y1:R0.y1+120/ZZ}:R0;
   let cx=R.x1-R.x0>vw?clamp(S.px-vw/2,R.x0,R.x1-vw):(R.x0+R.x1-vw)/2;
   let cy=R.y1-R.y0>vh?clamp(S.py-16-vh/2,R.y0,R.y1-vh):(R.y0+R.y1-vh)/2;
-  RT.cam={cx,cy};const k=DPR*Z;
+  RT.cam={cx,cy};const k=DPR*ZZ;
   ctx.setTransform(k,0,0,k,Math.round(-cx*k),Math.round(-cy*k));
   ctx.drawImage(groundFor(s),0,0);
   const isl=onIsland();
@@ -1619,6 +1635,7 @@ function render(t){
     if(RT.slash>0&&skLv('fight')>=3){ctx.strokeStyle=`rgba(255,255,255,${RT.slash*3})`;ctx.lineWidth=3;ctx.beginPath();ctx.arc(S.px,S.py-12,34,0,7);ctx.stroke()}}]);
   if(skLv('bug')>=5)RT.bugs.forEach(b=>{if(b.d.rar>=4&&!b.flee)D.push([b.y+1,()=>{for(let i=0;i<3;i++){const a=t*2+i*2.1;circ(ctx,b.x+Math.cos(a)*12,b.y-14+Math.sin(a)*8,1.6,'rgba(255,240,150,.95)')}}])});
   D.sort((a,b)=>a[0]-b[0]).forEach(d=>d[1]());
+  if(RT.layout)drawLayoutMarks(ctx);
   if(isl)drawCloudShadows(cx,cy,vw,vh,t);
   // 釣り糸
   const F=RT.fishing;
@@ -1753,6 +1770,7 @@ function clockText(){const m=Math.floor(S.min),h=Math.floor(m/60)%24,mm=String(m
 function updateHud(){
   if(!S)return;
   $('hDay').textContent=`${SEASONS[season()]} ${dayInSeason()}日目`;
+  $('bLayout').hidden=!inHome()||!!RT.layout;
   $('hWx').textContent=`${inCave()?`洞窟 地下${caveFloor()}階`:inHome()?`わが家 ${W.w}×${W.h}マス`:S.weather}・${titleFor(S.lv)}`;
   $('bells').textContent=S.bells.toLocaleString()+'円';
   $('hLv').textContent=S.lv;
@@ -2151,7 +2169,8 @@ function openCraft(){
 
 // ===================== 収納箱 =====================
 function moveItem(from,to,id,n,cap,capFn){
-  if(capFn()+n>cap){toast('これ以上入らない');return}
+  const room=cap-capFn();if(room<=0){toast('これ以上入らない');return}
+  if(n>room){n=room;toast(`入るのは${room}個まで。${room}個だけ移した`)}
   from[id]-=n;if(from[id]<=0)delete from[id];to[id]=(to[id]||0)+n;if(S.held===id&&!S.bag[id])S.held=null;updateHud();refresh();
 }
 function openBox(){
@@ -2425,18 +2444,32 @@ function homeFurniture(lv,w,h){
   return F;
 }
 const FURN_NAME={bed:'ベッド',box:'収納箱',bench:'作業台',plant:'観葉植物',shelf:'本だな',table:'テーブル',sofa:'ソファ'};
+// 部屋の家具：レイアウトを保存していればそれ（S.homeLayout[段階]）、なければ最初の配置。
+// w,h は今の向きでの大きさ（マス）、bw,bh は回転する前の大きさ、rot は 0〜3（90°ずつ）
+function furnList(lv,w,h){
+  const def=homeFurniture(lv,w,h).map(f=>({...f,bw:f.w,bh:f.h,rot:0}));
+  const sv=S.homeLayout&&S.homeLayout[lv];
+  if(!sv||sv.length!==def.length)return def;
+  const L=sv.map(f=>({...f}));
+  return L.every(f=>f.x>=0&&f.y>=0&&f.x+f.w<=w&&f.y+f.h<=h)?L:def;
+}
+// 通れないマスを、家具の今の位置から作り直す
+function homeBlock(M){
+  for(let y=M.oy;y<M.oy+M.h;y++)for(let x=M.ox;x<M.ox+M.w;x++)M.block[ti(x,y)]=0;
+  for(const f of M.furn)for(let y=f.y;y<f.y+f.h;y++)for(let x=f.x;x<f.x+f.w;x++)M.block[ti(M.ox+x,M.oy+y)]=1;
+}
 let HOMES={};
 function genHome(lv){
   const [w,h]=HOME_SIZE[lv],ox=HOME_OX,oy=HOME_OY;
   const tiles=new Uint8Array(MW*MH).fill(13),block=new Uint8Array(MW*MH).fill(1);
   for(let y=oy;y<oy+h;y++)for(let x=ox;x<ox+w;x++){tiles[ti(x,y)]=12;block[ti(x,y)]=0}
   const door={x:ox+Math.floor((w-1)/2),y:oy+h};tiles[ti(door.x,door.y)]=14;block[ti(door.x,door.y)]=0;
-  const furn=homeFurniture(lv,w,h);
-  for(const f of furn)for(let y=f.y;y<f.y+f.h;y++)for(let x=f.x;x<f.x+f.w;x++)block[ti(ox+x,oy+y)]=1;
-  return {id:'home'+lv,home:true,lv,w,h,ox,oy,tiles,block,door,furn,
+  const furn=furnList(lv,w,h);
+  const M={id:'home'+lv,home:true,lv,w,h,ox,oy,tiles,block,door,furn,
     trees:[],rocks:[],bld:[],treeAt:new Map(),rockAt:new Map(),nodes:[],nodeAt:new Map(),
     start:{x:(door.x+.5)*T,y:(door.y-.5)*T+4},
     room:{x0:(ox-1)*T,y0:(oy-2.6)*T,x1:(ox+w+1)*T,y1:(oy+h+1.4)*T}};
+  homeBlock(M);return M;
 }
 function homeMap(){return HOMES[S.house]||(HOMES[S.house]=genHome(S.house))}
 function goHome(at){
@@ -2538,7 +2571,11 @@ function homeGround(){
 }
 // 家具（奥行き順に描く）
 function drawFurn(g,f){
-  const X=(W.ox+f.x)*T,Y=(W.oy+f.y)*T,FW=f.w*T,FH=f.h*T,lv=W.lv;
+  g.save();g.translate((W.ox+f.x+f.w/2)*T,(W.oy+f.y+f.h/2)*T);g.rotate((f.rot||0)*Math.PI/2);
+  const FW=(f.bw||f.w)*T,FH=(f.bh||f.h)*T,X=-FW/2,Y=-FH/2,lv=W.lv;
+  drawFurnArt(g,f,X,Y,FW,FH,lv);g.restore();
+}
+function drawFurnArt(g,f,X,Y,FW,FH,lv){
   const rr=(x,y,w,h,r,c)=>{g.fillStyle=c;g.beginPath();g.roundRect(x,y,w,h,r);g.fill()};
   if(f.type==='bed'){
     const blanket=['#7fb2d9','#e8a0a8','#9cc98a','#e5c46a'][lv];
@@ -2568,6 +2605,109 @@ function drawFurn(g,f){
     rr(X+2,Y,FW-4,14,6,'#6f9fc4');rr(X+2,Y+10,FW-4,FH-12,6,'#82b2d6');rr(X,Y+6,9,FH-8,4,'#6f9fc4');rr(X+FW-9,Y+6,9,FH-8,4,'#6f9fc4');
     g.fillStyle='rgba(255,255,255,.25)';for(let i=1;i<f.w;i++)g.fillRect(X+i*T-1,Y+12,2,FH-16);
   }
+}
+// ===================== 家具のレイアウト（家の中だけ） =====================
+// 「レイアウト」ボタン → 家具をタップで選ぶ → 置きたいマスをタップ（ドラッグでも動く）。回転もできる。
+// 「保存」で確定（S.homeLayout に残る）、「やめる」で元に戻す。保存できるのは次のときだけ：
+//   家具どうしが重ならない／出入口の前のマスをふさがない／出入口からベッド・作業台・収納箱の前まで歩いて行ける
+const USE_FURN=['bed','bench','box'];
+function layoutEntry(){return [W.door.x-W.ox,W.door.y-W.oy-1]}
+function layoutCovers(f,x,y){return x>=f.x&&x<f.x+f.w&&y>=f.y&&y<f.y+f.h}
+function layoutFurnAt(x,y){for(let i=W.furn.length-1;i>=0;i--)if(layoutCovers(W.furn[i],x,y))return i;return -1}
+// i 番の家具が今の場所に置けるか（重なり・出入口の前）
+function layoutSpotOk(i){
+  const f=W.furn[i],[ex,ey]=layoutEntry();
+  if(layoutCovers(f,ex,ey))return false;
+  return !W.furn.some((o,j)=>j!==i&&o.x<f.x+f.w&&f.x<o.x+o.w&&o.y<f.y+f.h&&f.y<o.y+o.h);
+}
+// 部屋全体として保存できるか。だめなら理由の文
+function layoutProblem(){
+  for(let i=0;i<W.furn.length;i++){
+    const f=W.furn[i];
+    if(layoutCovers(f,...layoutEntry()))return `${FURN_NAME[f.type]}が出入口の前をふさいでいる`;
+    if(!layoutSpotOk(i))return `${FURN_NAME[f.type]}がほかの家具と重なっている`;
+  }
+  // 出入口の前から歩けるマスを調べる
+  const free=(x,y)=>x>=0&&y>=0&&x<W.w&&y<W.h&&layoutFurnAt(x,y)<0;
+  const seen=new Set(),[ex,ey]=layoutEntry(),q=[[ex,ey]];seen.add(ex+','+ey);
+  for(let k=0;k<q.length;k++){const [x,y]=q[k];for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(free(nx,ny)&&!seen.has(nx+','+ny)){seen.add(nx+','+ny);q.push([nx,ny])}}}
+  for(const f of W.furn){
+    if(!USE_FURN.includes(f.type))continue;
+    let ok=false;
+    for(let y=f.y-1;y<=f.y+f.h&&!ok;y++)for(let x=f.x-1;x<=f.x+f.w&&!ok;x++){const side=(x<f.x||x>=f.x+f.w)!==(y<f.y||y>=f.y+f.h);if(side&&seen.has(x+','+y))ok=true}
+    if(!ok)return `${FURN_NAME[f.type]}の前まで歩いて行けない`;
+  }
+  return null;
+}
+function layoutMove(i,x,y){const f=W.furn[i];f.x=clamp(x,0,W.w-f.w);f.y=clamp(y,0,W.h-f.h);layoutRefresh()}
+function layoutRotate(){
+  const L=RT.layout;if(!L||L.sel==null)return;
+  const f=W.furn[L.sel],cx=f.x+f.w/2,cy=f.y+f.h/2;
+  [f.w,f.h]=[f.h,f.w];f.rot=((f.rot||0)+1)%4;
+  layoutMove(L.sel,Math.round(cx-f.w/2),Math.round(cy-f.h/2));sfx('swing');
+}
+function layoutRefresh(){
+  const L=RT.layout;if(!L)return;
+  const f=L.sel!=null?W.furn[L.sel]:null;
+  $('lbTxt').textContent=f?`${FURN_NAME[f.type]}（${f.w}×${f.h}マス）：置きたいマスをタップ。ドラッグでも動かせる`:'動かしたい家具をタップして選んでね';
+  $('lbRot').disabled=!f;
+}
+function startLayout(){
+  if(!inHome()||RT.layout)return;
+  if(typeof setMenuOpen==='function')setMenuOpen(false);
+  RT.layout={orig:W.furn.map(f=>({...f})),sel:null,drag:null};RT.goal=null;
+  $('app').classList.add('layout');$('layoutBar').hidden=false;updateHud();layoutRefresh();
+}
+function endLayout(){RT.layout=null;$('app').classList.remove('layout');$('layoutBar').hidden=true;homeBlock(W);updateHud()}
+function cancelLayout(){if(!RT.layout)return;W.furn=RT.layout.orig;endLayout();toast('レイアウトを元に戻した')}
+function saveLayout(){
+  if(!RT.layout)return;
+  const bad=layoutProblem();if(bad){toast(`保存できない：${bad}`);sfx('swing');return}
+  S.homeLayout=S.homeLayout||{};S.homeLayout[W.lv]=W.furn.map(({type,x,y,w,h,bw,bh,rot})=>({type,x,y,w,h,bw,bh,rot}));
+  endLayout();
+  if(blockedPx(S.px,S.py)){S.px=W.start.x;S.py=W.start.y}   // 家具の上に立っていたら出入口の前へ
+  save();toast('レイアウトを保存しました');sfx('get');
+}
+// 画面のタップ・ドラッグ（レイアウト中は、ふつうの移動より先にここで受け取る）
+function layoutTile(e){const [wx,wy]=screenToWorld(e);return [Math.floor(wx/T)-W.ox,Math.floor(wy/T)-W.oy]}
+cv.addEventListener('pointerdown',e=>{
+  if(!RT.layout)return;e.stopImmediatePropagation();e.preventDefault();
+  const L=RT.layout,[tx,ty]=layoutTile(e),i=layoutFurnAt(tx,ty);
+  if(i>=0){L.sel=i;L.drag={dx:tx-W.furn[i].x,dy:ty-W.furn[i].y,id:e.pointerId};try{cv.setPointerCapture(e.pointerId)}catch(_){}}
+  else if(L.sel!=null&&tx>=0&&ty>=0&&tx<W.w&&ty<W.h){const f=W.furn[L.sel];layoutMove(L.sel,tx-Math.floor((f.w-1)/2),ty-Math.floor((f.h-1)/2))}
+  layoutRefresh();
+},true);
+cv.addEventListener('pointermove',e=>{
+  const L=RT.layout;if(!L)return;e.stopImmediatePropagation();
+  if(L.drag&&L.drag.id===e.pointerId){const [tx,ty]=layoutTile(e);layoutMove(L.sel,tx-L.drag.dx,ty-L.drag.dy)}
+},true);
+addEventListener('pointerup',e=>{const L=RT.layout;if(L&&L.drag&&L.drag.id===e.pointerId)L.drag=null});
+// キー：矢印で動かす、R で回転、Enter で保存、Esc でやめる
+addEventListener('keydown',e=>{
+  const L=RT.layout;if(!L||RT.panel)return;
+  e.stopImmediatePropagation();
+  const mv={ArrowUp:[0,-1],KeyW:[0,-1],ArrowDown:[0,1],KeyS:[0,1],ArrowLeft:[-1,0],KeyA:[-1,0],ArrowRight:[1,0],KeyD:[1,0]}[e.code];
+  if(mv){e.preventDefault();if(L.sel==null)L.sel=0;const f=W.furn[L.sel];layoutMove(L.sel,f.x+mv[0],f.y+mv[1])}
+  else if(e.code==='KeyR')layoutRotate();
+  else if(e.code==='Tab'){e.preventDefault();L.sel=L.sel==null?0:(L.sel+1)%W.furn.length;layoutRefresh()}
+  else if(e.code==='Enter')saveLayout();
+  else if(e.code==='Escape')cancelLayout();
+},true);
+$('bLayout').onclick=startLayout;
+$('lbRot').onclick=layoutRotate;$('lbSave').onclick=saveLayout;$('lbCancel').onclick=cancelLayout;
+// レイアウト中の目印：家具の枠（選んだ家具は太く、置けない場所なら赤）と出入口の前のマス
+function drawLayoutMarks(g){
+  const L=RT.layout;if(!L)return;
+  const [ex,ey]=layoutEntry(),t=performance.now()/1000;
+  g.fillStyle='rgba(217,87,107,.22)';g.fillRect((W.ox+ex)*T+1,(W.oy+ey)*T+1,T-2,T-2);
+  g.strokeStyle='rgba(217,87,107,.7)';g.lineWidth=1.5;g.setLineDash([4,3]);g.strokeRect((W.ox+ex)*T+2,(W.oy+ey)*T+2,T-4,T-4);g.setLineDash([]);
+  g.fillStyle='rgba(160,40,60,.9)';g.font='bold 8px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.fillText('出入口',(W.ox+ex+.5)*T,(W.oy+ey+.5)*T+3);
+  W.furn.forEach((f,i)=>{
+    const sel=i===L.sel,ok=layoutSpotOk(i),x=(W.ox+f.x)*T,y=(W.oy+f.y)*T;
+    if(!ok){g.fillStyle='rgba(217,60,80,.25)';g.fillRect(x,y,f.w*T,f.h*T)}
+    g.strokeStyle=!ok?'rgba(217,60,80,.95)':sel?`rgba(243,176,61,${.75+.25*Math.sin(t*6)})`:'rgba(255,255,255,.75)';
+    g.lineWidth=sel?3:1.5;g.strokeRect(x+1.5,y+1.5,f.w*T-3,f.h*T-3);
+  });
 }
 </script>
 <script>
@@ -3830,7 +3970,7 @@ function arrive(){
   S.dir=g.face||dirTo(px,py,g.tx,g.ty);
   pressA();
 }
-function screenToWorld(e){const r=cv.getBoundingClientRect(),c=RT.cam||{cx:0,cy:0};return [c.cx+(e.clientX-r.left)/Z,c.cy+(e.clientY-r.top)/Z]}
+function screenToWorld(e){const r=cv.getBoundingClientRect(),c=RT.cam||{cx:0,cy:0};const z=RT.camZ||Z;return [c.cx+(e.clientX-r.left)/z,c.cy+(e.clientY-r.top)/z]}
 cv.addEventListener('pointerdown',e=>{
   if(e.button!==0||RT.title||RT.panel||!S)return;
   e.preventDefault();
@@ -3897,7 +4037,7 @@ let last=0;
 function loop(ts){
   const dt=Math.min(.05,(ts-last)/1000||0);last=ts;
   if(S){
-    const paused=RT.title||!!RT.dlg||!!RT.panel||RT.catchShow;
+    const paused=RT.title||!!RT.dlg||!!RT.panel||RT.catchShow||!!RT.layout;
     if(!paused){
       let mx=0,my=0;if(keys.has('l'))mx--;if(keys.has('r'))mx++;if(keys.has('u'))my--;if(keys.has('d'))my++;
       let run=keys.has('run');
