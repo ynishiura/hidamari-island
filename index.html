@@ -143,6 +143,10 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
 #layoutBar .lbBtns{display:flex;gap:8px}
 #layoutBar .mbtn{min-width:72px;text-align:center;font-size:14px;padding:6px 12px}
 #layoutBar .mbtn:disabled{opacity:.4}
+#lbInv{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;max-height:96px;overflow:auto}
+.lbInvHead{font-size:12px;color:var(--ink-soft);font-weight:700}
+#layoutBar .lbChip{display:inline-flex;align-items:center;gap:4px;min-width:0;font-size:12px;padding:3px 10px 3px 4px}
+@media (max-width:420px){#layoutBar .lbBtns .mbtn{min-width:0;padding:6px 10px;font-size:13px}}
 #lbSave{background:var(--sun);border-color:#c8851c}
 #app.layout #toolbar,#app.layout #touch,#app.layout #menubtns,#app.layout #hBars,#app.layout #bMenu,#app.layout #tasks,#app.layout #minimap,#app.layout .mvol{display:none!important}
 /* メニューの画面を開いている間も、スティックとAボタンを隠す（画面の上に重なって押しにくいため） */
@@ -387,7 +391,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
     <div class="mvol"><label for="volIn">音量 <b id="volNum">100</b></label><input id="volIn" type="range" min="0" max="100" step="5" value="100" aria-label="音量"></div>
   </div>
   <div id="toasts"></div>
-  <div id="layoutBar" hidden><div id="lbTxt"></div><div class="lbBtns"><button class="mbtn" id="lbRot">回転</button><button class="mbtn" id="lbSave">保存</button><button class="mbtn" id="lbCancel">やめる</button></div></div>
+  <div id="layoutBar" hidden><div id="lbTxt"></div><div id="lbInv"></div><div class="lbBtns"><button class="mbtn" id="lbRot">回転</button><button class="mbtn" id="lbStow">しまう</button><button class="mbtn" id="lbSave">保存</button><button class="mbtn" id="lbCancel">やめる</button></div></div>
   <div id="dialog" hidden><img id="dPortrait" alt="" hidden><div class="who" id="dWho"></div><div class="txt" id="dTxt"></div><div class="choices" id="dCh"></div><div class="next" id="dNext">▼</div></div>
   <div id="panel" hidden><div class="box"><header><h2 id="pTitle"></h2><button class="x" id="pClose" aria-label="閉じる">×</button></header><div class="tabs" id="pTabs"></div><div id="pbody"></div></div></div>
   <div id="touch"><div id="dpad"><i id="knob"></i></div><button id="abtn">A</button></div>
@@ -458,7 +462,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.925";</script>
+<script>const GAME_VERSION="0.926";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -671,6 +675,10 @@ const RECIPES=[
   {id:'r_axe1',name:'石のオノ',lv:1,mats:{branch:3,stone:2},tool:['axe',1],note:'木を切って木材を集める'},
   {id:'r_sword1',name:'木の剣',lv:1,mats:{wood:4},tool:['sword',1],note:'夜のスライムやハチと戦える'},
   {id:'r_bait',name:'釣りエサ ×3',lv:1,mats:{shell:1},out:['bait',3],note:'釣りの腕が上がると、役に立つらしい'},
+  {id:'r_f_box',name:'収納箱',lv:1,mats:{wood:6},furn:'box',note:'家具。家に置くと、50個までしまっておける'},
+  {id:'r_f_plant',name:'植木鉢',lv:1,mats:{stone:3,branch:2},furn:'plant',note:'家具。部屋に緑をそえる'},
+  {id:'r_f_table',name:'テーブル',lv:2,mats:{wood:5},furn:'table',note:'家具。木のテーブル'},
+  {id:'r_f_shelf',name:'本だな',lv:3,mats:{wood:8},furn:'shelf',note:'家具。壁ぎわにどうぞ'},
   {id:'r_wand1',name:'魔法の杖',lv:2,mats:{wood:3,mstone:1},tool:['wand',1],note:'魔法が使えるようになる'},
   {id:'r_drink',name:'元気ドリンク',lv:2,mats:{apple:2,honey:1},out:['drink',1],note:'体力が45回復'},
   {id:'r_lantern',name:'銅のランタン',lv:2,mats:{copper:3,wood:1},flag:'lantern',note:'洞窟の中が明るく、遠くまで見える'},
@@ -984,7 +992,7 @@ function newState(name){
   return {v:2,name,seed:Math.floor(Math.random()*1e9),day:1,min:360,bells:1000,lv:1,xp:0,sta:50,mp:14,
     skills,tools:{hand:1,net:1,rod:1,axe:0,shovel:0,can:0,sword:0,wand:0},tool:'hand',spell:'orb',house:0,
     bag:{s_tulip:3,apple:2},box:{},dex:{},friends:{},fruit:[],rockHits:[],chopHits:[],stumps:{},flowers:[],dig:[],holes:[],shells:[],branches:[],tasks:[],
-    weather:'晴れ',px:0,py:0,dir:'down',held:null,loc:'island',mapW:MW,gender:null,flags:{},caveBroken:{},caveHits:{},stats:{bug:0,fish:0,fossil:0,flower:0,earned:0,defeat:0,craft:0},fresh:true};
+    weather:'晴れ',px:0,py:0,dir:'down',held:null,loc:'island',mapW:MW,gender:null,flags:{},caveBroken:{},caveHits:{},stats:{bug:0,fish:0,fossil:0,flower:0,earned:0,defeat:0,craft:0},fresh:true,homeFurn:null,furnInv:{}};
 }
 // 島の広さが変わったセーブ（60×44 時代）を新しい島へ移す。花は位置を拡大して、植えられる所だけ残す。
 function fitToMap(){
@@ -997,6 +1005,8 @@ function fitToMap(){
   S.mapW=MW;
 }
 function migrate(s){
+  if(!('homeFurn' in s)){s.homeFurn=null;s.furnLegacy=true}   // 家具を手に入れる仕組みより前のセーブ
+  s.furnInv=s.furnInv||{};
   Object.assign(s,{loc:s.loc||'island',flags:s.flags||{},caveBroken:s.caveBroken||{},caveHits:s.caveHits||{}});
   if(s.v===2)return s;
   const old=s.skills||{};s.skills={};
@@ -1622,7 +1632,7 @@ function render(t){
   // 奥行き順
   const D=[];const inV=(x,y,m=3)=>x>=x0-m&&x<=x1+m&&y>=y0-m&&y<=y1+m;
   W.trees.forEach((tr,i)=>{if(inV(tr.x,tr.y))D.push([(tr.y+1)*T-4,()=>S.stumps[i]?drawStump(ctx,tr):drawTree(ctx,tr,s,S.fruit[i],RT.shake.get(i))])});
-  if(W.home)W.furn.forEach(f=>D.push([(W.oy+f.y+f.h)*T-4,()=>drawFurn(ctx,f)]));
+  if(W.home)W.furn.forEach(f=>D.push([isFloor(f)?-1e9:(W.oy+f.y+f.h)*T-4,()=>drawFurn(ctx,f)]));
   if(inCave())W.nodes.forEach((o,i)=>{if(inV(o.x,o.y))D.push([(o.y+1)*T-4,()=>drawNode(ctx,o,i)])});
   RT.enemies.forEach(e=>D.push([e.y+(e.d.fly?20:0),()=>drawEnemy(ctx,e,t)]));
   W.rocks.forEach((r,i)=>{if(inV(r.x,r.y)){const sh=RT.shake.get('r'+i);D.push([(r.y+1)*T-4,()=>{ctx.save();if(sh)ctx.translate(Math.sin(sh*60)*1.5,0);drawRock(ctx,r,S.rockHits[i]);ctx.restore()}])}});
@@ -1884,7 +1894,7 @@ function sellAll(){
 
 // お店
 function openShop(tab){
-  openPanel('ひだまり商店',[['sell','売る'],['buy','買う'],['tool','道具の強化'],['house','家の増築']],tab,(body,t)=>{
+  openPanel('ひだまり商店',[['sell','売る'],['buy','買う'],['furn','家具'],['tool','道具の強化'],['house','家の増築']],tab,(body,t)=>{
     body.append(h('div',{class:'rowline'},h('div',{class:'grow muted'},'店主のコマチ「いらっしゃい。図鑑にのった子も、売ってくれてかまわないよ」'),h('span',{class:'pill'},`${S.bells.toLocaleString()}円`)));
     if(t==='sell'){body.append(h('div',{class:'rowline'},h('button',{class:'btn',on:sellAll},'生き物・化石・花・貝をまとめて売る'),h('span',{class:'muted'},'素材や道具の材料は残るよ')));body.append(bagGrid('sell'))}
     if(t==='buy'){
@@ -1893,6 +1903,17 @@ function openShop(tab){
       for(const tl of TOOLS.filter(t=>t.buy&&!S.tools[t.id]))grid.append(h('div',{class:'cell'},iconCanvas(tl.id),h('div',{class:'nm'},tl.name),h('div',{class:'meta'},tl.id==='shovel'?'化石を掘ったり、岩をたたける':'花に水をあげて育てる'),h('button',{on:()=>{if(S.bells<tl.buy){toast('お金が足りない');return}S.bells-=tl.buy;S.tools[tl.id]=1;S.tool=tl.id;toast(`${tl.name}を買った！ キー${tl.key}で持ちかえ`,true);sfx('lv');updateHud();refresh()}},`${tl.buy}円`)));
       for(const it of items)grid.append(h('div',{class:'cell'},iconCanvas(it.id),h('div',{class:'nm'},it.name),h('div',{class:'meta'},it.note),h('div',{class:'rowline',style:'justify-content:center;margin:0;gap:4px'},
         h('button',{on:()=>buy(it,1)},`${it.price}円`),h('button',{class:'btn sub',on:()=>buy(it,5)},'×5'))));
+      body.append(grid);
+    }
+    if(t==='furn'){
+      body.append(h('p',{class:'muted',style:'margin:0 0 10px'},'買った家具は、家の中の「レイアウト」から好きな所に置けるよ。収納箱・植木鉢・テーブル・本だなはクラフトでも作れる。'));
+      const grid=h('div',{class:'grid'});
+      for(const [type,d] of Object.entries(FURN_DEF)){
+        if(!d.price)continue;
+        const have=(S.furnInv[type]||0)+((S.homeFurn||[]).filter(f=>f.type===type).length);
+        grid.append(h('div',{class:'cell'},furnIcon(type,56),h('div',{class:'nm'},d.name),h('div',{class:'meta'},`${d.note}（${d.w}×${d.h}マス）`),h('div',{class:'meta'},`持っている：${have}`),
+          h('button',{on:()=>{if(S.bells<d.price){toast('お金が足りない');return}S.bells-=d.price;S.furnInv[type]=(S.furnInv[type]||0)+1;toast(`${d.name}を買った！ 家の中の「レイアウト」から置けるよ`,true);sfx('get');updateHud();refresh()}},`${d.price.toLocaleString()}円`)));
+      }
       body.append(grid);
     }
     if(t==='tool'){
@@ -2145,6 +2166,7 @@ function craft(r){
   for(const [id,k] of Object.entries(r.mats))takeItem(id,k);
   if(lv>=7&&rnd()<.25){const [id]=Object.entries(r.mats)[0];S.bag[id]=(S.bag[id]||0)+1;toast(`素材節約！ ${ITEMS[id].name}が1つ戻ってきた`)}
   if(r.flag){S.flags[r.flag]=true;toast(`${r.name}ができた！ ${r.note}`,true);sfx('lv')}
+  else if(r.furn){S.furnInv=S.furnInv||{};S.furnInv[r.furn]=(S.furnInv[r.furn]||0)+1;toast(`${r.name}ができた！ 家の中の「レイアウト」から置けるよ`,true);sfx('get')}
   else if(r.tool){S.tools[r.tool[0]]=r.tool[1];S.tool=r.tool[0];toast(`${r.name}ができた！ キー${TOOLS.find(t=>t.id===r.tool[0]).key}で持ちかえ`,true);sfx('lv')}
   else{addItem(r.out[0],n,true);toast(`${ITEMS[r.out[0]].name} ×${n} ができた！${n>r.out[1]?'（大成功）':''}`,n>r.out[1]);sfx('get')}
   S.stats.craft++;gainSkill('craft',6+Object.values(r.mats).reduce((a,b)=>a+b,0)*2);task('craft');updateHud();refresh();
@@ -2160,7 +2182,7 @@ function openCraft(){
       if(!st.lvOk){grid.append(h('div',{class:'card unk'},h('b',{},'？？？'),h('div',{class:'muted'},'クラフトの腕が上がると、作り方がひらめくかも')));continue}
       const btn=h('button',{class:'btn',disabled:'',on:()=>craft(r)},st.owned?'作成ずみ':!st.needOk?'前の段階の道具が必要':'作る');
       if(st.ok)btn.removeAttribute('disabled');
-      const icon=r.flag?iconCanvas(r.flag):r.tool?iconCanvas(r.tool[0]):iconCanvas(r.out[0]);
+      const icon=r.furn?furnIcon(r.furn):r.flag?iconCanvas(r.flag):r.tool?iconCanvas(r.tool[0]):iconCanvas(r.out[0]);
       grid.append(h('div',{class:'card'},h('div',{class:'rowline',style:'margin:0'},icon,h('div',{class:'grow'},h('b',{},r.name),h('div',{class:'muted'},r.note))),h('div',{style:'display:flex;flex-wrap:wrap;gap:4px'},mats),btn));
     }
     body.append(grid);
@@ -2435,28 +2457,92 @@ const inHome=()=>!!S&&S.loc==='home';
 const onIsland=()=>!!S&&S.loc==='island';
 const HOME_SIZE=[[6,5],[8,6],[10,8],[13,10]];   // [横, 縦]（マス）：テント／小さな家／木の家／大きな家
 const HOME_OX=6,HOME_OY=6;                        // 部屋の左上のマス
-// 家具：x,y は部屋の左上からのマス。solid=false は上を歩ける
-function homeFurniture(lv,w,h){
-  const F=[{type:'bed',x:0,y:0,w:1,h:2},{type:'box',x:1,y:0,w:1,h:1},{type:'bench',x:w-2,y:0,w:2,h:1}];
-  if(lv>=1)F.push({type:'plant',x:w-1,y:h-1,w:1,h:1});
-  if(lv>=2)F.push({type:'shelf',x:3,y:0,w:2,h:1},{type:'table',x:w-4,y:Math.floor(h/2)-1,w:2,h:1});
-  if(lv>=3)F.push({type:'plant',x:0,y:h-1,w:1,h:1},{type:'sofa',x:1,y:Math.floor(h/2)+1,w:3,h:1});
+// 家具の種類。ベッドと作業台は最初からある（しまえない）。ほかはクラフトかお店で手に入れて、「レイアウト」で置く
+// floor=true は床に敷く物（上を歩ける。ほかの家具の下にも置ける）
+const FURN_DEF={
+  bed:{name:'ベッド',w:1,h:2,fixed:true},
+  bench:{name:'作業台',w:2,h:1,fixed:true},
+  box:{name:'収納箱',w:1,h:1,price:3000,note:'50個までしまっておける'},
+  plant:{name:'植木鉢',w:1,h:1,price:1200,note:'部屋に緑をそえる'},
+  rug:{name:'カーペット',w:3,h:2,price:2500,floor:true,note:'床に敷く。上を歩ける'},
+  table:{name:'テーブル',w:2,h:1,price:4000,note:'木のテーブル'},
+  shelf:{name:'本だな',w:2,h:1,price:5000,note:'壁ぎわにどうぞ'},
+  sofa:{name:'ソファ',w:3,h:1,price:8000,note:'ふかふかのソファ'},
+};
+const FURN_NAME=Object.fromEntries(Object.entries(FURN_DEF).map(([k,d])=>[k,d.name]));
+const isFloor=f=>!!FURN_DEF[f.type].floor;
+// 置いた家具：x,y は部屋の左上からのマス、w,h は今の向きでの大きさ、bw,bh は回転する前の大きさ、rot は 0〜3（90°ずつ）
+const mkFurn=(type,x=0,y=0)=>{const d=FURN_DEF[type];return {type,x,y,w:d.w,h:d.h,bw:d.w,bh:d.h,rot:0}};
+// はじめての家：ベッドと作業台だけ
+function defaultFurn(w,h){return [mkFurn('bed',0,0),mkFurn('bench',w-2,0)]}
+// 以前の版で遊んでいたセーブ：そのころ部屋にあった家具（収納箱など）をそのまま引きつぐ
+function legacyFurn(lv,w,h){
+  const F=[mkFurn('bed',0,0),mkFurn('box',1,0),mkFurn('bench',w-2,0)];
+  if(lv>=1)F.push(mkFurn('plant',w-1,h-1));
+  if(lv>=2)F.push(mkFurn('shelf',3,0),mkFurn('table',w-4,Math.floor(h/2)-1));
+  if(lv>=3)F.push(mkFurn('plant',0,h-1),mkFurn('sofa',1,Math.floor(h/2)+1));
+  const sv=S.homeLayout&&S.homeLayout[lv];
+  if(sv&&sv.length===F.length)sv.forEach((o,i)=>Object.assign(F[i],{x:o.x,y:o.y,w:o.w,h:o.h,rot:o.rot||0}));
+  const rw=Math.max(2,Math.floor(w/2)),rh=Math.max(2,Math.floor(h/2));
+  F.unshift(Object.assign(mkFurn('rug',Math.floor((w-rw)/2),Math.floor((h-rh)/2+.5)),{w:rw,h:rh,bw:rw,bh:rh}));
   return F;
 }
-const FURN_NAME={bed:'ベッド',box:'収納箱',bench:'作業台',plant:'観葉植物',shelf:'本だな',table:'テーブル',sofa:'ソファ'};
-// 部屋の家具：レイアウトを保存していればそれ（S.homeLayout[段階]）、なければ最初の配置。
-// w,h は今の向きでの大きさ（マス）、bw,bh は回転する前の大きさ、rot は 0〜3（90°ずつ）
-function furnList(lv,w,h){
-  const def=homeFurniture(lv,w,h).map(f=>({...f,bw:f.w,bh:f.h,rot:0}));
-  const sv=S.homeLayout&&S.homeLayout[lv];
-  if(!sv||sv.length!==def.length)return def;
-  const L=sv.map(f=>({...f}));
-  return L.every(f=>f.x>=0&&f.y>=0&&f.x+f.w<=w&&f.y+f.h<=h)?L:def;
+// 家具の並びに問題があれば理由の文（なければ null）：はみ出し・重なり・出入口の前・ベッド/作業台/収納箱まで歩けない
+const USE_FURN=['bed','bench','box'];
+const fOver=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
+const fCovers=(f,x,y)=>x>=f.x&&x<f.x+f.w&&y>=f.y&&y<f.y+f.h;
+function furnSpotOk(list,i,w,h,ex,ey){
+  const f=list[i];
+  if(f.x<0||f.y<0||f.x+f.w>w||f.y+f.h>h)return false;
+  if(isFloor(f))return !list.some((o,j)=>j!==i&&isFloor(o)&&fOver(o,f));
+  if(fCovers(f,ex,ey))return false;
+  return !list.some((o,j)=>j!==i&&!isFloor(o)&&fOver(o,f));
 }
-// 通れないマスを、家具の今の位置から作り直す
+function furnProblem(list,w,h,ex,ey){
+  for(let i=0;i<list.length;i++){
+    const f=list[i];
+    if(f.x<0||f.y<0||f.x+f.w>w||f.y+f.h>h)return `${FURN_NAME[f.type]}が部屋からはみ出している`;
+    if(!isFloor(f)&&fCovers(f,ex,ey))return `${FURN_NAME[f.type]}が出入口の前をふさいでいる`;
+    if(!furnSpotOk(list,i,w,h,ex,ey))return `${FURN_NAME[f.type]}がほかの家具と重なっている`;
+  }
+  const free=(x,y)=>x>=0&&y>=0&&x<w&&y<h&&!list.some(o=>!isFloor(o)&&fCovers(o,x,y));
+  const seen=new Set([ex+','+ey]),q=[[ex,ey]];
+  for(let k=0;k<q.length;k++){const [x,y]=q[k];for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(free(nx,ny)&&!seen.has(nx+','+ny)){seen.add(nx+','+ny);q.push([nx,ny])}}}
+  for(const f of list){
+    if(!USE_FURN.includes(f.type))continue;
+    let ok=false;
+    for(let y=f.y-1;y<=f.y+f.h&&!ok;y++)for(let x=f.x-1;x<=f.x+f.w&&!ok;x++){const side=(x<f.x||x>=f.x+f.w)!==(y<f.y||y>=f.y+f.h);if(side&&seen.has(x+','+y))ok=true}
+    if(!ok)return `${FURN_NAME[f.type]}の前まで歩いて行けない`;
+  }
+  return null;
+}
+// list に f を置ける最初の場所を探して置く（置けたら true）。回転も試す
+function placeFree(list,f,w,h,ex,ey){
+  // 床に敷く物は、まず家具と重ならない所を探す（家具の下に隠れないように）。なければ家具の下でもよい
+  for(const clear of isFloor(f)?[true,false]:[false]){
+    for(let r=0;r<2;r++){
+      for(let y=0;y<=h-f.h;y++)for(let x=0;x<=w-f.w;x++){
+        f.x=x;f.y=y;
+        if(clear&&list.some(o=>fOver(o,f)))continue;
+        list.push(f);
+        if(furnSpotOk(list,list.length-1,w,h,ex,ey)&&!furnProblem(list,w,h,ex,ey))return true;
+        list.pop();
+      }
+      [f.w,f.h]=[f.h,f.w];f.rot=(f.rot+1)%4;
+    }
+  }
+  return false;
+}
+// 部屋が変わって（増築など）今の並びが合わなくなったら、ベッドと作業台を元の場所に戻し、ほかは置ける所へ。置けない物はしまう
+function arrangeFurn(list,w,h,ex,ey){
+  const out=defaultFurn(w,h);
+  for(const f of list){if(FURN_DEF[f.type].fixed)continue;const g={...f};if(!placeFree(out,g,w,h,ex,ey))S.furnInv[f.type]=(S.furnInv[f.type]||0)+1}
+  return out;
+}
+// 通れないマスを、家具の今の位置から作り直す（床に敷く物は通れる）
 function homeBlock(M){
   for(let y=M.oy;y<M.oy+M.h;y++)for(let x=M.ox;x<M.ox+M.w;x++)M.block[ti(x,y)]=0;
-  for(const f of M.furn)for(let y=f.y;y<f.y+f.h;y++)for(let x=f.x;x<f.x+f.w;x++)M.block[ti(M.ox+x,M.oy+y)]=1;
+  for(const f of M.furn)if(!isFloor(f))for(let y=f.y;y<f.y+f.h;y++)for(let x=f.x;x<f.x+f.w;x++)M.block[ti(M.ox+x,M.oy+y)]=1;
 }
 let HOMES={};
 function genHome(lv){
@@ -2464,14 +2550,18 @@ function genHome(lv){
   const tiles=new Uint8Array(MW*MH).fill(13),block=new Uint8Array(MW*MH).fill(1);
   for(let y=oy;y<oy+h;y++)for(let x=ox;x<ox+w;x++){tiles[ti(x,y)]=12;block[ti(x,y)]=0}
   const door={x:ox+Math.floor((w-1)/2),y:oy+h};tiles[ti(door.x,door.y)]=14;block[ti(door.x,door.y)]=0;
-  const furn=furnList(lv,w,h);
-  const M={id:'home'+lv,home:true,lv,w,h,ox,oy,tiles,block,door,furn,
+  const ex=door.x-ox,ey=h-1;
+  S.furnInv=S.furnInv||{};
+  if(S.furnLegacy){S.homeFurn=legacyFurn(lv,w,h);delete S.furnLegacy;delete S.homeLayout}
+  if(!S.homeFurn)S.homeFurn=defaultFurn(w,h);
+  if(furnProblem(S.homeFurn,w,h,ex,ey))S.homeFurn=arrangeFurn(S.homeFurn,w,h,ex,ey);
+  const M={id:'home'+lv,home:true,lv,w,h,ox,oy,tiles,block,door,furn:S.homeFurn,
     trees:[],rocks:[],bld:[],treeAt:new Map(),rockAt:new Map(),nodes:[],nodeAt:new Map(),
     start:{x:(door.x+.5)*T,y:(door.y-.5)*T+4},
     room:{x0:(ox-1)*T,y0:(oy-2.6)*T,x1:(ox+w+1)*T,y1:(oy+h+1.4)*T}};
   homeBlock(M);return M;
 }
-function homeMap(){return HOMES[S.house]||(HOMES[S.house]=genHome(S.house))}
+function homeMap(){return genHome(S.house)}
 function goHome(at){
   W=homeMap();S.loc='home';resetMapRT();
   if(at==='door'){S.px=W.start.x;S.py=W.start.y;S.dir='up'}
@@ -2479,7 +2569,7 @@ function goHome(at){
   RT.fade=.6;updateHud();
   if(at==='door'){
     toast(`わが家（${HOUSE[S.house].name}）　部屋の広さ ${W.w}×${W.h}マス`);
-    if(!S.flags.homeIn){S.flags.homeIn=true;setTimeout(()=>toast('ベッドで寝る・作業台でクラフト・収納箱にしまう。下の出口から外へ'),900)}
+    if(!S.flags.homeIn){S.flags.homeIn=true;setTimeout(()=>toast('ベッドで寝る・作業台でクラフト。家具は左上の「レイアウト」で置ける。下の出口から外へ'),900)}
   }
 }
 function leaveHome(){
@@ -2488,7 +2578,7 @@ function leaveHome(){
   RT.fade=.6;updateHud();save();
 }
 // 家具の上のマスか（家の中だけ）
-function furnAt(x,y){if(!inHome())return null;return W.furn.find(f=>x>=W.ox+f.x&&x<W.ox+f.x+f.w&&y>=W.oy+f.y&&y<W.oy+f.y+f.h)||null}
+function furnAt(x,y){if(!inHome())return null;return W.furn.find(f=>!isFloor(f)&&x>=W.ox+f.x&&x<W.ox+f.x+f.w&&y>=W.oy+f.y&&y<W.oy+f.y+f.h)||null}
 // 家具の、(px,py) にいちばん近いマス
 function nearestFurnTile(f,px,py){return [clamp(px,W.ox+f.x,W.ox+f.x+f.w-1),clamp(py,W.oy+f.y,W.oy+f.y+f.h-1)]}
 function furnStands(f){const L=[];for(let y=f.y-1;y<=f.y+f.h;y++)for(let x=f.x-1;x<=f.x+f.w;x++){const inside=x>=f.x&&x<f.x+f.w&&y>=f.y&&y<f.y+f.h,corner=(x<f.x||x>=f.x+f.w)&&(y<f.y||y>=f.y+f.h);if(!inside&&!corner&&walkable(W.ox+x,W.oy+y))L.push([W.ox+x,W.oy+y])}return L}
@@ -2550,10 +2640,6 @@ function homeGround(){
     const px=x*T,py=y*T;
     for(let k=0;k<2;k++){const hh=hash(x*3+k,y*7);g.fillStyle=hh<.33?'#cfa06d':hh<.66?'#c99a66':'#c3935f';g.fillRect(px,py+k*16,T,16);g.fillStyle='rgba(120,80,40,.28)';g.fillRect(px,py+k*16+15,T,1);if(((x+y+k)&1)===0)g.fillRect(px+((k*13+y*7)%T),py+k*16,1,16)}
   }
-  // ラグ（部屋の真ん中。上を歩ける）
-  const rw=Math.max(2,Math.floor(w/2)),rh=Math.max(2,Math.floor(h/2)),rx=X0+Math.floor((w-rw)/2)*T+6,ry=Y0+Math.floor((h-rh)/2+.5)*T+6;
-  g.fillStyle='#d9887a';g.beginPath();g.roundRect(rx,ry,rw*T-12,rh*T-12,10);g.fill();
-  g.strokeStyle='#f6e2c8';g.lineWidth=3;g.beginPath();g.roundRect(rx+6,ry+6,rw*T-24,rh*T-24,6);g.stroke();
   // マス目の線（広さが分かるように）
   g.strokeStyle='rgba(95,62,32,.32)';g.lineWidth=1;
   for(let x=ox;x<=ox+w;x++){g.beginPath();g.moveTo(x*T+.5,Y0);g.lineTo(x*T+.5,Y1);g.stroke()}
@@ -2576,6 +2662,12 @@ function drawFurn(g,f){
   drawFurnArt(g,f,X,Y,FW,FH,lv);g.restore();
 }
 function drawFurnArt(g,f,X,Y,FW,FH,lv){
+  if(f.type==='rug'){
+    g.fillStyle='#d9887a';g.beginPath();g.roundRect(X+5,Y+5,FW-10,FH-10,10);g.fill();
+    g.strokeStyle='#f6e2c8';g.lineWidth=3;g.beginPath();g.roundRect(X+11,Y+11,FW-22,FH-22,6);g.stroke();
+    g.fillStyle='rgba(255,240,220,.35)';for(let i=0;i<3;i++){g.beginPath();g.arc(X+FW/2+(i-1)*14,Y+FH/2,3,0,7);g.fill()}
+    return;
+  }
   const rr=(x,y,w,h,r,c)=>{g.fillStyle=c;g.beginPath();g.roundRect(x,y,w,h,r);g.fill()};
   if(f.type==='bed'){
     const blanket=['#7fb2d9','#e8a0a8','#9cc98a','#e5c46a'][lv];
@@ -2610,34 +2702,24 @@ function drawFurnArt(g,f,X,Y,FW,FH,lv){
 // 「レイアウト」ボタン → 家具をタップで選ぶ → 置きたいマスをタップ（ドラッグでも動く）。回転もできる。
 // 「保存」で確定（S.homeLayout に残る）、「やめる」で元に戻す。保存できるのは次のときだけ：
 //   家具どうしが重ならない／出入口の前のマスをふさがない／出入口からベッド・作業台・収納箱の前まで歩いて行ける
-const USE_FURN=['bed','bench','box'];
 function layoutEntry(){return [W.door.x-W.ox,W.door.y-W.oy-1]}
-function layoutCovers(f,x,y){return x>=f.x&&x<f.x+f.w&&y>=f.y&&y<f.y+f.h}
-function layoutFurnAt(x,y){for(let i=W.furn.length-1;i>=0;i--)if(layoutCovers(W.furn[i],x,y))return i;return -1}
-// i 番の家具が今の場所に置けるか（重なり・出入口の前）
-function layoutSpotOk(i){
-  const f=W.furn[i],[ex,ey]=layoutEntry();
-  if(layoutCovers(f,ex,ey))return false;
-  return !W.furn.some((o,j)=>j!==i&&o.x<f.x+f.w&&f.x<o.x+o.w&&o.y<f.y+f.h&&f.y<o.y+o.h);
+// タップしたマスの家具（床に敷く物より、上に置いた家具を先に選ぶ）
+function layoutFurnAt(x,y){for(let i=W.furn.length-1;i>=0;i--)if(!isFloor(W.furn[i])&&fCovers(W.furn[i],x,y))return i;for(let i=W.furn.length-1;i>=0;i--)if(fCovers(W.furn[i],x,y))return i;return -1}
+function layoutSpotOk(i){return furnSpotOk(W.furn,i,W.w,W.h,...layoutEntry())}
+function layoutProblem(){return furnProblem(W.furn,W.w,W.h,...layoutEntry())}
+// 持っている家具を部屋に出す（空いている所に置いて選ぶ）
+function layoutPut(type){
+  const L=RT.layout;if(!L||!(S.furnInv[type]>0))return;
+  const f=mkFurn(type);
+  if(!placeFree(W.furn,f,W.w,W.h,...layoutEntry())){toast(`${FURN_NAME[type]}を置ける場所がない。ほかの家具を動かすか、しまってね`);return}
+  if(--S.furnInv[type]<=0)delete S.furnInv[type];
+  L.sel=W.furn.length-1;layoutRefresh();sfx('get');
 }
-// 部屋全体として保存できるか。だめなら理由の文
-function layoutProblem(){
-  for(let i=0;i<W.furn.length;i++){
-    const f=W.furn[i];
-    if(layoutCovers(f,...layoutEntry()))return `${FURN_NAME[f.type]}が出入口の前をふさいでいる`;
-    if(!layoutSpotOk(i))return `${FURN_NAME[f.type]}がほかの家具と重なっている`;
-  }
-  // 出入口の前から歩けるマスを調べる
-  const free=(x,y)=>x>=0&&y>=0&&x<W.w&&y<W.h&&layoutFurnAt(x,y)<0;
-  const seen=new Set(),[ex,ey]=layoutEntry(),q=[[ex,ey]];seen.add(ex+','+ey);
-  for(let k=0;k<q.length;k++){const [x,y]=q[k];for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(free(nx,ny)&&!seen.has(nx+','+ny)){seen.add(nx+','+ny);q.push([nx,ny])}}}
-  for(const f of W.furn){
-    if(!USE_FURN.includes(f.type))continue;
-    let ok=false;
-    for(let y=f.y-1;y<=f.y+f.h&&!ok;y++)for(let x=f.x-1;x<=f.x+f.w&&!ok;x++){const side=(x<f.x||x>=f.x+f.w)!==(y<f.y||y>=f.y+f.h);if(side&&seen.has(x+','+y))ok=true}
-    if(!ok)return `${FURN_NAME[f.type]}の前まで歩いて行けない`;
-  }
-  return null;
+// 選んだ家具をしまう（ベッドと作業台はしまえない）
+function layoutStow(){
+  const L=RT.layout;if(!L||L.sel==null)return;
+  const f=W.furn[L.sel];if(FURN_DEF[f.type].fixed){toast(`${FURN_NAME[f.type]}はしまえない`);return}
+  W.furn.splice(L.sel,1);S.furnInv[f.type]=(S.furnInv[f.type]||0)+1;L.sel=null;layoutRefresh();sfx('swing');
 }
 function layoutMove(i,x,y){const f=W.furn[i];f.x=clamp(x,0,W.w-f.w);f.y=clamp(y,0,W.h-f.h);layoutRefresh()}
 function layoutRotate(){
@@ -2650,20 +2732,27 @@ function layoutRefresh(){
   const L=RT.layout;if(!L)return;
   const f=L.sel!=null?W.furn[L.sel]:null;
   $('lbTxt').textContent=f?`${FURN_NAME[f.type]}（${f.w}×${f.h}マス）：置きたいマスをタップ。ドラッグでも動かせる`:'動かしたい家具をタップして選んでね';
-  $('lbRot').disabled=!f;
+  $('lbRot').disabled=!f;$('lbStow').disabled=!f||!!FURN_DEF[f.type].fixed;
+  // 持っている（まだ置いていない）家具
+  const inv=$('lbInv');inv.innerHTML='';
+  const own=Object.entries(S.furnInv||{}).filter(([,n])=>n>0);
+  if(own.length){
+    inv.append(Object.assign(document.createElement('span'),{className:'lbInvHead',textContent:'持っている家具：'}));
+    for(const [type,n] of own){const b=document.createElement('button');b.className='mbtn lbChip';b.append(furnIcon(type,22),`${FURN_NAME[type]}${n>1?' ×'+n:''}`);b.onclick=()=>layoutPut(type);inv.append(b)}
+  }else inv.append(Object.assign(document.createElement('span'),{className:'lbInvHead',textContent:'家具はクラフトやお店で手に入るよ'}));
 }
 function startLayout(){
   if(!inHome()||RT.layout)return;
   if(typeof setMenuOpen==='function')setMenuOpen(false);
-  RT.layout={orig:W.furn.map(f=>({...f})),sel:null,drag:null};RT.goal=null;
+  RT.layout={orig:W.furn.map(f=>({...f})),inv:{...(S.furnInv||{})},sel:null,drag:null};RT.goal=null;
   $('app').classList.add('layout');$('layoutBar').hidden=false;updateHud();layoutRefresh();
 }
 function endLayout(){RT.layout=null;$('app').classList.remove('layout');$('layoutBar').hidden=true;homeBlock(W);updateHud()}
-function cancelLayout(){if(!RT.layout)return;W.furn=RT.layout.orig;endLayout();toast('レイアウトを元に戻した')}
+function cancelLayout(){if(!RT.layout)return;S.homeFurn=W.furn=RT.layout.orig;S.furnInv=RT.layout.inv;endLayout();toast('レイアウトを元に戻した')}
 function saveLayout(){
   if(!RT.layout)return;
   const bad=layoutProblem();if(bad){toast(`保存できない：${bad}`);sfx('swing');return}
-  S.homeLayout=S.homeLayout||{};S.homeLayout[W.lv]=W.furn.map(({type,x,y,w,h,bw,bh,rot})=>({type,x,y,w,h,bw,bh,rot}));
+  S.homeFurn=W.furn;
   endLayout();
   if(blockedPx(S.px,S.py)){S.px=W.start.x;S.py=W.start.y}   // 家具の上に立っていたら出入口の前へ
   save();toast('レイアウトを保存しました');sfx('get');
@@ -2694,7 +2783,7 @@ addEventListener('keydown',e=>{
   else if(e.code==='Escape')cancelLayout();
 },true);
 $('bLayout').onclick=startLayout;
-$('lbRot').onclick=layoutRotate;$('lbSave').onclick=saveLayout;$('lbCancel').onclick=cancelLayout;
+$('lbRot').onclick=layoutRotate;$('lbStow').onclick=layoutStow;$('lbSave').onclick=saveLayout;$('lbCancel').onclick=cancelLayout;
 // レイアウト中の目印：家具の枠（選んだ家具は太く、置けない場所なら赤）と出入口の前のマス
 function drawLayoutMarks(g){
   const L=RT.layout;if(!L)return;
@@ -2708,6 +2797,13 @@ function drawLayoutMarks(g){
     g.strokeStyle=!ok?'rgba(217,60,80,.95)':sel?`rgba(243,176,61,${.75+.25*Math.sin(t*6)})`:'rgba(255,255,255,.75)';
     g.lineWidth=sel?3:1.5;g.strokeRect(x+1.5,y+1.5,f.w*T-3,f.h*T-3);
   });
+}
+// 家具の小さな絵
+function furnIcon(type,size=40){
+  const d=FURN_DEF[type],c=document.createElement('canvas'),k=2;c.width=c.height=size*k;c.style.width=c.style.height=size+'px';
+  const g=c.getContext('2d'),up=type==='shelf'?1:0,sc=Math.min(size/(d.w*T),size/((d.h+up)*T))*.92;
+  g.scale(k,k);g.translate(size/2,size/2+up*T*sc/2);g.scale(sc,sc);
+  drawFurnArt(g,{type},-d.w*T/2,-d.h*T/2,d.w*T,d.h*T,0);return c;
 }
 </script>
 <script>
