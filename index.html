@@ -418,7 +418,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.919";</script>
+<script>const GAME_VERSION="0.920";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -766,6 +766,7 @@ function hash(x,y){let h=x*374761393+y*668265263;h=(h^(h>>>13))*1274126177;retur
 function groundFor(season){
   const key=W.id+':'+(W.id==='island'?season:0);
   if(groundCache[key])return groundCache[key];
+  if(W.home)return groundCache[key]=homeGround();
   if(W.id!=='island')return groundCache[key]=caveGround();
   const c=document.createElement('canvas');c.width=MW*T;c.height=MH*T;
   const g=c.getContext('2d');
@@ -910,8 +911,17 @@ function drawBug(g,b,t,night){
   if(d.id==='b11'||d.id==='b20'){return}
   if(d.where==='fly'){
     const f=Math.abs(Math.sin(t*14+b.ph));
-    ell(g,x-3,y,4*f+1,5,d.color);ell(g,x+3,y,4*f+1,5,d.color);g.fillStyle='#333';g.fillRect(x-.8,y-4,1.6,8);
-    if(d.id==='b12'||d.id==='b13'){g.fillStyle=d.color;g.fillRect(x-1,y-5,2,12);ell(g,x-5,y-2,5,1.6,'rgba(220,240,255,.85)');ell(g,x+5,y-2,5,1.6,'rgba(220,240,255,.85)')}
+    if(d.id==='b12'||d.id==='b13'){
+      ell(g,x-3,y,4*f+1,5,d.color);ell(g,x+3,y,4*f+1,5,d.color);g.fillStyle='#333';g.fillRect(x-.8,y-4,1.6,8);
+      g.fillStyle=d.color;g.fillRect(x-1,y-5,2,12);ell(g,x-5,y-2,5,1.6,'rgba(220,240,255,.85)');ell(g,x+5,y-2,5,1.6,'rgba(220,240,255,.85)');
+    }else{
+      // チョウの羽はリボン形：真ん中で細くすぼまり、外へ向かって上下に広がる。羽ばたきで横幅が変わる
+      const w=1.5+6.5*f;
+      const wing=s=>{g.beginPath();g.moveTo(x,y-1.2);g.quadraticCurveTo(x+s*w*.45,y-3,x+s*w,y-6.5);g.quadraticCurveTo(x+s*w*1.2,y,x+s*w,y+6.5);g.quadraticCurveTo(x+s*w*.45,y+3,x,y+1.2);g.closePath();g.fill();g.stroke()};
+      g.fillStyle=d.color;g.strokeStyle='rgba(50,40,35,.6)';g.lineWidth=.8;wing(-1);wing(1);
+      g.fillStyle='rgba(255,255,255,.35)';g.beginPath();g.ellipse(x-w*.62,y-2.6,w*.22,1.3,0,0,7);g.ellipse(x+w*.62,y-2.6,w*.22,1.3,0,0,7);g.fill();
+      g.fillStyle='#3a2e28';g.beginPath();g.ellipse(x,y,1.3,3.4,0,0,7);g.fill();   // 結び目（胴）
+    }
   }else{ell(g,x,y,4.5,3.5,d.color);g.fillStyle='rgba(0,0,0,.4)';g.fillRect(x-.5,y-3,1,6)}
 }
 function drawGlowBugs(g,list,t){
@@ -1075,7 +1085,8 @@ function newDay(slept){
     f.water=false;
   }
   for(const k in S.stumps){if(--S.stumps[k]<=0)delete S.stumps[k]}
-  if(inCave()){W=ISL;S.loc='island'}
+  const wakeHome=inHome()&&slept;
+  if(!onIsland()){W=ISL;S.loc='island'}
   const prevSeason=season();
   S.day++;S.min=360;
   S.weather=rollWeather();
@@ -1083,6 +1094,7 @@ function newDay(slept){
   initDaily();
   const h=W.bld[1];S.px=(h.door.x+.5)*T;S.py=(h.door.y+1.5)*T;S.dir='down';
   RT.fishing=null;RT.goal=null;RT.jump=null;resetVillagers();
+  if(wakeHome)goHome('bed');
   save();updateHud();renderTasks();
   if(season()!==prevSeason)toast(`${SEASONS[season()]}がやってきた。島の生き物たちも入れかわったみたい`,true);
   toast(`${SEASONS[season()]} ${dayInSeason()}日目の朝。天気は${S.weather}。今日のやることが届いた`);
@@ -1127,7 +1139,7 @@ function spawnBug(force){
   RT.bugs.push({d,x,y,ph:rnd()*6,life:70+rnd()*60,vx:0,vy:0,flee:0});
 }
 function updateBugs(dt,running){
-  if(inCave()){RT.bugs=[];return}
+  if(!onIsland()){RT.bugs=[];return}
   if(RT.bugs.length<7&&rnd()<dt*.6)spawnBug();
   const rl=skLv('run'),scareR=rl>=6?0:rl>=2?34:56;
   for(const b of RT.bugs){
@@ -1309,11 +1321,12 @@ function pressA(){
   const a=villagerNear();if(a&&S.tool!=='sword'){talkTo(a);return}
   const [fx,fy]=facingTile();
   const ptx=Math.floor(S.px/T),pty=Math.floor((S.py-6)/T);
+  if(inHome()){homePressA(fx,fy,ptx,pty);return}
   const st=stairsAt(ptx,pty)||(S.tool!=='sword'&&S.tool!=='wand'?stairsAt(fx,fy):null);if(st){useStairs(st);return}
   for(const b of W.bld){
     if((fx===b.door.x&&fy===b.y+b.h-1&&S.dir==='up')||(ptx===b.door.x&&pty===b.door.y&&S.dir==='up')){enterBuilding(b);return}
   }
-  const hit=d=>!inCave()&&((d[0]===fx&&d[1]===fy)||(d[0]===ptx&&d[1]===pty));
+  const hit=d=>onIsland()&&((d[0]===fx&&d[1]===fy)||(d[0]===ptx&&d[1]===pty));
   const si=S.shells.findIndex(hit);
   if(si>=0){if(addItem('shell')){S.shells.splice(si,1);task('pick')}return}
   const bi=S.branches.findIndex(hit);
@@ -1491,6 +1504,7 @@ function skyTint(){
 }
 function hintText(){
   if(RT.fishing)return RT.fishing.state==='bite'?'今だ！':'じっと待つ…';
+  if(inHome())return homeHint();
   if(inCave()){
     const [fx,fy]=facingTile(),ptx=Math.floor(S.px/T),pty=Math.floor((S.py-6)/T);
     const st=stairsAt(ptx,pty)||(S.tool!=='sword'&&S.tool!=='wand'?stairsAt(fx,fy):null);
@@ -1537,14 +1551,16 @@ function drawToolInHand(g,x,y){
 }
 function render(t){
   const s=season();
-  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#4a9fcd';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=W.home?'#1f1712':'#4a9fcd';ctx.fillRect(0,0,cv.width,cv.height);
   const vw=VW/Z,vh=VH/Z;
-  let cx=MW*T>vw?clamp(S.px-vw/2,0,MW*T-vw):(MW*T-vw)/2;
-  let cy=MH*T>vh?clamp(S.py-16-vh/2,0,MH*T-vh):(MH*T-vh)/2;
+  // 家の中は部屋の範囲だけを映す（部屋が画面より小さければ真ん中に置く）
+  const R=W.room||{x0:0,y0:0,x1:MW*T,y1:MH*T};
+  let cx=R.x1-R.x0>vw?clamp(S.px-vw/2,R.x0,R.x1-vw):(R.x0+R.x1-vw)/2;
+  let cy=R.y1-R.y0>vh?clamp(S.py-16-vh/2,R.y0,R.y1-vh):(R.y0+R.y1-vh)/2;
   RT.cam={cx,cy};const k=DPR*Z;
   ctx.setTransform(k,0,0,k,Math.round(-cx*k),Math.round(-cy*k));
   ctx.drawImage(groundFor(s),0,0);
-  const isl=!inCave();
+  const isl=onIsland();
   const x0=Math.max(0,Math.floor(cx/T)),x1=Math.min(MW-1,Math.ceil((cx+vw)/T)),y0=Math.max(0,Math.floor(cy/T)),y1=Math.min(MH-1,Math.ceil((cy+vh)/T)+1);
   ctx.fillStyle='rgba(255,255,255,.28)';
   for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const tt=tileAt(x,y);if(tt===0){const h=hash(x,y),ph=t*1.2+h*6;ctx.fillRect(x*T+6+Math.sin(ph)*5+h*8,y*T+8+h*14,8+Math.sin(ph*1.3)*3,1.6)}else if(tt===3||tt===5){for(let k=0;k<2;k++){const h=hash(x*3+k,y),yy=((h*T+t*(16+h*10)+k*16)%T),a=Math.sin(yy/T*Math.PI);ctx.fillStyle=`rgba(255,255,255,${.30*a})`;ctx.fillRect(x*T+5+h*20,y*T+yy,5+h*5,1.4)}ctx.fillStyle='rgba(255,255,255,.28)'}else if(tt===6){const h=hash(x,y),a=.5+.5*Math.sin(t*1.5+h*9);if(h<.5){circ(ctx,x*T+6+h*20,y*T+8+h*16,1.1,`rgba(255,255,255,${.35*a})`)}ctx.fillStyle='rgba(255,255,255,.28)'}}
@@ -1562,7 +1578,8 @@ function render(t){
   // 奥行き順
   const D=[];const inV=(x,y,m=3)=>x>=x0-m&&x<=x1+m&&y>=y0-m&&y<=y1+m;
   W.trees.forEach((tr,i)=>{if(inV(tr.x,tr.y))D.push([(tr.y+1)*T-4,()=>S.stumps[i]?drawStump(ctx,tr):drawTree(ctx,tr,s,S.fruit[i],RT.shake.get(i))])});
-  if(!isl)W.nodes.forEach((o,i)=>{if(inV(o.x,o.y))D.push([(o.y+1)*T-4,()=>drawNode(ctx,o,i)])});
+  if(W.home)W.furn.forEach(f=>D.push([(W.oy+f.y+f.h)*T-4,()=>drawFurn(ctx,f)]));
+  if(inCave())W.nodes.forEach((o,i)=>{if(inV(o.x,o.y))D.push([(o.y+1)*T-4,()=>drawNode(ctx,o,i)])});
   RT.enemies.forEach(e=>D.push([e.y+(e.d.fly?20:0),()=>drawEnemy(ctx,e,t)]));
   W.rocks.forEach((r,i)=>{if(inV(r.x,r.y)){const sh=RT.shake.get('r'+i);D.push([(r.y+1)*T-4,()=>{ctx.save();if(sh)ctx.translate(Math.sin(sh*60)*1.5,0);drawRock(ctx,r,S.rockHits[i]);ctx.restore()}])}});
   const night=skyTint().night>.2;
@@ -1596,7 +1613,7 @@ function render(t){
   if(sk.sun>0){ctx.fillStyle=`rgba(255,140,60,${sk.sun})`;ctx.fillRect(0,0,cv.width,cv.height)}
   if(sk.night>0){ctx.fillStyle=`rgba(14,24,70,${sk.night})`;ctx.fillRect(0,0,cv.width,cv.height)}
   ctx.setTransform(k,0,0,k,Math.round(-cx*k),Math.round(-cy*k));
-  if(!isl)drawCaveDark(cx,cy,vw,vh);
+  if(inCave())drawCaveDark(cx,cy,vw,vh);
   if(sk.night>.15){
     ctx.globalCompositeOperation='lighter';
     const glow=(x,y,r,a)=>{const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`rgba(255,210,120,${a})`);g.addColorStop(1,'rgba(255,210,120,0)');ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2)};
@@ -1708,7 +1725,7 @@ function clockText(){const m=Math.floor(S.min),h=Math.floor(m/60)%24,mm=String(m
 function updateHud(){
   if(!S)return;
   $('hDay').textContent=`${SEASONS[season()]} ${dayInSeason()}日目`;
-  $('hWx').textContent=`${inCave()?`洞窟 地下${caveFloor()}階`:S.weather}・${titleFor(S.lv)}`;
+  $('hWx').textContent=`${inCave()?`洞窟 地下${caveFloor()}階`:inHome()?`わが家 ${W.w}×${W.h}マス`:S.weather}・${titleFor(S.lv)}`;
   $('bells').textContent=S.bells.toLocaleString()+'円';
   $('hLv').textContent=S.lv;
   $('hSta').textContent=`${Math.ceil(S.sta)}/${maxSta()}`;$('hStaBar').style.width=(S.sta/maxSta()*100)+'%';
@@ -1757,12 +1774,7 @@ $('dialog').addEventListener('click',()=>{if(RT.dlg&&!(RT.dlg.i>=RT.dlg.lines.le
 // ===================== 建物 =====================
 function enterBuilding(b){
   if(b.type==='house'){
-    showDialog(S.name,[`わが家（${HOUSE[S.house].name}）。ほっとする…`],null,[
-      ['寝る（次の日へ）',()=>{closeDialog();RT.fade=1.4;newDay(true)}],
-      ['作業台でクラフト',()=>{closeDialog();openCraft()}],
-      ['収納箱',()=>{closeDialog();openBox()}],
-      ['セーブする',()=>{save();closeDialog();toast('セーブしました')}],
-      ['やめる',closeDialog]]);
+    goHome('door');   // 家の中を歩ける（寝る・クラフト・収納箱は家具から）
   }else if(b.type==='cave'){
     showDialog('洞窟の入り口',['ひんやりした風が吹いてくる… 奥には鉱石が眠っているらしい。','中は暗くて、敵も出るみたいだ。'],null,[['入る',()=>{closeDialog();goCave(1,'up');save()}],['やめる',closeDialog]]);
   }else if(b.type==='shop'){
@@ -1971,8 +1983,8 @@ function updateEnemies(dt){
   const h=S.min/60;
   RT.hurt=Math.max(0,RT.hurt-dt);RT.atkCd=Math.max(0,RT.atkCd-dt);RT.slash=Math.max(0,(RT.slash||0)-dt);
   if(inCave())updateCave(dt);
-  else if(h>=19&&RT.enemies.filter(e=>e.type==='slime').length<4&&rnd()<dt*.15)spawnAround('slime',7,13,true);
-  if(!inCave()&&h>=22&&RT.enemies.filter(e=>e.type==='ghost').length<2&&rnd()<dt*.05)spawnAround('ghost',8,12,false);
+  else if(onIsland()&&h>=19&&RT.enemies.filter(e=>e.type==='slime').length<4&&rnd()<dt*.15)spawnAround('slime',7,13,true);
+  if(onIsland()&&h>=22&&RT.enemies.filter(e=>e.type==='ghost').length<2&&rnd()<dt*.05)spawnAround('ghost',8,12,false);
   for(const e of RT.enemies){
     e.inv-=dt;e.life-=dt;e.ph+=dt;
     if(e.kx||e.ky){const nx=e.x+e.kx*dt,ny=e.y+e.ky*dt;if(e.d.pass||!enemyBlocked(nx,ny)){e.x=nx;e.y=ny}e.kx*=.85;e.ky*=.85;if(Math.abs(e.kx)+Math.abs(e.ky)<5){e.kx=e.ky=0}continue}
@@ -2069,7 +2081,7 @@ function useWand(target){
 }
 
 // ===================== クラフト =====================
-function nearWorkbench(){const h=W.bld[1];return Math.hypot(S.px-(h.door.x+.5)*T,S.py-(h.door.y+.5)*T)<T*3}
+function nearWorkbench(){if(inHome())return nearHomeBench();const h=W.bld[1];return !!h&&h.type==='house'&&Math.hypot(S.px-(h.door.x+.5)*T,S.py-(h.door.y+.5)*T)<T*3}
 function canCraftHere(){return has('craft',5)||nearWorkbench()}
 function recipeState(r){
   const lvOk=skLv('craft')>=r.lv;
@@ -2199,7 +2211,7 @@ const ORE={
   crystal:{item:'mstone',hp:4,xp:10,col:'#a68af0',name:'魔石'},
 };
 const ORE_ORDER=['copper','iron','silver','gold'];
-const inCave=()=>!!S&&S.loc!=='island';
+const inCave=()=>!!S&&S.loc.startsWith('cave');
 const caveFloor=()=>inCave()?+S.loc.slice(4):0;
 function fishPlace(tx,ty){
   if(inCave())return 'cave';
@@ -2368,6 +2380,169 @@ function drawCaveDark(cx,cy,vw,vh){
 }
 </script>
 <script>
+// ===================== わが家の中 =====================
+// 家に入ると、部屋の中を歩ける。部屋はマス目（グリッド）で管理し、床にマス目の線を引いて広さが分かるようにする。
+// 広さは家の段階（HOUSE / S.house）で決まり、増築すると広がる（4段階）。
+// 地図の配列は島や洞窟と同じ大きさ（MW×MH）を使い、その中の一部屋だけを床にする。
+const inHome=()=>!!S&&S.loc==='home';
+const onIsland=()=>!!S&&S.loc==='island';
+const HOME_SIZE=[[6,5],[8,6],[10,8],[13,10]];   // [横, 縦]（マス）：テント／小さな家／木の家／大きな家
+const HOME_OX=6,HOME_OY=6;                        // 部屋の左上のマス
+// 家具：x,y は部屋の左上からのマス。solid=false は上を歩ける
+function homeFurniture(lv,w,h){
+  const F=[{type:'bed',x:0,y:0,w:1,h:2},{type:'box',x:1,y:0,w:1,h:1},{type:'bench',x:w-2,y:0,w:2,h:1}];
+  if(lv>=1)F.push({type:'plant',x:w-1,y:h-1,w:1,h:1});
+  if(lv>=2)F.push({type:'shelf',x:3,y:0,w:2,h:1},{type:'table',x:w-4,y:Math.floor(h/2)-1,w:2,h:1});
+  if(lv>=3)F.push({type:'plant',x:0,y:h-1,w:1,h:1},{type:'sofa',x:1,y:Math.floor(h/2)+1,w:3,h:1});
+  return F;
+}
+const FURN_NAME={bed:'ベッド',box:'収納箱',bench:'作業台',plant:'観葉植物',shelf:'本だな',table:'テーブル',sofa:'ソファ'};
+let HOMES={};
+function genHome(lv){
+  const [w,h]=HOME_SIZE[lv],ox=HOME_OX,oy=HOME_OY;
+  const tiles=new Uint8Array(MW*MH).fill(13),block=new Uint8Array(MW*MH).fill(1);
+  for(let y=oy;y<oy+h;y++)for(let x=ox;x<ox+w;x++){tiles[ti(x,y)]=12;block[ti(x,y)]=0}
+  const door={x:ox+Math.floor((w-1)/2),y:oy+h};tiles[ti(door.x,door.y)]=14;block[ti(door.x,door.y)]=0;
+  const furn=homeFurniture(lv,w,h);
+  for(const f of furn)for(let y=f.y;y<f.y+f.h;y++)for(let x=f.x;x<f.x+f.w;x++)block[ti(ox+x,oy+y)]=1;
+  return {id:'home'+lv,home:true,lv,w,h,ox,oy,tiles,block,door,furn,
+    trees:[],rocks:[],bld:[],treeAt:new Map(),rockAt:new Map(),nodes:[],nodeAt:new Map(),
+    start:{x:(door.x+.5)*T,y:(door.y-.5)*T+4},
+    room:{x0:(ox-1)*T,y0:(oy-2.6)*T,x1:(ox+w+1)*T,y1:(oy+h+1.4)*T}};
+}
+function homeMap(){return HOMES[S.house]||(HOMES[S.house]=genHome(S.house))}
+function goHome(at){
+  W=homeMap();S.loc='home';resetMapRT();
+  if(at==='door'){S.px=W.start.x;S.py=W.start.y;S.dir='up'}
+  else if(at==='bed'){const b=W.furn.find(f=>f.type==='bed');const [sx,sy]=standNear(W.ox+b.x,W.oy+b.y+b.h-1);S.px=(sx+.5)*T;S.py=(sy+.5)*T+4;S.dir='down'}
+  RT.fade=.6;updateHud();
+  if(at==='door'){
+    toast(`わが家（${HOUSE[S.house].name}）　部屋の広さ ${W.w}×${W.h}マス`);
+    if(!S.flags.homeIn){S.flags.homeIn=true;setTimeout(()=>toast('ベッドで寝る・作業台でクラフト・収納箱にしまう。下の出口から外へ'),900)}
+  }
+}
+function leaveHome(){
+  W=ISL;S.loc='island';resetMapRT();
+  const h=W.bld[1];S.px=(h.door.x+.5)*T;S.py=(h.door.y+1.5)*T;S.dir='down';
+  RT.fade=.6;updateHud();save();
+}
+// 家具の上のマスか（家の中だけ）
+function furnAt(x,y){if(!inHome())return null;return W.furn.find(f=>x>=W.ox+f.x&&x<W.ox+f.x+f.w&&y>=W.oy+f.y&&y<W.oy+f.y+f.h)||null}
+// 家具の、(px,py) にいちばん近いマス
+function nearestFurnTile(f,px,py){return [clamp(px,W.ox+f.x,W.ox+f.x+f.w-1),clamp(py,W.oy+f.y,W.oy+f.y+f.h-1)]}
+function furnStands(f){const L=[];for(let y=f.y-1;y<=f.y+f.h;y++)for(let x=f.x-1;x<=f.x+f.w;x++){const inside=x>=f.x&&x<f.x+f.w&&y>=f.y&&y<f.y+f.h,corner=(x<f.x||x>=f.x+f.w)&&(y<f.y||y>=f.y+f.h);if(!inside&&!corner&&walkable(W.ox+x,W.oy+y))L.push([W.ox+x,W.oy+y])}return L}
+function useFurn(f){
+  if(f.type==='bed')showDialog(S.name,['ふかふかのベッド。'],null,[
+    ['寝る（次の日へ）',()=>{closeDialog();RT.fade=1.4;newDay(true)}],
+    ['セーブする',()=>{save();closeDialog();toast('セーブしました')}],
+    ['やめる',closeDialog]]);
+  else if(f.type==='bench')openCraft();
+  else if(f.type==='box')openBox();
+  else toast(f.type==='plant'?'葉っぱがつやつやしている':f.type==='shelf'?'島の図鑑や、釣りの本が並んでいる':f.type==='sofa'?'すわり心地のいいソファ':'木のテーブル。');
+}
+function atDoor(x,y){return inHome()&&x===W.door.x&&y===W.door.y}
+// A ボタン（家の中）
+function homePressA(fx,fy,ptx,pty){
+  if(atDoor(fx,fy)||atDoor(ptx,pty)){leaveHome();return}
+  const f=furnAt(fx,fy);if(f){useFurn(f);return}
+  if(S.tool!=='hand')toast('家の中では道具は使えない');
+}
+function homeHint(){
+  const [fx,fy]=facingTile(),[px,py]=ptile();
+  if(atDoor(fx,fy)||atDoor(px,py))return '外に出る';
+  const f=furnAt(fx,fy);if(!f)return null;
+  return f.type==='bed'?'寝る':f.type==='bench'?'クラフト':f.type==='box'?'収納箱':'調べる';
+}
+// 出口のマスに入ったら外へ
+function homeTick(){const [px,py]=ptile();if(atDoor(px,py))leaveHome()}
+// クリック（タップ）した所
+function homeClick(tx,ty){
+  if(atDoor(tx,ty))return {act:false,tx,ty,stands:[[tx,ty]]};
+  const f=furnAt(tx,ty);if(f)return {act:true,furn:f,tx,ty,stands:furnStands(f)};
+  return null;
+}
+// 作業台のそば（家の中）
+function nearHomeBench(){if(!inHome())return false;const b=W.furn.find(f=>f.type==='bench');const [px,py]=ptile();const [nx,ny]=nearestFurnTile(b,px,py);return Math.abs(nx-px)+Math.abs(ny-py)<=2}
+
+// ---------- 見た目 ----------
+// 床・壁・マス目（部屋が変わったときだけ描き直す）
+function homeGround(){
+  const c=document.createElement('canvas');c.width=MW*T;c.height=MH*T;const g=c.getContext('2d');
+  const {ox,oy,w,h,door}=W,X0=ox*T,Y0=oy*T,X1=(ox+w)*T,Y1=(oy+h)*T;
+  g.fillStyle='#1f1712';g.fillRect(0,0,c.width,c.height);
+  // 奥の壁（2マスの高さ）：壁紙・腰板・窓
+  const WY=Y0-2*T;
+  g.fillStyle='#f4e6c8';g.fillRect(X0,WY,X1-X0,2*T);
+  g.fillStyle='rgba(214,190,150,.45)';for(let x=X0+8;x<X1;x+=16)g.fillRect(x,WY,3,2*T-14);
+  g.fillStyle='#b98a5e';g.fillRect(X0,Y0-14,X1-X0,14);g.fillStyle='#8a5f3c';g.fillRect(X0,Y0-4,X1-X0,4);
+  g.fillStyle='#7a5234';g.fillRect(X0,WY,X1-X0,5);
+  for(let i=0;i<Math.floor(w/4);i++){
+    const cx=X0+((i+.5)*w/Math.floor(w/4))*T,wx=cx-17,wy=WY+10;
+    if(W.furn.some(f=>f.y===0&&cx>=X0+f.x*T-20&&cx<=X0+(f.x+f.w)*T+20&&(f.type==='shelf')))continue;
+    g.fillStyle='#8a5f3c';g.fillRect(wx-3,wy-3,40,30);
+    const sky=g.createLinearGradient(0,wy,0,wy+24);sky.addColorStop(0,'#9fd6ee');sky.addColorStop(1,'#e2f3f8');g.fillStyle=sky;g.fillRect(wx,wy,34,24);
+    g.fillStyle='#8a5f3c';g.fillRect(wx+15.5,wy,3,24);g.fillRect(wx,wy+10.5,34,3);
+    g.fillStyle='rgba(255,255,255,.5)';g.fillRect(wx+3,wy+3,5,3);
+  }
+  // 床：横向きの板。1マスに2枚、継ぎ目をずらす
+  for(let y=oy;y<oy+h;y++)for(let x=ox;x<ox+w;x++){
+    const px=x*T,py=y*T;
+    for(let k=0;k<2;k++){const hh=hash(x*3+k,y*7);g.fillStyle=hh<.33?'#cfa06d':hh<.66?'#c99a66':'#c3935f';g.fillRect(px,py+k*16,T,16);g.fillStyle='rgba(120,80,40,.28)';g.fillRect(px,py+k*16+15,T,1);if(((x+y+k)&1)===0)g.fillRect(px+((k*13+y*7)%T),py+k*16,1,16)}
+  }
+  // ラグ（部屋の真ん中。上を歩ける）
+  const rw=Math.max(2,Math.floor(w/2)),rh=Math.max(2,Math.floor(h/2)),rx=X0+Math.floor((w-rw)/2)*T+6,ry=Y0+Math.floor((h-rh)/2+.5)*T+6;
+  g.fillStyle='#d9887a';g.beginPath();g.roundRect(rx,ry,rw*T-12,rh*T-12,10);g.fill();
+  g.strokeStyle='#f6e2c8';g.lineWidth=3;g.beginPath();g.roundRect(rx+6,ry+6,rw*T-24,rh*T-24,6);g.stroke();
+  // マス目の線（広さが分かるように）
+  g.strokeStyle='rgba(95,62,32,.32)';g.lineWidth=1;
+  for(let x=ox;x<=ox+w;x++){g.beginPath();g.moveTo(x*T+.5,Y0);g.lineTo(x*T+.5,Y1);g.stroke()}
+  for(let y=oy;y<=oy+h;y++){g.beginPath();g.moveTo(X0,y*T+.5);g.lineTo(X1,y*T+.5);g.stroke()}
+  // 左右の壁と手前の壁
+  g.fillStyle='#7a5234';g.fillRect(X0-10,WY,10,Y1-WY+12);g.fillRect(X1,WY,10,Y1-WY+12);
+  g.fillStyle='#9a6b45';g.fillRect(X0-10,Y1,X1-X0+20,12);
+  // 出口：マットと明るい戸口
+  const dx=door.x*T,dy=door.y*T;
+  g.fillStyle='#1f1712';g.fillRect(dx,Y1,T,12);
+  const lg=g.createLinearGradient(0,dy,0,dy+T);lg.addColorStop(0,'rgba(255,240,190,.55)');lg.addColorStop(1,'rgba(255,240,190,0)');g.fillStyle=lg;g.fillRect(dx,dy,T,T);
+  g.fillStyle='#b0563f';g.beginPath();g.roundRect(dx+3,dy-T+8,T-6,16,4);g.fill();g.fillStyle='rgba(255,255,255,.25)';for(let i=0;i<3;i++)g.fillRect(dx+7+i*7,dy-T+11,3,10);
+  g.fillStyle='#7a5234';g.fillRect(dx-3,Y1,3,12);g.fillRect(dx+T,Y1,3,12);
+  return c;
+}
+// 家具（奥行き順に描く）
+function drawFurn(g,f){
+  const X=(W.ox+f.x)*T,Y=(W.oy+f.y)*T,FW=f.w*T,FH=f.h*T,lv=W.lv;
+  const rr=(x,y,w,h,r,c)=>{g.fillStyle=c;g.beginPath();g.roundRect(x,y,w,h,r);g.fill()};
+  if(f.type==='bed'){
+    const blanket=['#7fb2d9','#e8a0a8','#9cc98a','#e5c46a'][lv];
+    rr(X+2,Y-6,FW-4,14,4,'#8a5f3c');rr(X+3,Y+2,FW-6,FH-6,5,'#a8794f');
+    rr(X+5,Y+4,FW-10,FH-12,4,'#fbf7ef');rr(X+7,Y+6,FW-14,10,4,'#ffffff');
+    rr(X+5,Y+20,FW-10,FH-28,4,blanket);g.fillStyle='rgba(255,255,255,.35)';g.fillRect(X+5,Y+22,FW-10,3);
+  }else if(f.type==='box'){
+    rr(X+4,Y+6,FW-8,FH-8,4,'#a8794f');rr(X+3,Y+2,FW-6,10,4,'#c08e5f');
+    g.fillStyle='#6f4a2c';g.fillRect(X+4,Y+12,FW-8,2);g.fillStyle='#d9b45a';g.fillRect(X+FW/2-3,Y+10,6,7);
+  }else if(f.type==='bench'){
+    rr(X+2,Y+2,FW-4,12,3,'#b07a4a');g.fillStyle='#8a5f3c';g.fillRect(X+2,Y+12,FW-4,3);
+    g.fillRect(X+5,Y+14,4,FH-14);g.fillRect(X+FW-9,Y+14,4,FH-14);
+    g.fillStyle='#9aa3ab';g.fillRect(X+10,Y+4,14,3);g.fillStyle='#6f4a2c';g.fillRect(X+22,Y+3,6,5);
+    g.fillStyle='#d6dde4';g.beginPath();g.moveTo(X+FW-26,Y+9);g.lineTo(X+FW-10,Y+3);g.lineTo(X+FW-10,Y+9);g.fill();
+  }else if(f.type==='plant'){
+    rr(X+9,Y+16,FW-18,FH-18,4,'#c87d54');g.fillStyle='#a8603e';g.fillRect(X+9,Y+16,FW-18,3);
+    for(const [a,l] of [[-1.2,13],[-.5,16],[0,18],[.5,16],[1.2,13]]){g.fillStyle=a===0?'#4f9a5a':'#3f8a4a';g.beginPath();g.ellipse(X+FW/2+Math.sin(a)*l*.6,Y+14-Math.cos(a)*l*.6,4,l*.5,a,0,7);g.fill()}
+  }else if(f.type==='shelf'){
+    rr(X+2,Y-T+6,FW-4,T+FH-8,3,'#8a5f3c');
+    for(let r=0;r<3;r++){g.fillStyle='#5e3e25';g.fillRect(X+5,Y-T+10+r*14,FW-10,11);
+      for(let i=0;i<7;i++){g.fillStyle=['#d0654f','#5f9e6e','#4fa3cf','#e5c46a','#9a6bb0'][(i+r*2)%5];g.fillRect(X+7+i*7.5,Y-T+11+r*14+(i%3),5,10-(i%3))}}
+  }else if(f.type==='table'){
+    g.fillStyle='rgba(0,0,0,.12)';g.beginPath();g.ellipse(X+FW/2,Y+FH-4,FW*.42,6,0,0,7);g.fill();
+    rr(X+3,Y+4,FW-6,16,6,'#b98a5e');g.fillStyle='#8a5f3c';g.fillRect(X+8,Y+18,4,FH-20);g.fillRect(X+FW-12,Y+18,4,FH-20);
+    g.fillStyle='#f6faf3';g.beginPath();g.ellipse(X+FW/2,Y+11,7,4,0,0,7);g.fill();g.fillStyle='#e8a0a8';g.beginPath();g.arc(X+FW/2,Y+9,3,0,7);g.fill();
+  }else if(f.type==='sofa'){
+    rr(X+2,Y,FW-4,14,6,'#6f9fc4');rr(X+2,Y+10,FW-4,FH-12,6,'#82b2d6');rr(X,Y+6,9,FH-8,4,'#6f9fc4');rr(X+FW-9,Y+6,9,FH-8,4,'#6f9fc4');
+    g.fillStyle='rgba(255,255,255,.25)';for(let i=1;i<f.w;i++)g.fillRect(X+i*T-1,Y+12,2,FH-16);
+  }
+}
+</script>
+<script>
 // ===================== イラスト描き直し（1）: 土台・地形・木・岩・花・アイコン =====================
 const SS=3;                 // スプライトは3倍の解像度で描いてキャッシュする
 const SPR=new Map();
@@ -2418,6 +2593,7 @@ function groundFor(season){
   const key=W.id+':'+(W.id==='island'?season:0);
   if(groundCache[key])return groundCache[key];
   for(const k in groundCache)delete groundCache[k];   // 地面の絵は大きいので、いま使う1枚だけ持つ
+  if(W.home)return groundCache[key]=homeGround();
   if(W.id!=='island')return groundCache[key]=caveGround();
   const P=GPAL[season];
   const c=document.createElement('canvas');c.width=MW*T;c.height=MH*T;const g=c.getContext('2d');
@@ -3123,29 +3299,13 @@ showDialog=function(who,lines,done,choices){
 <script>
 // ===================== 主人公：生成したちびキャラで歩く =====================
 // ch_<m|f>_<front|side|back> があればそれを使う（無ければ pc.js のコード描画）。
-// 絵を腰の高さで上下に分け、下半分（脚）だけを動かして足の運びを出す。
-//   正面・後ろ … 左右の脚を交互に持ち上げる（持ち上げた脚は胴に隠れて短く見え、膝を曲げたように見える）
-//   横向き     … 前後の脚を腰を軸に振る
+// 絵を腰の高さで上下に分け、下半分（脚）を腰の線を軸に左右へ傾けて足の運びを出す（横向き・斜めは大きく、正面・後ろは小さく）。
 // 横向きの絵は左向き。右へ歩くときは左右反転する。
 const _pcCodeDraw=drawHuman;
 const PC_H=50;                                    // 主人公の絵の高さ（ピクセル）
 const CH_SIDE_FLIP={m:false,f:false};            // 横向きの絵が右を向いている場合は true
 const CH_DIAG_LEFT={m_fdiag:false,m_bdiag:true,f_fdiag:true,f_bdiag:true};   // 斜めの絵が左向きに描かれているか
 const CH_HIP={front:.78,side:.76,back:.79,fdiag:.77,bdiag:.78,d8v:.8,d8s:.77};       // 脚が始まる高さ（絵の高さに対する割合）
-// 腰より下で不透明な列の左端と右端の真ん中（絵ごとに一度だけ調べて覚えておく）
-const _legMid=new Map();
-function legMid(im,hipS){
-  const key=im.src.length+':'+im.src.slice(-40)+':'+hipS;
-  if(_legMid.has(key))return _legMid.get(key);
-  const iw=im.naturalWidth,ih=im.naturalHeight,lh=ih-hipS;let mid=Math.round(iw/2);
-  try{
-    const c=document.createElement('canvas');c.width=iw;c.height=lh;const cg=c.getContext('2d');
-    cg.drawImage(im,0,hipS,iw,lh,0,0,iw,lh);const px=cg.getImageData(0,0,iw,lh).data;let x0=iw,x1=-1;
-    for(let x=0;x<iw;x++)for(let y=0;y<lh;y++)if(px[(y*iw+x)*4+3]>128){if(x<x0)x0=x;if(x>x1)x1=x;break}
-    if(x1>x0)mid=Math.round((x0+x1)/2);
-  }catch(e){}
-  _legMid.set(key,mid);return mid;
-}
 drawHuman=function(g,x,y,dir,frame,opt){
   const gd=pcGender(),dg=RT.diag;
   let view=dir==='up'?'back':dir==='down'?'front':'side';
@@ -3167,20 +3327,13 @@ drawHuman=function(g,x,y,dir,frame,opt){
   if(view==='d8v'||view==='d8s')flip=false;   // 絵の向きと進む向きが違えば反転
   g.save();g.translate(x,y-bob);g.rotate(tilt);if(flip)g.scale(-1,1);
   const top=-h+2;                                   // 絵の上端（足元が y）
-  // 脚の分け目と振る軸は、絵の真ん中ではなく実際に脚がある所の真ん中にする
-  // （脚が片側に寄った絵で絵の真ん中を軸に振ると、脚が弧を描いて胴の裏へ上がり、1本消えて見えるため）
-  const half=legMid(im,hipS);
-  if(view==='side'||view==='d8s'){
-    // 腰を軸に前後の脚を振る（奥の脚から描く）
-    const a=walking?sw*.42:0;
-    const legPiece=(sx,swd,ang)=>{g.save();g.translate((half-iw/2)*k,top+hipD);g.rotate(ang);g.drawImage(im,sx,hipS,swd,legH,(sx-half)*k,0,swd*k,legH*k);g.restore()};
-    legPiece(half,iw-half,-a);legPiece(0,half,a);
-  }else{
-    // 左右の脚を交互に持ち上げる
-    const lift=walking?2.6:0,lL=Math.max(0,sw)*lift,lR=Math.max(0,-sw)*lift;
-    g.drawImage(im,0,hipS,half,legH,-w/2,top+hipD-lL,half*k,legH*k);
-    g.drawImage(im,half,hipS,iw-half,legH,-w/2+half*k,top+hipD-lR,(iw-half)*k,legH*k);
-  }
+  // 腰から下は切り分けず1枚のまま、腰の線を軸に左右へ傾けて（せん断）足の運びを出す。
+  // 上の端は胴につながったまま動かないので、腕や足が途中で切れたりすき間ができたりしない
+  const side=view==='side'||view==='d8s';
+  const sk=walking?sw*(side?.34:.14):0;
+  g.save();g.translate(0,top+hipD);g.transform(1,0,sk,1,0,0);
+  g.drawImage(im,0,hipS,iw,legH,-w/2,0,w,legH*k);
+  g.restore();
   // 上半身（脚のつなぎ目を少し覆う）
   g.drawImage(im,0,0,iw,hipS+2,-w/2,top,w,(hipS+2)*k);
   g.restore();
@@ -3394,12 +3547,14 @@ function drawMarkers(g,s,t,big){
   g.fillStyle='#e0383c';g.beginPath();g.arc(S.px/T*s,S.py/T*s,pr,0,7);g.fill();
 }
 // ---------- ミニマップ ----------
+// 家の中にいる間は、島の地図に切りかえて描く（自分の印は家の前）
+function withIsland(fn){if(!inHome())return fn();const w=W,px=S.px,py=S.py,h=ISL.bld[1];W=ISL;S.loc='island';S.px=(h.door.x+.5)*T;S.py=(h.door.y+.5)*T;try{return fn()}finally{W=w;S.loc='home';S.px=px;S.py=py}}
 let mmT=0;
 function drawMinimap(dt,t){
   const c=document.getElementById('minimap');if(!c||!S||RT.title)return;
   mmT-=dt;if(mmT>0)return;mmT=.2;markSeen();
   const W2=c.width,H2=c.height,g=c.getContext('2d'),s=W2/MW;
-  g.clearRect(0,0,W2,H2);g.drawImage(mapBase(4),0,0,W2,MH*s);drawFog(g,s);drawMarkers(g,s,t,false);
+  g.clearRect(0,0,W2,H2);withIsland(()=>{g.drawImage(mapBase(4),0,0,W2,MH*s);drawFog(g,s);drawMarkers(g,s,t,false)});
 }
 // ---------- 大きな地図 ----------
 function openMap(){
@@ -3413,10 +3568,12 @@ function openMap(){
     const draw=()=>{
       if(!RT.panel||RT.panel.mapCanvas!==c)return;
       const g=c.getContext('2d'),t=performance.now()/1000;
+      withIsland(()=>{
       g.drawImage(mapBase(s),0,0);drawFog(g,s);drawMarkers(g,s,t,true);
       g.font='bold 13px "Zen Maru Gothic",sans-serif';g.textAlign='center';
       for(const [x,y,name] of placeLabels()){if(inCave()&&caveSeenStr()[ti(Math.round(x),Math.round(y))]!=='1')continue;
         const px=(x+.5)*s,py=(y+.5)*s,w=g.measureText(name).width+12;g.fillStyle='rgba(255,255,255,.9)';g.beginPath();g.roundRect?g.roundRect(px-w/2,py-11,w,20,10):g.rect(px-w/2,py-11,w,20);g.fill();g.fillStyle='#2c3a31';g.fillText(name,px,py+4)}
+      });
       requestAnimationFrame(draw);
     };
     RT.panel.mapCanvas=c;requestAnimationFrame(draw);
@@ -3424,6 +3581,7 @@ function openMap(){
     c.addEventListener('click',e=>{
       const r=c.getBoundingClientRect(),tx=Math.floor((e.clientX-r.left)/r.width*MW),ty=Math.floor((e.clientY-r.top)/r.height*MH);
       if(!inMap(tx,ty))return;
+      if(inHome()){toast('家の外に出てから歩こう');return}
       if(inCave()&&caveSeenStr()[ti(tx,ty)]!=='1'){toast('まだ行ったことのない場所だ');return}
       const g2=walkable(tx,ty)?{act:false,tx,ty,stands:[[tx,ty]]}:{act:false,tx,ty,stands:n4(tx,ty)};
       closePanel();startGoal(g2,[(tx+.5)*T,(ty+.5)*T]);
@@ -3560,6 +3718,7 @@ function clickTarget(wx,wy){
   if(villagersOut())for(const a of RT.vill)if(Math.abs(wx-a.x)<15&&wy<a.y+4&&wy>a.y-46){const x=Math.floor(a.x/T),y=Math.floor((a.y-4)/T);return {act:true,vill:a,tx:x,ty:y,stands:n4(x,y)}}
   if(S.tool==='sword')for(const e of RT.enemies)if(Math.hypot(wx-e.x,wy-(e.y-14))<22){const x=Math.floor(e.x/T),y=Math.floor((e.y-4)/T);return {act:true,enemy:e,tx:x,ty:y,stands:[[x,y],...n4(x,y)]}}
   if(S.tool==='wand'&&curSpell().id==='orb')for(const e of RT.enemies)if(Math.hypot(wx-e.x,wy-(e.y-14))<26)return {act:true,cast:[e.x,e.y-14],stands:[]};
+  if(inHome()){const hc=homeClick(tx,ty);if(hc)return hc;return walkable(tx,ty)?{act:false,tx,ty,stands:[[tx,ty]]}:onTile(false)}
   if(inCave()){
     if(stairsAt(tx,ty))return {act:true,tx,ty,stands:[[tx,ty]]};
     const ni=inMap(tx,ty)?W.nodeAt.get(ti(tx,ty)):undefined;
@@ -3615,6 +3774,7 @@ function arrive(){
   const g=G.g,[px,py]=ptile();
   if(g.vill){const a=g.vill;S.dir=dirTo(px,py,Math.floor(a.x/T),Math.floor((a.y-4)/T));if(villagersOut()&&Math.hypot(a.x-S.px,a.y-S.py)<60)talkTo(a);return}
   if(g.enemy){S.dir=dirTo(px,py,Math.floor(g.enemy.x/T),Math.floor((g.enemy.y-4)/T));useSword();return}
+  if(g.furn){const [nx,ny]=nearestFurnTile(g.furn,px,py);S.dir=dirTo(px,py,nx,ny);pressA();return}
   S.dir=g.face||dirTo(px,py,g.tx,g.ty);
   pressA();
 }
@@ -3692,7 +3852,8 @@ function loop(ts){
       if(!mx&&!my&&(Math.abs(pad.x)>.2||Math.abs(pad.y)>.2)){mx=pad.x;my=pad.y;run=Math.hypot(pad.x,pad.y)>.9}
       if(RT.jump)updateJump(dt);
       else if(mx||my){RT.goal=null;RT.approach=null;movePlayer(mx,my,run,dt)}else if(RT.goal)followGoal(dt);else{movePlayer(0,0,false,dt);RT.running=false}
-      if(!inCave()){const [tx,ty]=ptile();const z=tileAt(tx,ty)===7?W.zone[ti(tx,ty)]:0;if(z&&z!==RT.lastPier)toast(`${PIER_INFO[z][1]}：${PIER_INFO[z][2]}`);RT.lastPier=z}
+      if(inHome())homeTick();
+      if(onIsland()){const [tx,ty]=ptile();const z=tileAt(tx,ty)===7?W.zone[ti(tx,ty)]:0;if(z&&z!==RT.lastPier)toast(`${PIER_INFO[z][1]}：${PIER_INFO[z][2]}`);RT.lastPier=z}
       tickTime(dt);updateBugs(dt,RT.running);updateVillagers(dt);updateFishing(dt);updateEnemies(dt);updateShadows(dt);
       if((RT.mpT=(RT.mpT||0)+dt)>1){RT.mpT=0;if(S.tools.wand)updateHud()}
       if(performance.now()-RT.lastSave>30000)save();
@@ -3710,7 +3871,7 @@ function loop(ts){
 addEventListener('visibilitychange',()=>{if(document.hidden&&S&&!RT.title)save()});
 
 // ===================== はじまり =====================
-function placeAtHome(){if(inCave()){W=ISL;S.loc='island';resetMapRT();updateHud()}S.px=W.start.x;S.py=W.start.y;S.dir='down'}
+function placeAtHome(){if(!onIsland()){W=ISL;S.loc='island';resetMapRT();updateHud()}S.px=W.start.x;S.py=W.start.y;S.dir='down'}
 // 名前は必ず入れてもらう（住民が名前で呼ぶため）
 function nameFromInput(){
   const v=$('nameIn').value.trim();
@@ -3735,11 +3896,11 @@ function continueGame(){
 }
 function boot(snap){
   resize();buildToolbar();
-  if(snap&&snap.v===2){S=migrate(snap);genWorld(S.seed);fitToMap();resetVillagers();if(S.loc!=='island'){const px=S.px,py=S.py;goCave(+S.loc.slice(4),null);S.px=px;S.py=py}RT.title=false;$('title').hidden=true;updateHud();renderTasks();requestAnimationFrame(loop);return}
+  if(snap&&snap.v===2){S=migrate(snap);genWorld(S.seed);fitToMap();resetVillagers();if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}RT.title=false;$('title').hidden=true;updateHud();renderTasks();requestAnimationFrame(loop);return}
   const sv=load();
   if(sv&&(sv.v===1||sv.v===2)){
     const old=sv.v===1;S=migrate(sv);genWorld(S.seed);if(old)initDaily();fitToMap();resetVillagers();
-    if(S.loc!=='island'){const px=S.px,py=S.py;goCave(+S.loc.slice(4),null);S.px=px;S.py=py}
+    if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}
     RT.needName=!S.name||S.name==='あなた';
     selGender=S.gender||null;setupTitle(true);
   }else{
