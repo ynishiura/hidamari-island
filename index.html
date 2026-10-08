@@ -241,6 +241,27 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
   .mbtn{min-width:0;padding:5px 8px;font-size:12px}
   .mbtn small{display:none}
   #toasts{top:120px}
+  /* スマホの縦：右側のボタンは、ミニマップのすぐ下の「メニュー」にまとめる（押すとその下に縦に開く） */
+  #bMenu{display:block;position:absolute;top:100%;right:0;margin-top:6px;padding:5px 14px;font-size:12px;min-width:0}
+  #app.talking #bMenu{visibility:hidden}
+  #app.menuOpen #bMenu{background:#fff4d9;border-color:var(--sun)}
+  #menubtns{display:none;bottom:auto;gap:4px;z-index:5;padding:6px;background:rgba(246,250,243,.96);border:2px solid var(--leaf);border-radius:14px;box-shadow:0 3px 0 var(--leaf-deep);max-height:calc(100vh - 220px);overflow:auto}
+  #app.menuOpen #menubtns{display:flex}
+  #app.talking.menuOpen #menubtns{display:none}
+  #menubtns .mbtn{min-width:96px;padding:6px 10px;font-size:13px;text-align:left}
+  /* 体力と経験値は、道具バーのすぐ上に横に並べる（パソコン・スマホ横向きと同じ）。そのぶんミニマップが上へ詰まる */
+  #hBars{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(66px + env(safe-area-inset-bottom,0px));display:grid;grid-auto-flow:column;grid-template-rows:auto auto;column-gap:12px;padding:3px 10px;pointer-events:none}
+  #hBars .barlabel[style]{margin-top:0!important}
+  #hBars #mpRow{grid-row:1/3;display:flex;flex-direction:column}
+  #hBars #mpRow[hidden]{display:none}
+  #hBars #mpRow .barlabel{margin-top:0!important}
+  #app.talking #hBars{display:none}
+  #hBars .bar,#hBars .barlabel{width:100px}
+  /* スティックと A ボタンは、体力・経験値の段より上に置く。A ボタンは右端へ */
+  #dpad{bottom:calc(114px + env(safe-area-inset-bottom,0px))}
+  #abtn{right:16px;bottom:calc(124px + env(safe-area-inset-bottom,0px))}
+  /* バージョンは左下のスティックの裏へ（ミニマップの下はメニューの場所にするため） */
+  #verGame{position:fixed;left:82px;bottom:calc(114px + env(safe-area-inset-bottom,0px) + 58px);transform:translateX(-50%)}
 }
 @media (max-width:420px){#dPortrait{height:118px}.tool{width:40px;height:46px}.tool .lbl{font-size:9px}#toolbar{gap:2px;padding:3px}}
 /* スマホの横向き（高さが低い画面）：
@@ -425,7 +446,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.923";</script>
+<script>const GAME_VERSION="0.924";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -3600,7 +3621,14 @@ $('bMap').onclick=()=>RT.title||openMap();
 function quickSave(){if(RT.title||!S)return;save();sfx('get');toast(`セーブしました（${SEASONS[season()]} ${dayInSeason()}日目 ${clockText()}）`)}
 $('bSave').onclick=quickSave;
 // 「メニュー」ボタン（スマホ横向きのときだけ見える）：右端のボタンをまとめて開け閉めする
-function setMenuOpen(on){$('app').classList.toggle('menuOpen',on);$('bMenu').setAttribute('aria-expanded',on?'true':'false')}
+// 開いたメニューは「メニュー」ボタンのすぐ下に出す（スマホの縦と横でボタンの場所が違うため、その場で位置を合わせる）
+function setMenuOpen(on){
+  const m=$('menubtns');
+  if(on){const r=$('bMenu').getBoundingClientRect();m.style.top=(r.bottom+6)+'px';m.style.right=Math.max(8,innerWidth-r.right)+'px'}
+  else{m.style.top='';m.style.right=''}
+  $('app').classList.toggle('menuOpen',on);$('bMenu').setAttribute('aria-expanded',on?'true':'false');
+}
+addEventListener('resize',()=>{if($('app').classList.contains('menuOpen'))setMenuOpen(false)});
 $('bMenu').onclick=()=>setMenuOpen(!$('app').classList.contains('menuOpen'));
 // 中のボタンを押したら閉じる（音の切りかえも含む）。メニューの外をさわっても閉じる
 $('menubtns').addEventListener('click',e=>{if(e.target.closest('.mbtn'))setMenuOpen(false)});
