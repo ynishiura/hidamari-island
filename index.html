@@ -462,7 +462,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.930";</script>
+<script>const GAME_VERSION="0.931";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2047,7 +2047,7 @@ $('bSnd').onclick=()=>{soundOn=!soundOn;if(soundOn&&!AC){try{AC=new (window.Audi
 // ===================== 戦う =====================
 const ENEMY={
   slime:{name:'スライム',hp:3,dmg:5,spd:30,xp:8,drops:[['gel',1],['mstone',.25]]},
-  wasp:{name:'スズメバチ',hp:2,dmg:8,spd:72,xp:10,drops:[['honey',1]],fly:true,pass:true},
+  wasp:{name:'スズメバチ',hp:2,dmg:5,spd:60,xp:10,drops:[['honey',1]],fly:true,pass:true},
   ghost:{name:'おばけ',hp:4,dmg:6,spd:26,xp:16,drops:[['mstone',1]],fly:true,pass:true,spirit:true},
   bat:{name:'コウモリ',hp:2,dmg:4,spd:85,xp:6,drops:[['mstone',.08]],fly:true},
   rslime:{name:'岩スライム',hp:5,dmg:7,spd:28,xp:12,drops:[['stone',1],['copper',.4]]},
