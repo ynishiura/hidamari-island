@@ -462,7 +462,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.928";</script>
+<script>const GAME_VERSION="0.929";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2053,8 +2053,8 @@ const ENEMY={
   rslime:{name:'岩スライム',hp:5,dmg:7,spd:28,xp:12,drops:[['stone',1],['copper',.4]]},
   golem:{name:'ゴーレム',hp:12,dmg:12,spd:22,xp:30,drops:[['iron',1],['silver',.5],['gold',.2]]},
   // 増やした敵
-  boar:{name:'イノシシ',hp:6,dmg:9,spd:34,xp:18,drops:[['fang',.6],['apple',.3]],charge:true},       // 夜の島。近づくと突進
-  shroom:{name:'キノコン',hp:5,dmg:6,spd:18,xp:12,drops:[['shroom',1]]},                            // 夜の島。木の近く
+  boar:{name:'イノシシ',hp:6,dmg:9,spd:34,xp:18,drops:[['fang',.6],['apple',.3]],charge:true},       // 洞窟の地下1〜2階。近づくと突進
+  shroom:{name:'キノコン',hp:5,dmg:4,spd:18,xp:12,drops:[['shroom',1]]},                            // 夜の島。木の近く（弱い）
   spider:{name:'クモ',hp:4,dmg:6,spd:40,xp:14,drops:[['silk',.8]],web:true},                          // 洞窟。糸で足を遅くする
   fslime:{name:'ほのおスライム',hp:9,dmg:11,spd:30,xp:24,drops:[['mstone',.4],['gold',.15]]},          // 洞窟の奥
   drake:{name:'ミニドラゴン',hp:28,dmg:15,spd:46,xp:90,drops:[['scale',1],['gold',.6],['mstone',.6]],fly:true,breath:true,boss:true},  // 洞窟の最深部（めったに出ない）
@@ -2076,9 +2076,8 @@ function updateEnemies(dt){
   RT.thrust=Math.max(0,(RT.thrust||0)-dt);RT.slam=Math.max(0,(RT.slam||0)-dt);RT.draw=Math.max(0,(RT.draw||0)-dt);
   if(inCave())updateCave(dt);
   else if(onIsland()&&h>=19&&RT.enemies.filter(e=>e.type==='slime').length<4&&rnd()<dt*.15)spawnAround('slime',7,13,true);
-  if(onIsland()&&h>=20&&RT.enemies.filter(e=>e.type==='boar').length<2&&rnd()<dt*.03)spawnAround('boar',8,13,true);
+  // 洞窟の外（島）の夜は、弱い敵（スライム・キノコン）だけ。強い敵は洞窟にだけ出る
   if(onIsland()&&h>=19&&RT.enemies.filter(e=>e.type==='shroom').length<3&&rnd()<dt*.05)spawnNearTree('shroom');
-  if(onIsland()&&h>=22&&RT.enemies.filter(e=>e.type==='ghost').length<2&&rnd()<dt*.05)spawnAround('ghost',8,12,false);
   for(const e of RT.enemies){
     e.inv-=dt;e.life-=dt;e.ph+=dt;
     if(e.kx||e.ky){const nx=e.x+e.kx*dt,ny=e.y+e.ky*dt;if(e.d.pass||!enemyBlocked(nx,ny)){e.x=nx;e.y=ny}e.kx*=.85;e.ky*=.85;if(Math.abs(e.kx)+Math.abs(e.ky)<5){e.kx=e.ky=0}continue}
@@ -2302,8 +2301,8 @@ function drawShadows(g,t){
 // ===================== 洞窟 =====================
 let CAVES={};
 const CAVE_FLOORS=[null,
-  {name:'入り口の間',ore:{copper:70,iron:25,silver:5},enemy:{slime:45,bat:40,spider:15},cap:6},
-  {name:'鉄の回廊',ore:{copper:40,iron:45,silver:13,gold:2,crystal:2},enemy:{bat:35,rslime:40,slime:5,spider:20},cap:9},
+  {name:'入り口の間',ore:{copper:70,iron:25,silver:5},enemy:{slime:40,bat:35,spider:15,boar:10},cap:6},
+  {name:'鉄の回廊',ore:{copper:40,iron:45,silver:13,gold:2,crystal:2},enemy:{bat:30,rslime:35,slime:5,spider:15,boar:15},cap:9},
   {name:'地底湖',ore:{copper:15,iron:40,silver:35,gold:10,crystal:5},enemy:{rslime:30,bat:20,ghost:20,golem:10,spider:10,fslime:10},cap:12},
   {name:'黄金の最深部',ore:{iron:25,silver:45,gold:30,crystal:8},enemy:{golem:30,rslime:15,ghost:15,bat:10,fslime:25,drake:4},cap:15},
 ];
