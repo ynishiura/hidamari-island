@@ -470,7 +470,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.953";</script>
+<script>const GAME_VERSION="0.954";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2160,6 +2160,21 @@ function selectTool(id){
   if(id==='wand'&&S.tool==='wand'){cycleSpell();return}
   S.tool=id;if(RT.fishing&&id!=='rod')RT.fishing=null;buildToolbar();
 }
+// マウスホイールで道具を持ちかえる（パソコン）。下へ回すと右（次）、上へ回すと左（前）の道具へ。持っていない道具は飛ばす
+const ownsTool=id=>id==='hand'||(id==='sword'?hasWeapon():!!S.tools[id]);
+let wheelAcc=0,wheelT=0;
+function wheelTool(e){
+  if(!S||RT.title||RT.dlg||RT.panel||RT.catchShow||RT.layout)return;
+  e.preventDefault();
+  wheelAcc+=e.deltaY;const now=performance.now();
+  if(Math.abs(wheelAcc)<40||now-wheelT<90)return;   // 1ノッチで1つ（タッチパッドの細かい動きで一気に進まないように）
+  const step=wheelAcc>0?1:-1;wheelAcc=0;wheelT=now;
+  const ids=TOOLS.map(t=>t.id).filter(ownsTool);if(ids.length<2)return;
+  const i=ids.indexOf(S.tool),next=ids[((i<0?0:i)+step+ids.length)%ids.length];
+  S.tool=next;if(RT.fishing&&next!=='rod')RT.fishing=null;buildToolbar();
+}
+$('cv').addEventListener('wheel',wheelTool,{passive:false});
+$('toolbar').addEventListener('wheel',wheelTool,{passive:false});
 
 // ===================== 会話 =====================
 function showDialog(who,lines,done,choices){
