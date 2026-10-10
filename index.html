@@ -462,7 +462,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.936";</script>
+<script>const GAME_VERSION="0.937";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -3798,16 +3798,16 @@ const CH_HIP={front:.78,side:.76,back:.79,fdiag:.77,bdiag:.78,d8v:.8,d8s:.77};  
 // 2本の脚を別々に動かすための切り取り方（絵の座標・px）
 //  poly：脚の範囲。パーカーのすそと手は含めない。最初の top 個の点が上の辺（脚の付け根側）
 //  cut：2本の脚の分け目 [上x,上y,下x,下y]。a＝分け目の左の脚、b＝右の脚
-//  walk：'lift'＝交互に持ち上げる（正面・後ろ）、それ以外は付け根を軸に振る。near＝手前の脚、swing＝振る角度
+//  walk：'lift'＝交互に持ち上げる（正面・後ろ）、それ以外は付け根を軸に振る。near＝手前の脚、swing＝まっすぐ下から前後へ振る角度
 const LEG_CUT={
   m_d8_d: {poly:[[56,207],[112,207],[124,256],[44,256]],top:2,cut:[85,207,85,256],walk:'lift'},
   m_d8_u: {poly:[[56,207],[112,207],[124,256],[44,256]],top:2,cut:[85,207,85,256],walk:'lift'},
-  m_d8_l: {poly:[[55,218],[90,226],[96,226],[146,224],[150,256],[25,256],[25,222]],top:4,cut:[92,226,92,256],near:'a',swing:1.3},
-  m_d8_r: {poly:[[48,224],[96,224],[100,220],[128,212],[160,215],[166,256],[48,256]],top:4,cut:[96,222,96,256],near:'b',swing:1.3},
-  m_d8_dl:{poly:[[55,207],[110,208],[128,210],[140,230],[140,256],[35,256],[35,225]],top:3,cut:[91,208,94,256],near:'a',swing:1.15},
-  m_d8_dr:{poly:[[45,212],[68,210],[130,207],[142,230],[142,256],[38,256],[38,214]],top:3,cut:[90,208,88,256],near:'b',swing:1.15},
-  m_d8_ul:{poly:[[40,210],[75,208],[80,214],[126,214],[130,256],[10,256],[10,215]],top:4,cut:[76,210,70,256],near:'a',swing:1.15},
-  m_d8_ur:{poly:[[50,218],[95,216],[100,212],[130,208],[170,212],[174,256],[50,256]],top:4,cut:[99,212,102,256],near:'b',swing:1.15},
+  m_d8_l: {poly:[[55,218],[90,226],[96,226],[146,224],[150,256],[25,256],[25,222]],top:4,cut:[92,226,92,256],near:'a',swing:.75},
+  m_d8_r: {poly:[[48,224],[96,224],[100,220],[128,212],[160,215],[166,256],[48,256]],top:4,cut:[96,222,96,256],near:'b',swing:.75},
+  m_d8_dl:{poly:[[55,207],[110,208],[128,210],[140,230],[140,256],[35,256],[35,225]],top:3,cut:[91,208,94,256],near:'a',swing:.65},
+  m_d8_dr:{poly:[[45,212],[68,210],[130,207],[142,230],[142,256],[38,256],[38,214]],top:3,cut:[90,208,88,256],near:'b',swing:.65},
+  m_d8_ul:{poly:[[40,210],[75,208],[80,214],[126,214],[130,256],[10,256],[10,215]],top:4,cut:[76,210,70,256],near:'a',swing:.65},
+  m_d8_ur:{poly:[[50,218],[95,216],[100,212],[130,208],[170,212],[174,256],[50,256]],top:4,cut:[99,212,102,256],near:'b',swing:.65},
 };
 const _legCache=new Map();
 function legLayers(key,im,lc){
@@ -3818,7 +3818,7 @@ function legLayers(key,im,lc){
   const halfL=[[xAt(-50),-50],[xAt(ih+50),ih+50],[-50,ih+50],[-50,-50]],halfR=[[xAt(-50),-50],[iw+50,-50],[iw+50,ih+50],[xAt(ih+50),ih+50]];
   // 脚の上の端は、脚のいちばん上の色を上（パーカーの下）へ引き伸ばしておく。
   // 大きく振っても付け根にすき間ができず、はみ出しても太ももが続いて見える（パーカーや手のかけらは持っていかない）
-  const EXT=16,tp=lc.poly.slice(0,lc.top);
+  const EXT=16,PIV=10,tp=lc.poly.slice(0,lc.top);   // EXT＝上へ伸ばす長さ、PIV＝付け根の軸をすそより上（股関節）に置く高さ
   const topAt=x=>{for(let i=0;i+1<tp.length;i++){const [x0,y0]=tp[i],[x1,y1]=tp[i+1];if(x>=x0&&x<=x1)return y0+(y1-y0)*(x-x0)/((x1-x0)||1)}return -1};
   const leg=half=>{
     const c=mk(),cg=c.getContext('2d');path(cg,half);cg.clip();path(cg,lc.poly);cg.clip();cg.drawImage(im,0,0);
@@ -3831,9 +3831,20 @@ function legLayers(key,im,lc){
     }
     cg.putImageData(id,0,0);return c};
   const up=mk(),ug=up.getContext('2d');ug.drawImage(im,0,0);ug.globalCompositeOperation='destination-out';path(ug,lc.poly);ug.fill();
-  // 振る軸：それぞれの脚の上の辺の真ん中（付け根）
-  const tops=lc.poly.slice(0,lc.top),tl=Math.min(...tops.map(p=>p[0])),tr=Math.max(...tops.map(p=>p[0]));
-  const L={up,a:leg(halfL),b:leg(halfR),pa:[(tl+cx0)/2,cy0],pb:[(cx0+tr)/2,cy0]};
+  // 振る軸：それぞれの脚の上の辺の真ん中で、すそより少し上（パーカーの中の股関節）
+  const tl=Math.min(...tp.map(p=>p[0])),tr=Math.max(...tp.map(p=>p[0]));
+  const a=leg(halfL),b=leg(halfR),pa=[(tl+cx0)/2,cy0-PIV],pb=[(cx0+tr)/2,cy0-PIV];
+  // 脚の向き：軸から足先（いちばん下の14行の真ん中）へ。左へ傾いているほど＋（ラジアン）
+  const tiltOf=(cv,p)=>{const d=cv.getContext('2d').getImageData(0,0,iw,ih).data;let my=-1;
+    for(let y=ih-1;y>=0&&my<0;y--)for(let x=0;x<iw;x++)if(d[(y*iw+x)*4+3]>128){my=y;break}
+    let sx=0,sy=0,n=0;for(let y=Math.max(0,my-13);y<=my;y++)for(let x=0;x<iw;x++)if(d[(y*iw+x)*4+3]>128){sx+=x;sy+=y;n++}
+    return n?Math.atan2(-(sx/n-p[0]),sy/n-p[1]):0};
+  // 型：上半身の形＋すその線より下。ただし、すそのすぐ下（B の帯）は脚の付け根の幅だけ。
+  // 脚を描いたあとこの型で切り抜き、大きく振った脚の上の端が、すその前後へ棒のようにはみ出さないようにする
+  const B=12,yb=Math.max(...tp.map(p=>p[1]))+B;
+  const mask=mk(),mg=mask.getContext('2d');mg.fillStyle='#fff';
+  path(mg,[[tl-2,tp[0][1]],...tp,[tr+2,tp[tp.length-1][1]],[tr+2,yb],[iw+50,yb],[iw+50,ih+50],[-50,ih+50],[-50,yb],[tl-2,yb]]);mg.fill();mg.drawImage(up,0,0);
+  const L={up,a,b,pa,pb,ta:tiltOf(a,pa),tb:tiltOf(b,pb),mask,tmp:mk()};
   _legCache.set(key,L);return L;
 }
 drawHuman=function(g,x,y,dir,frame,opt){
@@ -3860,20 +3871,23 @@ drawHuman=function(g,x,y,dir,frame,opt){
   // 脚の切り取り方が決めてある絵（LEG_CUT）は、2本の脚を別々に動かす
   const lc=LEG_CUT[`${gd}_d8_${d8}`];
   if(im8&&lc){
-    const L=legLayers(`${gd}_d8_${d8}`,im,lc);
+    const L=legLayers(`${gd}_d8_${d8}`,im,lc),tg=L.tmp.getContext('2d');
+    tg.globalCompositeOperation='source-over';tg.clearRect(0,0,iw,ih);
     g.save();g.translate(-w/2,top);g.scale(k,k);
     if(lc.walk==='lift'){
       // 正面・後ろ：左右の脚を交互に持ち上げる
       const lift=walking?34:0;
-      g.drawImage(L.a,0,-Math.max(0,sw)*lift);g.drawImage(L.b,0,-Math.max(0,-sw)*lift);
+      tg.drawImage(L.a,0,-Math.max(0,sw)*lift);tg.drawImage(L.b,0,-Math.max(0,-sw)*lift);
     }else{
-      // 横・斜め：それぞれの脚の付け根を軸に前後へ振る。奥の脚から描く
-      // 元の絵は脚を大きく開いているので、開く側は少しだけ、閉じる側を大きく振る
-      const a=walking?(sw>0?sw*.25:sw)*lc.swing:0;
-      const leg=(cv,p,ang)=>{g.save();g.translate(p[0],p[1]);g.rotate(ang);g.translate(-p[0],-p[1]);g.drawImage(cv,0,0);g.restore()};
-      if(lc.near==='a'){leg(L.b,L.pb,-a);leg(L.a,L.pa,a)}else{leg(L.a,L.pa,a);leg(L.b,L.pb,-a)}   // 右向きの絵は左右反対に振る
+      // 横・斜め：歩くときは2本ともまっすぐ下（脚が重なる位置）を真ん中にして、付け根を軸に前後へ同じだけ振る。
+      // 手前の脚が前→重なる→後ろ、と入れ替わる。止まっているときは元の絵の形のまま。奥の脚から描く
+      const fs=lc.near==='a'?1:-1,s=sw*lc.swing*fs;   // 左向きの絵は＋で前（左）へ、右向きの絵は反対
+      const ra=walking?-L.ta+(lc.near==='a'?s:-s):0,rb=walking?-L.tb+(lc.near==='a'?-s:s):0;
+      const leg=(cv,p,ang)=>{tg.save();tg.translate(p[0],p[1]);tg.rotate(ang);tg.translate(-p[0],-p[1]);tg.drawImage(cv,0,0);tg.restore()};
+      if(lc.near==='a'){leg(L.b,L.pb,rb);leg(L.a,L.pa,ra)}else{leg(L.a,L.pa,ra);leg(L.b,L.pb,rb)}
     }
-    g.drawImage(L.up,0,0);   // 上半身（脚を抜いた絵）を上に重ねる
+    tg.globalCompositeOperation='destination-in';tg.drawImage(L.mask,0,0);tg.globalCompositeOperation='source-over';
+    g.drawImage(L.tmp,0,0);g.drawImage(L.up,0,0);   // 脚、その上に上半身（脚を抜いた絵）を重ねる
     g.restore();g.restore();return;
   }
   // それ以外は腰から下を1枚のまま、腰の線を軸に左右へ傾けて（せん断）足の運びを出す
