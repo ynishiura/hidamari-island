@@ -232,6 +232,13 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 #catch .cmeta{font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 #catch .cclose{font-size:11px;color:var(--ink-soft);margin-top:4px}
 #catch .new{position:absolute;top:-14px;right:18px;background:var(--berry);color:#fff;font-weight:900;font-size:12px;padding:3px 10px;border-radius:999px}
+/* 魚が釣れたときの大きな文字（カードの上に弾むように出る） */
+#catch{flex-direction:column;gap:6px}
+#catch .cbig{font-family:var(--f-display);font-size:clamp(48px,13vw,88px);line-height:1;font-weight:900;color:#fff7d6;letter-spacing:.04em;
+  -webkit-text-stroke:3px #c8851c;paint-order:stroke fill;text-shadow:0 5px 0 #8a5a12,0 0 26px rgba(255,214,120,.9);animation:bigIn .55s cubic-bezier(.2,1.8,.4,1),bigGlow 1.6s ease-in-out .55s infinite}
+@keyframes bigIn{from{transform:scale(.2) rotate(-8deg);opacity:0}to{transform:none;opacity:1}}
+@keyframes bigGlow{50%{transform:scale(1.06)}}
+@media (prefers-reduced-motion:reduce){#catch .cbig{animation:none}}
 @keyframes catchIn{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
 @keyframes float{50%{transform:translateY(-6px)}}
 .tool .lbl{max-width:100%;overflow:hidden;white-space:nowrap}
@@ -388,6 +395,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
     <button class="mbtn" id="bMap">地図<small>M</small></button>
     <button class="mbtn" id="bCraft">クラフト<small>C</small></button>
     <button class="mbtn" id="bSnd">音: OFF</button>
+    <button class="mbtn" id="bQuit">終了</button>
     <div class="mvol"><label for="volIn">音量 <b id="volNum">100</b></label><input id="volIn" type="range" min="0" max="100" step="5" value="100" aria-label="音量"></div>
   </div>
   <div id="toasts"></div>
@@ -395,7 +403,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
   <div id="dialog" hidden><img id="dPortrait" alt="" hidden><div class="who" id="dWho"></div><div class="txt" id="dTxt"></div><div class="choices" id="dCh"></div><div class="next" id="dNext">▼</div></div>
   <div id="panel" hidden><div class="box"><header><h2 id="pTitle"></h2><button class="x" id="pClose" aria-label="閉じる">×</button></header><div class="tabs" id="pTabs"></div><div id="pbody"></div></div></div>
   <div id="touch"><div id="dpad"><i id="knob"></i></div><button id="abtn">A</button></div>
-  <div id="catch" hidden><div class="ccard"><div class="new" id="cNew">NEW 図鑑登録</div><canvas id="cIcon" width="224" height="224"></canvas><div class="ctitle" id="cTitle"></div><div class="ccheer" id="cCheer"></div><div class="cnote" id="cNote"></div><div class="cmeta" id="cMeta"></div><div class="cclose">クリック / Space で閉じる</div></div></div>
+  <div id="catch" hidden><div class="cbig" id="cBig" hidden></div><div class="ccard"><div class="new" id="cNew">NEW 図鑑登録</div><canvas id="cIcon" width="224" height="224"></canvas><div class="ctitle" id="cTitle"></div><div class="ccheer" id="cCheer"></div><div class="cnote" id="cNote"></div><div class="cmeta" id="cMeta"></div><div class="cclose">クリック / Space で閉じる</div></div></div>
   <div id="title">
     <canvas id="titleFx" aria-hidden="true"></canvas>
     <div class="vtag" id="verTitle"></div>
@@ -462,7 +470,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.937";</script>
+<script>const GAME_VERSION="0.938";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2249,6 +2257,7 @@ function nextOverlay(){
   $('cNew').textContent=o.badge;$('cNew').hidden=!o.badge;
   $('cTitle').textContent=o.title;$('cCheer').textContent=o.cheer||'';$('cCheer').hidden=!o.cheer;
   $('cNote').textContent=o.note||'';$('cMeta').textContent=o.meta||'';
+  $('cBig').textContent=o.big||'';$('cBig').hidden=!o.big;   // 魚が釣れたときなどの大きな文字
   drawIcon($('cIcon'),o.icon);$('catch').hidden=false;RT.catchShow=true;
 }
 const SKILL_ICON={run:'drink',fish:'rod',chop:'axe',dig:'shovel',bug:'net',craft:'wood',fight:'sword',magic:'wand'};
@@ -2259,7 +2268,7 @@ function showLearn(skillId,name,desc){
 function showCatch(id,place){
   const it=ITEMS[id];const verb={bug:'つかまえた',fish:'釣りあげた',fossil:'掘りだした'}[it.kind];
   const cheer=it.rar>=6?'伝説は本当だったんだ…！':it.rar>=5?'すごい！ めったに出会えないぞ！':it.rar>=4?'やった、これはレアだ！':it.rar>=3?'いい感じ！':'';
-  pushOverlay({badge:RT.newDex===id?'NEW 図鑑登録':'',title:`${it.name}を${verb}！`,cheer,note:it.note,meta:`${'★'.repeat(Math.min(it.rar,5))}${it.rar>=6?'（伝説）':''}　${it.price.toLocaleString()}円${place?'　'+PLACE_LABEL[place]:''}`,icon:id});
+  pushOverlay({big:it.kind==='fish'?(it.rar>=4?'大物だ！':'釣れた！'):'',badge:RT.newDex===id?'NEW 図鑑登録':'',title:`${it.name}を${verb}！`,cheer,note:it.note,meta:`${'★'.repeat(Math.min(it.rar,5))}${it.rar>=6?'（伝説）':''}　${it.price.toLocaleString()}円${place?'　'+PLACE_LABEL[place]:''}`,icon:id});
   RT.newDex=null;if(it.rar>=4)sfx('lv');
 }
 function closeCatch(){$('catch').hidden=true;RT.catchShow=false;if(OVQ.length)setTimeout(nextOverlay,120)}
@@ -4154,6 +4163,15 @@ $('bMap').onclick=()=>RT.title||openMap();
 // いつでもセーブ
 function quickSave(){if(RT.title||!S)return;save();sfx('get');toast(`セーブしました（${SEASONS[season()]} ${dayInSeason()}日目 ${clockText()}）`)}
 $('bSave').onclick=quickSave;
+// 終了：セーブしてタイトル画面に戻る（ブラウザのゲームは画面そのものを閉じられないため）
+function quitToTitle(){
+  if(RT.title||!S||RT.dlg)return;
+  showDialog('終了',['セーブしてタイトル画面に戻りますか？'],null,[
+    ['タイトルに戻る',()=>{endTalk();RT.fishing=null;RT.goal=null;RT.walk=0;save();
+      RT.title=true;$('title').hidden=false;setupTitle(true);selGender=S.gender||null;renderGenderSel()}],
+    ['つづける',()=>endTalk()]]);
+}
+$('bQuit').onclick=quitToTitle;
 // 「メニュー」ボタン（スマホ横向きのときだけ見える）：右端のボタンをまとめて開け閉めする
 // 開いたメニューは「メニュー」ボタンのすぐ下に出す（スマホの縦と横でボタンの場所が違うため、その場で位置を合わせる）
 function setMenuOpen(on){
