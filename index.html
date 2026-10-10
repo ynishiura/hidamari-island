@@ -470,7 +470,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.952";</script>
+<script>const GAME_VERSION="0.953";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -1842,6 +1842,95 @@ function drawRod(g,dir,s,col){
     circ(g,px,py+7.6,1.7,'#ffffff');g.fillStyle='#e0383c';g.beginPath();g.arc(px,py+7.6,1.7,Math.PI,0);g.fill()}
   return [px,py];
 }
+// 武器と杖：網・竿・スコップと同じように細かく描き、向きで持ち方を変える。
+// 手（原点）から上（-y）へ向けて描き、向きごとの傾け（WEAPON_TILT）と、攻撃の動き（anim）で回す。
+//  左右＝進む方向へ傾けて構える。下＝体の横で少し外へ。上（後ろ姿）＝少し内へ、裏側なのでつやを控える
+//  kind: sword / spear / bow / hammer / wand。tr＝ランク（色）
+// 左右は顔の前を横切らないよう、前へ低めに構える
+const WEAPON_TILT={sword:[1.2,.18,-.12],spear:[1.15,.12,-.1],bow:[0,0,0],hammer:[1.05,.12,-.1],wand:[.9,.15,-.1]};   // [左右, 下, 上]
+function drawWeapon(g,kind,dir,s,tr,anim){
+  const side=dir==='left'||dir==='right',back=dir==='up';
+  const t=WEAPON_TILT[kind];let rot=(side?t[0]*s:dir==='up'?t[2]:t[1]);
+  if(anim&&anim.rot!==undefined)rot=anim.rot;
+  g.save();g.rotate(rot);g.lineCap='round';g.lineJoin='round';
+  const shine=back?.12:.45;
+  if(kind==='sword'){
+    const blade=tr===3?'#f3d35a':tr===2?'#d6dde4':'#c9a06b',wood=tr===1;   // ランク1は木の剣
+    const bw=side?2.6:3.2;
+    const gr=g.createLinearGradient(-bw,0,bw,0);gr.addColorStop(0,shade(blade,.35));gr.addColorStop(.5,blade);gr.addColorStop(1,shade(blade,-.3));
+    g.beginPath();g.moveTo(-bw/2,-4);g.lineTo(-bw/2,-19);g.lineTo(0,-23);g.lineTo(bw/2,-19);g.lineTo(bw/2,-4);g.closePath();
+    g.fillStyle=gr;g.fill();g.strokeStyle='rgba(40,40,50,.7)';g.lineWidth=.5;g.stroke();
+    if(!wood){g.strokeStyle='rgba(255,255,255,'+shine+')';g.lineWidth=.5;g.beginPath();g.moveTo(-.3,-5);g.lineTo(-.3,-19);g.stroke()}   // 刃のみぞ
+    else{g.strokeStyle='rgba(110,70,35,.5)';g.lineWidth=.4;for(const y of [-8,-12,-16]){g.beginPath();g.moveTo(-bw/2+.3,y);g.lineTo(bw/2-.3,y-1);g.stroke()}}  // 木目
+    // つば（両はしに丸）
+    const gc=tr===3?'#c99a28':'#b08a3e';
+    g.fillStyle=gc;g.fillRect(-4.5,-4.6,9,1.8);circ(g,-4.6,-3.7,1.1,gc);circ(g,4.6,-3.7,1.1,gc);
+    // 持ち手（巻いた革）と柄頭
+    g.fillStyle='#6b4423';g.fillRect(-1.1,-2.8,2.2,5.6);
+    g.strokeStyle='rgba(30,15,5,.55)';g.lineWidth=.45;for(let y=-2.2;y<2.6;y+=1.3){g.beginPath();g.moveTo(-1.1,y+.6);g.lineTo(1.1,y);g.stroke()}
+    circ(g,0,3.6,1.4,gc);
+  }else if(kind==='spear'){
+    // 柄（木目）と石突き
+    g.strokeStyle='#7a5030';g.lineWidth=2.2;g.beginPath();g.moveTo(0,7);g.lineTo(0,-26);g.stroke();
+    g.strokeStyle='rgba(230,190,140,'+shine+')';g.lineWidth=.6;g.beginPath();g.moveTo(-.5,6);g.lineTo(-.5,-25);g.stroke();
+    circ(g,0,7.5,1.3,'#4a3a2a');
+    // 穂先の下の巻きひもと赤い房
+    g.fillStyle='#d8c8a0';g.fillRect(-1.4,-27.5,2.8,2.4);
+    g.fillStyle='#d8343a';g.beginPath();g.moveTo(-1.2,-26);g.quadraticCurveTo(-3.8,-22,-2.6,-19);g.lineTo(-.4,-25);g.closePath();g.fill();
+    g.beginPath();g.moveTo(1.2,-26);g.quadraticCurveTo(3.4,-22.5,2.2,-19.5);g.lineTo(.4,-25);g.closePath();g.fill();
+    // 穂先（木の葉形、まん中にすじ）
+    const hw=side?2.6:3.2,gr=g.createLinearGradient(-hw,0,hw,0);gr.addColorStop(0,'#f1f4f7');gr.addColorStop(.5,'#c9d1d8');gr.addColorStop(1,'#8e979f');
+    g.beginPath();g.moveTo(0,-37);g.quadraticCurveTo(hw*1.2,-31,0,-27.5);g.quadraticCurveTo(-hw*1.2,-31,0,-37);g.closePath();
+    g.fillStyle=gr;g.fill();g.strokeStyle='rgba(40,44,50,.7)';g.lineWidth=.5;g.stroke();
+    g.strokeStyle='rgba(255,255,255,'+(shine+.1)+')';g.lineWidth=.45;g.beginPath();g.moveTo(0,-36);g.lineTo(0,-28.5);g.stroke();
+  }else if(kind==='bow'){
+    // 横から見ると弓の弧、正面・後ろからは細く見える
+    if(side)g.translate(s*3,0);   // 横向きは少し前で、低めに持つ（顔にかからないように）
+    const cy=side?-1:-7,R=side?11:12,bulge=side?7*s:(dir==='down'?2.6:-2.6),pull=(anim&&anim.pull)||0,sx=side?-pull*s:0;
+    // 弦（引くと手前へ）
+    g.strokeStyle='rgba(245,245,245,.95)';g.lineWidth=.6;g.beginPath();g.moveTo(0,cy-R);g.lineTo(sx,cy);g.lineTo(0,cy+R);g.stroke();
+    // 弓の本体（上下の弓腕）
+    const limb=(y0,cyc)=>{g.beginPath();g.moveTo(0,y0);g.quadraticCurveTo(bulge,cyc,bulge*.55,cy+(y0<cy?-2.5:2.5));g.stroke()};
+    g.strokeStyle='#6b4423';g.lineWidth=2.1;limb(cy-R,cy-R*.75);limb(cy+R,cy+R*.75);
+    g.strokeStyle='rgba(220,170,110,'+shine+')';g.lineWidth=.6;limb(cy-R+.6,cy-R*.75);
+    // 持ち手の巻き革と、弓の先の飾り
+    g.strokeStyle='#3a2a20';g.lineWidth=2.6;g.beginPath();g.moveTo(bulge*.55,cy-2.5);g.lineTo(bulge*.55,cy+2.5);g.stroke();
+    circ(g,0,cy-R,.8,'#d8c8a0');circ(g,0,cy+R,.8,'#d8c8a0');
+    // 引いているときは矢をつがえる
+    if(pull&&side){const ax0=sx,ax1=bulge*.55+s*7;g.strokeStyle='#8a5a34';g.lineWidth=.8;g.beginPath();g.moveTo(ax0,cy);g.lineTo(ax1,cy);g.stroke();
+      g.fillStyle='#c9d1d8';g.beginPath();g.moveTo(ax1+s*2.6,cy);g.lineTo(ax1,cy-1.3);g.lineTo(ax1,cy+1.3);g.closePath();g.fill();
+      g.fillStyle='#e8e2d0';g.beginPath();g.moveTo(ax0,cy);g.lineTo(ax0-s*2.2,cy-1.6);g.lineTo(ax0+s*1.2,cy);g.lineTo(ax0-s*2.2,cy+1.6);g.closePath();g.fill()}
+  }else if(kind==='hammer'){
+    // 柄と握りの巻き革
+    g.strokeStyle='#7a5030';g.lineWidth=2.5;g.beginPath();g.moveTo(0,5);g.lineTo(0,-15);g.stroke();
+    g.strokeStyle='rgba(230,190,140,'+shine+')';g.lineWidth=.6;g.beginPath();g.moveTo(-.6,4);g.lineTo(-.6,-14);g.stroke();
+    g.fillStyle='#3a2a20';g.fillRect(-1.5,0,3,4.5);
+    // 頭：横から見ると長い四角（両はしに打つ面）、正面・後ろからは打つ面の正方形
+    const hw=side?7.5:4.5,hh=4.6,hy=-19;
+    const gr=g.createLinearGradient(0,hy-hh,0,hy+hh);gr.addColorStop(0,'#c4ccd3');gr.addColorStop(.5,'#8f979e');gr.addColorStop(1,'#626a72');
+    g.fillStyle=gr;g.beginPath();g.rect(-hw,hy-hh,hw*2,hh*2);g.fill();g.strokeStyle='rgba(30,34,40,.75)';g.lineWidth=.55;g.stroke();
+    if(side){g.fillStyle='#6c747c';g.fillRect(-hw-1.2,hy-hh+.8,1.2,hh*2-1.6);g.fillRect(hw,hy-hh+.8,1.2,hh*2-1.6)}
+    else{g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=.5;g.beginPath();g.arc(0,hy,2.6,0,Math.PI*2);g.stroke()}
+    g.fillStyle='rgba(255,255,255,'+(shine*.8)+')';g.fillRect(-hw+.6,hy-hh+.6,hw*2-1.2,1);
+    g.fillStyle='#4a5058';g.fillRect(-1.6,hy+hh,3.2,1.6);
+  }else if(kind==='wand'){
+    const gc=tr===3?[255,120,200]:tr===2?[140,170,255]:[255,220,110],rgb=a=>'rgb('+a.join(',')+')',rgba=(a,o)=>'rgba('+a.join(',')+','+o+')';
+    // ねじれた木の柄
+    g.strokeStyle='#6b4423';g.lineWidth=2;g.beginPath();g.moveTo(0,4);g.lineTo(0,-14);g.stroke();
+    g.strokeStyle='rgba(200,150,90,.8)';g.lineWidth=.55;for(let y=3;y>-13;y-=3){g.beginPath();g.moveTo(-1,y);g.quadraticCurveTo(0,y-1.8,1,y-3);g.stroke()}
+    // まわりの光・光る玉・玉をつかむ金の爪
+    const gl=.6+.4*Math.sin(performance.now()/200),oy=-18;
+    const rg=g.createRadialGradient(0,oy,0,0,oy,7);rg.addColorStop(0,rgba(gc,.55*gl));rg.addColorStop(1,rgba(gc,0));
+    g.fillStyle=rg;g.beginPath();g.arc(0,oy,7,0,Math.PI*2);g.fill();
+    const og=g.createRadialGradient(-1,oy-1,.3,0,oy,3);og.addColorStop(0,'#ffffff');og.addColorStop(.4,rgb(gc));og.addColorStop(1,rgb(gc.map(v=>v*.55|0)));
+    g.fillStyle=og;g.beginPath();g.arc(0,oy,2.8,0,Math.PI*2);g.fill();
+    g.strokeStyle='#c99a28';g.lineWidth=.9;
+    for(const k of [-1,1]){g.beginPath();g.moveTo(k*.8,-14);g.quadraticCurveTo(k*3.6,oy+1,k*1.6,oy-2.4);g.stroke()}
+    g.fillStyle='#c99a28';g.fillRect(-1.4,-14.6,2.8,1.4);
+    if(!back){const k=performance.now()/300;for(let i=0;i<2;i++){const a=k+i*3.1;circ(g,Math.cos(a)*5,oy+Math.sin(a)*4,.55,'rgba(255,255,255,'+(.5+.4*Math.sin(k*2+i))+')')}}   // きらめき
+  }
+  g.restore();
+}
 function drawToolInHand(g,x,y){
   const tool=S.tool;if(tool==='hand')return;
   const [dx]=DIRV[S.dir];const hx=x+(dx||1)*9,hy=y-14;
@@ -1854,13 +1943,14 @@ function drawToolInHand(g,x,y){
   if(tool==='shovel')drawShovel(g,S.dir,dx||1,metal==='#b07a4a'?'#9aa3ab':metal);
   if(tool==='can'){g.fillStyle=tr===3?'#e8b830':tr===2?'#6aa0d8':'#5fae7a';g.fillRect(-5,-6,10,8);g.fillRect(4,-6,5,2)}
   if(tool==='axe'){if(RT.shakeAxe)g.rotate((dx||1)*.8);g.beginPath();g.moveTo(0,2);g.lineTo(0,-14);g.stroke();g.fillStyle=tr===3?'#e8b830':tr===2?'#9aa6b2':'#8f979e';g.beginPath();g.moveTo(0,-14);g.lineTo((dx||1)*7,-16);g.lineTo((dx||1)*7,-8);g.lineTo(0,-10);g.fill()}
-  if(tool==='sword'&&curWeapon()!=='sword'){const w=curWeapon();
-    if(w==='spear'){const th=(RT.thrust||0)>0?Math.sin((1-RT.thrust/.25)*Math.PI)*12:0;g.rotate((dx||1)*.35);g.translate(0,-th);g.strokeStyle='#8a5a34';g.lineWidth=2.2;g.beginPath();g.moveTo(0,6);g.lineTo(0,-26);g.stroke();g.fillStyle='#d6dde4';g.beginPath();g.moveTo(0,-33);g.lineTo(-3,-26);g.lineTo(3,-26);g.fill()}
-    else if(w==='bow'){const s=dx||1,pull=(RT.draw||0)>0?3:0;g.strokeStyle='#8a5a34';g.lineWidth=2.4;g.beginPath();g.arc(-2*s,-8,11,s>0?-1.2:Math.PI-1.2,s>0?1.2:Math.PI+1.2);g.stroke();g.strokeStyle='#eee';g.lineWidth=1;g.beginPath();g.moveTo((2-pull)*s,-18.5);g.lineTo((2-pull)*s,2.5);g.stroke()}
-    else if(w==='hammer'){if((RT.slam||0)>0)g.rotate((dx||1)*(1-RT.slam/.32)*2.4-1.1);g.strokeStyle='#8a5a34';g.lineWidth=2.6;g.beginPath();g.moveTo(0,4);g.lineTo(0,-16);g.stroke();g.fillStyle='#8f979e';g.fillRect(-7,-23,14,8);g.fillStyle='#b8c0c8';g.fillRect(-7,-23,14,2.5)}
+  // 武器と杖（drawWeapon）。攻撃の動きはこれまでと同じ（剣を振る・槍を突く・弓を引く・ハンマーを振り下ろす）
+  if(tool==='sword'||tool==='wand'){const w=tool==='wand'?'wand':curWeapon(),s=dx||1,dir=S.dir,side=dir==='left'||dir==='right';
+    if(w==='spear'){const th=(RT.thrust||0)>0?Math.sin((1-RT.thrust/.25)*Math.PI)*12:0,b=WEAPON_TILT.spear;g.rotate(side?b[0]*s:dir==='up'?b[2]:b[1]);g.translate(0,-th);drawWeapon(g,'spear',dir,s,tr,{rot:0})}
+    else if(w==='bow')drawWeapon(g,'bow',dir,s,tr,{pull:(RT.draw||0)>0?3:0});
+    else if(w==='hammer')drawWeapon(g,'hammer',dir,s,tr,(RT.slam||0)>0?{rot:s*(1-RT.slam/.32)*2.4-1.1}:null);
+    else if(w==='wand')drawWeapon(g,'wand',dir,s,tr,null);
+    else drawWeapon(g,'sword',dir,s,tr,RT.slash>0?{rot:s*(1-RT.slash/.25)*2.6-1.2}:null);
   }
-  else if(tool==='sword'){if(RT.slash>0)g.rotate((dx||1)*(1-RT.slash/.25)*2.6-1.2);g.fillStyle='#8a5a34';g.fillRect(-1.5,-2,3,5);g.fillStyle='#c9a24a';g.fillRect(-4,-4,8,2);g.fillStyle=tr===3?'#f3d35a':tr===2?'#d6dde4':'#c9a06b';g.fillRect(-1.6,-20,3.2,16)}
-  if(tool==='wand'){g.beginPath();g.moveTo(0,2);g.lineTo(0,-14);g.stroke();const gl=.6+.4*Math.sin(performance.now()/200);circ(g,0,-16,3.5,tr===3?`rgba(255,120,200,${gl})`:tr===2?`rgba(140,170,255,${gl})`:`rgba(255,230,120,${gl})`)}
   g.restore();
 }
 function render(t){
@@ -4171,11 +4261,12 @@ drawHuman=function(g,x,y,dir,frame,opt){
   g.restore();
 };
 
-// 道具のアイコン（虫取り網・釣り竿・スコップ）は、手に持ったときと同じ描き方（横向き）で描く。持っている道具のランクの色にする
+// 道具のアイコン（虫取り網・釣り竿・スコップ・武器・杖）は、手に持ったときと同じ描き方（横向き）で描く。持っている道具のランクの色にする
 const _drawIconTool=drawIcon;
 drawIcon=function(c,id){
-  if(!['net','rod','shovel'].includes(id))return _drawIconTool(c,id);
-  const tr=(typeof S!=='undefined'&&S&&S.tools&&S.tools[id])||1;
+  const WK={sword:'sword',wand:'wand',w_spear:'spear',w_bow:'bow',w_hammer:'hammer'}[id];   // 武器と杖も手に持ったときと同じ絵
+  if(!['net','rod','shovel'].includes(id)&&!WK)return _drawIconTool(c,id);
+  const tr=(typeof S!=='undefined'&&S&&S.tools&&S.tools[WK&&WK!=='wand'?'sword':id])||1;
   const metal=tr===3?'#e8b830':tr===2?'#9aa6b2':'#b07a4a';
   // いったん大きなキャンバスに描いて、絵のある範囲だけをアイコンの枠いっぱいに入れる
   const Z=6,tmp=document.createElement('canvas');tmp.width=tmp.height=60*Z;const tg=tmp.getContext('2d');
@@ -4184,6 +4275,7 @@ drawIcon=function(c,id){
   if(id==='net')drawNet(tg,'right',1,metal==='#b07a4a'?'#d8d8d8':metal);
   if(id==='shovel')drawShovel(tg,'right',1,metal==='#b07a4a'?'#9aa3ab':metal);
   if(id==='rod')drawRod(tg,'right',1,tr===3?'#d4a020':tr===2?'#4f7a5c':'#2f4f7f');
+  if(WK)drawWeapon(tg,WK,'right',1,WK==='sword'||WK==='wand'?tr:2,WK==='bow'?{pull:3}:{rot:WK==='sword'?.75:.6});
   RT.fishing=keepF;
   const d=tg.getImageData(0,0,tmp.width,tmp.height).data,W=tmp.width;let x0=W,y0=W,x1=0,y1=0;
   for(let y=0;y<W;y++)for(let x=0;x<W;x++)if(d[(y*W+x)*4+3]>16){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}
