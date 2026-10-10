@@ -470,7 +470,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.954";</script>
+<script>const GAME_VERSION="0.955";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -1720,7 +1720,7 @@ function eat(id){
 </script>
 <script>
 // ===================== 描画 =====================
-const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const cv=document.getElementById('cv');let ctx=cv.getContext('2d');   // let：影を描くときに一時的に影用のキャンバスへ向ける
 let VW=800,VH=600,DPR=1,Z=2;
 function resize(){DPR=Math.min(2,window.devicePixelRatio||1);VW=cv.clientWidth||innerWidth;VH=cv.clientHeight||innerHeight;cv.width=Math.round(VW*DPR);cv.height=Math.round(VH*DPR);Z=clamp(Math.min(VW/(16*T),VH/(11.5*T)),1.15,2.6)}
 addEventListener('resize',resize);
@@ -1953,6 +1953,32 @@ function drawToolInHand(g,x,y){
   }
   g.restore();
 }
+// ===================== 物の形の影（日の向きで長さと向きが変わる） =====================
+// 島の昼間だけ。木・岩・建物・住民・敵・自分を、足もとを軸に地面へ倒した形で黒く描き、まとめて半透明で重ねる
+// （重なった所が二重に濃くならないよう、一度影用のキャンバスに描いてから重ねる）
+let shadowCv=null;
+function sunShadow(){
+  const hh=S.min/60;if(hh<5.5||hh>19.5)return null;
+  const p=clamp((hh-12)/6,-1.15,1.15);                 // 朝は西（左）へ長く、昼は短く、夕方は東（右）へ長く
+  let a=.32*clamp(1-skyTint().night*2.2,0,1);
+  if(hh<6.5)a*=(hh-5.5);else if(hh>18.5)a*=(19.5-hh);
+  if(S.weather==='雨'||S.weather==='雪')a*=.35;else if(S.weather==='くもり')a*=.6;
+  return a>.01?{sx:p*1.0,sy:.34+.16*Math.abs(p),a}:null;
+}
+function castShadows(list){
+  const sun=sunShadow();if(!sun||!list.length)return;
+  if(!shadowCv)shadowCv=document.createElement('canvas');
+  if(shadowCv.width!==cv.width||shadowCv.height!==cv.height){shadowCv.width=cv.width;shadowCv.height=cv.height}
+  const sg=shadowCv.getContext('2d'),base=ctx.getTransform(),main=ctx;
+  sg.setTransform(1,0,0,1,0,0);sg.clearRect(0,0,cv.width,cv.height);
+  for(const d of list){
+    const fy=d[0];                                         // 並べる順の y＝足もと
+    sg.setTransform(base);sg.transform(1,0,-sun.sx,-sun.sy,sun.sx*fy,fy*(1+sun.sy));
+    sg.save();ctx=sg;try{d[1]()}catch(e){}ctx=main;sg.restore();
+  }
+  sg.setTransform(1,0,0,1,0,0);sg.globalCompositeOperation='source-in';sg.fillStyle='rgb(22,34,26)';sg.fillRect(0,0,cv.width,cv.height);sg.globalCompositeOperation='source-over';
+  ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=sun.a;ctx.drawImage(shadowCv,0,0);ctx.restore();
+}
 function render(t){
   const s=season();
   ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=W.home?'#1f1712':'#4a9fcd';ctx.fillRect(0,0,cv.width,cv.height);
@@ -1983,20 +2009,21 @@ function render(t){
   const [fx,fy]=facingTile();
   if(!RT.fishing&&!RT.dlg){ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.strokeRect(fx*T+2,fy*T+2,T-4,T-4);ctx.setLineDash([])}
   // 奥行き順
-  const D=[];const inV=(x,y,m=3)=>x>=x0-m&&x<=x1+m&&y>=y0-m&&y<=y1+m;
-  W.trees.forEach((tr,i)=>{if(inV(tr.x,tr.y))D.push([(tr.y+1)*T-4,()=>S.stumps[i]?drawStump(ctx,tr):drawTree(ctx,tr,s,S.fruit[i],RT.shake.get(i))])});
-  if(W.home)W.furn.forEach(f=>D.push([isFloor(f)?-1e9:(W.oy+f.y+f.h)*T-4,()=>drawFurn(ctx,f)]));
-  if(inCave())W.nodes.forEach((o,i)=>{if(inV(o.x,o.y))D.push([(o.y+1)*T-4,()=>drawNode(ctx,o,i)])});
-  RT.enemies.forEach(e=>D.push([e.y+(e.d.fly?20:0),()=>drawEnemy(ctx,e,t)]));
-  W.rocks.forEach((r,i)=>{if(inV(r.x,r.y)){const sh=RT.shake.get('r'+i);D.push([(r.y+1)*T-4,()=>{ctx.save();if(sh)ctx.translate(Math.sin(sh*60)*1.5,0);drawRock(ctx,r,S.rockHits[i]);ctx.restore()}])}});
+  const D=[];const inV=(x,y,m=3)=>x>=x0-m&&x<=x1+m&&y>=y0-m&&y<=y1+m;;let mk=0;const casts=[],take=()=>{for(;mk<D.length;mk++)casts.push(D[mk])},skip=()=>{mk=D.length};   // casts＝影を落とす物
+  W.trees.forEach((tr,i)=>{if(inV(tr.x,tr.y))D.push([(tr.y+1)*T-4,()=>S.stumps[i]?drawStump(ctx,tr):drawTree(ctx,tr,s,S.fruit[i],RT.shake.get(i))])});take();
+  if(W.home)W.furn.forEach(f=>D.push([isFloor(f)?-1e9:(W.oy+f.y+f.h)*T-4,()=>drawFurn(ctx,f)]));skip();
+  if(inCave())W.nodes.forEach((o,i)=>{if(inV(o.x,o.y))D.push([(o.y+1)*T-4,()=>drawNode(ctx,o,i)])});skip();
+  RT.enemies.forEach(e=>D.push([e.y+(e.d.fly?20:0),()=>drawEnemy(ctx,e,t)]));take();
+  W.rocks.forEach((r,i)=>{if(inV(r.x,r.y)){const sh=RT.shake.get('r'+i);D.push([(r.y+1)*T-4,()=>{ctx.save();if(sh)ctx.translate(Math.sin(sh*60)*1.5,0);drawRock(ctx,r,S.rockHits[i]);ctx.restore()}])}});take();
   const night=skyTint().night>.2;
-  W.bld.forEach(b=>D.push([(b.y+b.h)*T,()=>drawBuilding(ctx,b,S.house,night,s)]));
-  if(isl)S.flowers.forEach(f=>{if(inV(f.x,f.y))D.push([(f.y+.5)*T+6,()=>drawFlower(ctx,f,s)])});
-  if(villagersOut())RT.vill.forEach(a=>D.push([a.y,()=>drawAnimal(ctx,a.x,a.y,a.dir,a.frame,a.v)]));
-  RT.bugs.forEach(b=>D.push([b.y+(b.d.where==='tree'?2:0),()=>{ctx.save();if(b.flee)ctx.globalAlpha=1-b.flee/1.2;drawBug(ctx,b,t,night);ctx.restore()}]));
+  W.bld.forEach(b=>D.push([(b.y+b.h)*T,()=>drawBuilding(ctx,b,S.house,night,s)]));take();
+  if(isl)S.flowers.forEach(f=>{if(inV(f.x,f.y))D.push([(f.y+.5)*T+6,()=>drawFlower(ctx,f,s)])});skip();
+  if(villagersOut())RT.vill.forEach(a=>D.push([a.y,()=>drawAnimal(ctx,a.x,a.y,a.dir,a.frame,a.v)]));take();
+  RT.bugs.forEach(b=>D.push([b.y+(b.d.where==='tree'?2:0),()=>{ctx.save();if(b.flee)ctx.globalAlpha=1-b.flee/1.2;drawBug(ctx,b,t,night);ctx.restore()}]));skip();
   D.push([S.py,()=>{const jh=RT.jumpH||0;if(jh)shadow(ctx,S.px,S.py,8);if(RT.hurt>0&&Math.floor(t*20)%2)ctx.globalAlpha=.45;drawHuman(ctx,S.px,S.py-jh,S.dir,RT.walk||0,{shirt:'#f08a5d',hair:'#5a3a2a'});drawToolInHand(ctx,S.px,S.py-jh);ctx.globalAlpha=1;
-    if(RT.slash>0&&skLv('fight')>=3){ctx.strokeStyle=`rgba(255,255,255,${RT.slash*3})`;ctx.lineWidth=3;ctx.beginPath();ctx.arc(S.px,S.py-12,34,0,7);ctx.stroke()}}]);
-  if(skLv('bug')>=5)RT.bugs.forEach(b=>{if(b.d.rar>=4&&!b.flee)D.push([b.y+1,()=>{for(let i=0;i<3;i++){const a=t*2+i*2.1;circ(ctx,b.x+Math.cos(a)*12,b.y-14+Math.sin(a)*8,1.6,'rgba(255,240,150,.95)')}}])});
+    if(RT.slash>0&&skLv('fight')>=3){ctx.strokeStyle=`rgba(255,255,255,${RT.slash*3})`;ctx.lineWidth=3;ctx.beginPath();ctx.arc(S.px,S.py-12,34,0,7);ctx.stroke()}}]);take();
+  if(skLv('bug')>=5)RT.bugs.forEach(b=>{if(b.d.rar>=4&&!b.flee)D.push([b.y+1,()=>{for(let i=0;i<3;i++){const a=t*2+i*2.1;circ(ctx,b.x+Math.cos(a)*12,b.y-14+Math.sin(a)*8,1.6,'rgba(255,240,150,.95)')}}])});skip();
+  if(isl)castShadows(casts);
   D.sort((a,b)=>a[0]-b[0]).forEach(d=>d[1]());
   if(RT.layout)drawLayoutMarks(ctx);
   if(isl)drawCloudShadows(cx,cy,vw,vh,t);
