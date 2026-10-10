@@ -462,7 +462,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.934";</script>
+<script>const GAME_VERSION="0.935";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -3802,12 +3802,12 @@ const CH_HIP={front:.78,side:.76,back:.79,fdiag:.77,bdiag:.78,d8v:.8,d8s:.77};  
 const LEG_CUT={
   m_d8_d: {poly:[[56,207],[112,207],[124,256],[44,256]],top:2,cut:[85,207,85,256],walk:'lift'},
   m_d8_u: {poly:[[56,207],[112,207],[124,256],[44,256]],top:2,cut:[85,207,85,256],walk:'lift'},
-  m_d8_l: {poly:[[25,222],[55,218],[90,226],[96,226],[146,224],[150,256],[25,256]],top:5,cut:[92,226,92,256],near:'a',swing:.6},
-  m_d8_r: {poly:[[48,224],[96,224],[100,220],[128,212],[160,215],[166,256],[48,256]],top:5,cut:[96,222,96,256],near:'b',swing:.6},
-  m_d8_dl:{poly:[[35,225],[55,207],[110,208],[128,210],[140,230],[140,256],[35,256]],top:4,cut:[91,208,94,256],near:'a',swing:.5},
-  m_d8_dr:{poly:[[45,212],[68,210],[130,207],[142,230],[142,256],[38,256],[38,214]],top:3,cut:[90,208,88,256],near:'b',swing:.5},
-  m_d8_ul:{poly:[[10,215],[40,210],[75,208],[80,214],[126,214],[130,256],[10,256]],top:5,cut:[76,210,70,256],near:'a',swing:.5},
-  m_d8_ur:{poly:[[50,218],[95,216],[100,212],[130,208],[170,212],[174,256],[50,256]],top:5,cut:[99,212,102,256],near:'b',swing:.5},
+  m_d8_l: {poly:[[25,222],[55,218],[90,226],[96,226],[146,224],[150,256],[25,256]],top:5,cut:[92,226,92,256],near:'a',swing:.9},
+  m_d8_r: {poly:[[48,224],[96,224],[100,220],[128,212],[160,215],[166,256],[48,256]],top:5,cut:[96,222,96,256],near:'b',swing:.9},
+  m_d8_dl:{poly:[[35,225],[55,207],[110,208],[128,210],[140,230],[140,256],[35,256]],top:4,cut:[91,208,94,256],near:'a',swing:.8},
+  m_d8_dr:{poly:[[45,212],[68,210],[130,207],[142,230],[142,256],[38,256],[38,214]],top:3,cut:[90,208,88,256],near:'b',swing:.8},
+  m_d8_ul:{poly:[[10,215],[40,210],[75,208],[80,214],[126,214],[130,256],[10,256]],top:5,cut:[76,210,70,256],near:'a',swing:.8},
+  m_d8_ur:{poly:[[50,218],[95,216],[100,212],[130,208],[170,212],[174,256],[50,256]],top:5,cut:[99,212,102,256],near:'b',swing:.8},
 };
 const _legCache=new Map();
 function legLayers(key,im,lc){
@@ -3815,7 +3815,7 @@ function legLayers(key,im,lc){
   const iw=im.naturalWidth,ih=im.naturalHeight,mk=()=>{const c=document.createElement('canvas');c.width=iw;c.height=ih;return c};
   const path=(cg,pts)=>{cg.beginPath();pts.forEach(([x,y],i)=>i?cg.lineTo(x,y):cg.moveTo(x,y));cg.closePath()};
   // 脚の層は上の辺を少し上（パーカーの下）まで伸ばして、振ったときに付け根にすき間ができないようにする
-  const ext=lc.poly.map(([x,y],i)=>i<lc.top?[x,y-8]:[x,y]);
+  const ext=lc.poly.map(([x,y],i)=>i<lc.top?[x,y-12]:[x,y]);
   const [cx0,cy0,cx1,cy1]=lc.cut,xAt=y=>cx0+(cx1-cx0)*(y-cy0)/(cy1-cy0);
   const halfL=[[xAt(-50),-50],[xAt(ih+50),ih+50],[-50,ih+50],[-50,-50]],halfR=[[xAt(-50),-50],[iw+50,-50],[iw+50,ih+50],[xAt(ih+50),ih+50]];
   const leg=half=>{const c=mk(),cg=c.getContext('2d');path(cg,half);cg.clip();path(cg,ext);cg.clip();cg.drawImage(im,0,0);return c};
@@ -3853,12 +3853,12 @@ drawHuman=function(g,x,y,dir,frame,opt){
     g.save();g.translate(-w/2,top);g.scale(k,k);
     if(lc.walk==='lift'){
       // 正面・後ろ：左右の脚を交互に持ち上げる
-      const lift=walking?13:0;
+      const lift=walking?24:0;
       g.drawImage(L.a,0,-Math.max(0,sw)*lift);g.drawImage(L.b,0,-Math.max(0,-sw)*lift);
     }else{
       // 横・斜め：それぞれの脚の付け根を軸に前後へ振る。奥の脚から描く
       // 元の絵は脚を大きく開いているので、開く側は少しだけ、閉じる側を大きく振る
-      const a=walking?(sw>0?sw*.35:sw)*lc.swing:0;
+      const a=walking?(sw>0?sw*.5:sw)*lc.swing:0;
       const leg=(cv,p,ang)=>{g.save();g.translate(p[0],p[1]);g.rotate(ang);g.translate(-p[0],-p[1]);g.drawImage(cv,0,0);g.restore()};
       if(lc.near==='a'){leg(L.b,L.pb,-a);leg(L.a,L.pa,a)}else{leg(L.a,L.pa,a);leg(L.b,L.pb,-a)}   // 右向きの絵は左右反対に振る
     }
