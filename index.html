@@ -470,7 +470,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.943";</script>
+<script>const GAME_VERSION="0.944";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -1762,6 +1762,31 @@ function hintText(){
   }
   return null;
 }
+// 虫取り網：長い柄の先に輪、輪から網の袋が垂れ下がる。向きで見え方を変える
+//  左右＝柄を前へ突き出し、輪は横から見た縦長。上下＝輪を少し上から見た横長の楕円
+function drawNet(g,dir,s,rim){
+  const side=dir==='left'||dir==='right';
+  // 柄
+  const [ex,ey]=side?[s*11,-17]:[s*5,-20];
+  g.strokeStyle='#8a5a34';g.lineWidth=1.8;g.lineCap='round';g.beginPath();g.moveTo(-s*1.5,3);g.lineTo(ex,ey);g.stroke();
+  // 輪の形と、袋の先
+  const cx=side?ex+s*3.5:ex,cy=side?ey-5:ey-4,rx=side?4.2:7,ry=side?6.2:3.2;
+  const tipX=side?cx+s*2.5:cx+s*1.2,tipY=side?cy+15:cy+12;
+  // 網の袋（輪の下に垂れる）。白くすけた布に、細かい網目
+  const bag=()=>{g.beginPath();
+    const w=side?rx+.5:rx,d=side?ry+5:9;
+    g.moveTo(cx-w,cy);g.quadraticCurveTo(cx-w+1,cy+d,tipX,tipY);g.quadraticCurveTo(cx+w-1,cy+d,cx+w,cy);
+    g.ellipse(cx,cy,w,side?ry:ry,0,0,Math.PI,true)
+    g.closePath()};
+  g.save();bag();g.fillStyle='rgba(255,255,255,.62)';g.fill();g.clip();
+  g.strokeStyle='rgba(110,120,130,.55)';g.lineWidth=.55;g.beginPath();
+  for(let k=-24;k<=24;k+=2.4){g.moveTo(cx+k-14,cy-14);g.lineTo(cx+k+14,cy+14);g.moveTo(cx+k+14,cy-14);g.lineTo(cx+k-14,cy+14)}
+  g.stroke();g.restore();
+  bag();g.strokeStyle='rgba(120,128,136,.8)';g.lineWidth=.7;g.stroke();
+  // 輪（ふち）
+  g.strokeStyle=rim;g.lineWidth=1.6;g.beginPath();g.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);g.stroke();
+  g.strokeStyle='rgba(0,0,0,.25)';g.lineWidth=.6;g.beginPath();g.ellipse(cx,cy,rx+.9,ry+.9,0,0,Math.PI*2);g.stroke();
+}
 function drawToolInHand(g,x,y){
   const tool=S.tool;if(tool==='hand')return;
   const [dx]=DIRV[S.dir];const hx=x+(dx||1)*9,hy=y-14;
@@ -1769,7 +1794,7 @@ function drawToolInHand(g,x,y){
   g.save();g.translate(hx,hy);
   if(RT.swing>0&&tool==='net'){g.rotate((dx||1)*(1-RT.swing/.35)*2.2-1)}
   g.strokeStyle='#8a5a34';g.lineWidth=2;
-  if(tool==='net'){g.beginPath();g.moveTo(0,0);g.lineTo(0,-16);g.stroke();g.strokeStyle=metal==='#b07a4a'?'#ddd':metal;g.beginPath();g.arc(0,-21,5,0,7);g.stroke();g.fillStyle='rgba(255,255,255,.4)';g.fill()}
+  if(tool==='net')drawNet(g,S.dir,dx||1,metal==='#b07a4a'?'#d8d8d8':metal);
   if(tool==='rod'){g.beginPath();g.moveTo(0,0);g.lineTo((dx||1)*6,-18);g.stroke()}
   if(tool==='shovel'){g.beginPath();g.moveTo(0,0);g.lineTo(0,-12);g.stroke();g.fillStyle=metal==='#b07a4a'?'#8f979e':metal;g.fillRect(-3,0,6,7)}
   if(tool==='can'){g.fillStyle=tr===3?'#e8b830':tr===2?'#6aa0d8':'#5fae7a';g.fillRect(-5,-6,10,8);g.fillRect(4,-6,5,2)}
