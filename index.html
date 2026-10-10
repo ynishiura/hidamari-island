@@ -470,7 +470,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.955";</script>
+<script>const GAME_VERSION="0.956";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2023,6 +2023,9 @@ function render(t){
   D.push([S.py,()=>{const jh=RT.jumpH||0;if(jh)shadow(ctx,S.px,S.py,8);if(RT.hurt>0&&Math.floor(t*20)%2)ctx.globalAlpha=.45;drawHuman(ctx,S.px,S.py-jh,S.dir,RT.walk||0,{shirt:'#f08a5d',hair:'#5a3a2a'});drawToolInHand(ctx,S.px,S.py-jh);ctx.globalAlpha=1;
     if(RT.slash>0&&skLv('fight')>=3){ctx.strokeStyle=`rgba(255,255,255,${RT.slash*3})`;ctx.lineWidth=3;ctx.beginPath();ctx.arc(S.px,S.py-12,34,0,7);ctx.stroke()}}]);take();
   if(skLv('bug')>=5)RT.bugs.forEach(b=>{if(b.d.rar>=4&&!b.flee)D.push([b.y+1,()=>{for(let i=0;i<3;i++){const a=t*2+i*2.1;circ(ctx,b.x+Math.cos(a)*12,b.y-14+Math.sin(a)*8,1.6,'rgba(255,240,150,.95)')}}])});skip();
+  // 光の当たり方：朝は右（東）から、昼は上から、夕方は左（西）から。夜・家の中・洞窟では使わない
+  {const sun=isl&&sunShadow(),p=sun?clamp((S.min/60-12)/6,-1,1):0;
+   LIGHT.on=!!sun;if(sun){LIGHT.r=Math.max(0,-p);LIGHT.l=Math.max(0,p);LIGHT.t=1-Math.abs(p);LIGHT.a=clamp(sun.a/.32,0,1)}}
   if(isl)castShadows(casts);
   D.sort((a,b)=>a[0]-b[0]).forEach(d=>d[1]());
   if(RT.layout)drawLayoutMarks(ctx);
@@ -2044,6 +2047,10 @@ function render(t){
   // 空の色
   const sk=isl?skyTint():{sun:0,night:0};
   ctx.setTransform(1,0,0,1,0,0);
+  // 空気の遠近感：画面の上（奥）ほど、空の色でうすくかすませる（島の上だけ。夜は暗い青で弱く）
+  if(isl){const hz=ctx.createLinearGradient(0,0,0,cv.height*.5),n=sk.night/.5,col=n>.5?'60,80,130':'214,232,244',a=.26*(1-n*.6)*(S.weather==='晴れ'?1:1.25);
+    hz.addColorStop(0,`rgba(${col},${a})`);hz.addColorStop(.55,`rgba(${col},${a*.35})`);hz.addColorStop(1,`rgba(${col},0)`);
+    ctx.fillStyle=hz;ctx.fillRect(0,0,cv.width,cv.height*.5)}
   if(isl&&S.weather!=='晴れ'){ctx.fillStyle=`rgba(90,100,110,${S.weather==='くもり'?.08:.16})`;ctx.fillRect(0,0,cv.width,cv.height)}
   if(sk.sun>0){ctx.fillStyle=`rgba(255,140,60,${sk.sun})`;ctx.fillRect(0,0,cv.width,cv.height)}
   if(sk.night>0){ctx.fillStyle=`rgba(14,24,70,${sk.night})`;ctx.fillRect(0,0,cv.width,cv.height)}
@@ -3921,10 +3928,34 @@ function onGimgReady(){
 }
 const gi=k=>GIMG[k]||null;
 // 画像を「幅 w・足元 (x,y)」で描く
+// 光の当たり方：絵の形どおりに切り抜いた「光と陰」の重ね絵（左から・上から・右から の3種類）を作っておき、
+// 日の向き（LIGHT）に合わせて重ねる。日の当たる側が明るく、反対側（と下のほう）が暗くなり、丸く立体的に見える
+const LIGHT={on:false,l:0,t:0,r:0,a:0};
+const _litCache=new WeakMap();
+function litOverlay(im,side){
+  let m=_litCache.get(im);if(!m){m={};_litCache.set(im,m)}
+  if(m[side])return m[side];
+  const W=Math.min(256,im.naturalWidth),H=Math.round(W*im.naturalHeight/im.naturalWidth);
+  const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');
+  g.drawImage(im,0,0,W,H);g.globalCompositeOperation='source-in';
+  // 光の来る側（上の角）から反対側の下へ
+  const [x0,y0,x1,y1]=side==='l'?[0,0,W,H*.9]:side==='r'?[W,0,0,H*.9]:[W*.5,0,W*.5,H];
+  const gr=g.createLinearGradient(x0,y0,x1,y1);
+  gr.addColorStop(0,'rgba(255,246,214,.55)');gr.addColorStop(.38,'rgba(255,246,214,0)');gr.addColorStop(.62,'rgba(20,32,48,0)');gr.addColorStop(1,'rgba(20,32,48,.5)');
+  g.fillStyle=gr;g.fillRect(0,0,W,H);
+  return m[side]=c;
+}
+function litDraw(g,im,x,y,w,h,flip){
+  if(!LIGHT.on||!im.naturalWidth)return;
+  const ga=g.globalAlpha;
+  for(const [side,wt] of [['l',flip?LIGHT.r:LIGHT.l],['t',LIGHT.t],['r',flip?LIGHT.l:LIGHT.r]]){
+    if(wt<.02)continue;g.globalAlpha=ga*wt*LIGHT.a;g.drawImage(litOverlay(im,side),x,y,w,h)}
+  g.globalAlpha=ga;
+}
 function drawImgFoot(g,im,x,y,w,flip){
   const h=w*im.naturalHeight/im.naturalWidth;
-  if(flip){g.save();g.translate(x,y);g.scale(-1,1);g.drawImage(im,-w/2,-h,w,h);g.restore()}
-  else g.drawImage(im,x-w/2,y-h,w,h);
+  if(flip){g.save();g.translate(x,y);g.scale(-1,1);g.drawImage(im,-w/2,-h,w,h);litDraw(g,im,-w/2,-h,w,h,true);g.restore()}
+  else{g.drawImage(im,x-w/2,y-h,w,h);litDraw(g,im,x-w/2,y-h,w,h,false)}
   return h;
 }
 
