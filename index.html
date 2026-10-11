@@ -427,6 +427,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
         <button id="tNew" class="tbtn">はじめから</button>
         <button id="tHowto" class="tbtn sub">あそびかた</button>
         <button id="tLicense" class="tbtn sub">ライセンス</button>
+        <button id="tExit" class="tbtn sub">終了</button>
       </div>
       <p class="tfoot">画面にふれると音が鳴ります ・ 音は右下の「音」ボタンで切りかえ</p>
     </div>
@@ -444,6 +445,11 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
       <p>いまのセーブ（<span id="confirmInfo"></span>）は消えて、もとに戻せません。</p>
       <button class="go danger" id="tConfirmYes">セーブを消して、はじめから</button>
       <button class="tback" id="tConfirmNo">やめる</button>
+    </div>
+    <div id="titleExit" class="tpane box" hidden>
+      <h2>またね！</h2>
+      <p id="exitMsg">ここまでの島のくらしは、セーブされています。<br>このタブ（またはアプリ）を閉じて終了してください。</p>
+      <button class="tback" id="exitBack">タイトルにもどる</button>
     </div>
     <div id="titleLicense" class="tpane box lic" hidden>
       <h2>ライセンス</h2>
@@ -482,7 +488,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.967";</script>
+<script>const GAME_VERSION="0.968";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -4745,7 +4751,7 @@ updateSndBtn();
 // ===================== タイトル画面 =====================
 // 画面：titleMain（ロゴとメニュー）/ titleSetup（名前と男女）/ titleConfirm（はじめからの確認）/ titleHowto（あそびかた）
 let titleMode='new',titleHasSave=false;
-function showTitlePane(id){for(const p of ['titleMain','titleSetup','titleConfirm','titleHowto','titleLicense'])$(p).hidden=p!==id}
+function showTitlePane(id){for(const p of ['titleMain','titleSetup','titleConfirm','titleHowto','titleLicense','titleExit'])$(p).hidden=p!==id}
 function saveInfo(){return `${S.name&&S.name!=='あなた'?S.name+'・':''}${SEASONS[season()]} ${dayInSeason()}日目`}
 function setupTitle(hasSave){
   titleHasSave=hasSave;
@@ -4756,12 +4762,20 @@ function setupTitle(hasSave){
   $('tNew').onclick=()=>{if(titleHasSave){$('confirmInfo').textContent=saveInfo();showTitlePane('titleConfirm')}else openSetup('new')};
   $('tHowto').onclick=()=>showTitlePane('titleHowto');
   $('tLicense').onclick=()=>showTitlePane('titleLicense');
+  // 終了：音を止めて、閉じられるときは画面（アプリ）を閉じる。ブラウザのタブはゲームの側からは閉じられないことが多いので、
+  // 閉じられなかったときは「タブを閉じて終了してください」と出す
+  $('tExit').onclick=()=>{
+    try{if(S&&!RT.needName&&titleHasSave)save()}catch(e){}
+    try{if(typeof stopTrack==='function'&&AC)stopTrack();if(AC&&AC.state==='running')AC.suspend()}catch(e){}
+    showTitlePane('titleExit');
+    try{window.close()}catch(e){}
+  };
   $('tConfirmYes').onclick=()=>{
     try{localStorage.removeItem(SAVE_KEY)}catch(e){}
     S=newState('');genWorld(S.seed);initDaily();placeAtHome();resetVillagers();
     titleHasSave=false;$('tContinue').hidden=true;RT.needName=false;openSetup('new');
   };
-  for(const id of ['tConfirmNo','howtoBack','setupBack','licenseBack'])$(id).onclick=()=>showTitlePane('titleMain');
+  for(const id of ['tConfirmNo','howtoBack','setupBack','licenseBack','exitBack'])$(id).onclick=()=>{showTitlePane('titleMain');if(typeof audioResume==='function')audioResume()};
   showTitlePane('titleMain');titleChars();startTitleFx();
 }
 function openSetup(mode){
