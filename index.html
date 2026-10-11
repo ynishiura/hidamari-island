@@ -174,6 +174,13 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
 #title .tagline{display:inline-block;margin:12px 0 0;font-weight:900;font-size:15px;color:#fff;background:rgba(36,70,52,.62);padding:4px 16px;border-radius:999px;letter-spacing:.06em}
 .tmenu{display:flex;flex-direction:column;gap:10px;width:min(100%,280px);opacity:0}
 #title.ready .tmenu{opacity:1;animation:fadeUp .8s .5s both}
+/* 読み込みが終わるまでは「読み込み中...」を出し、ボタンは押せないようにする（title.js の setupTitle で外す） */
+#title:not(.booted) .tmenu .tbtn{opacity:.45;pointer-events:none;filter:grayscale(.4)}
+#title.booted .tloading{display:none}
+.tloading{font-family:var(--f-display);font-weight:900;font-size:20px;color:#fff;text-shadow:0 2px 0 rgba(30,60,40,.6),0 0 12px rgba(30,60,40,.5);letter-spacing:.08em}
+.tloading span{display:inline-block;animation:ldot 1.2s infinite}
+.tloading span:nth-child(2){animation-delay:.2s}.tloading span:nth-child(3){animation-delay:.4s}
+@keyframes ldot{0%,60%,100%{transform:none;opacity:.4}30%{transform:translateY(-5px);opacity:1}}
 .tbtn{font-family:var(--f-body);font-weight:900;font-size:18px;color:var(--ink);background:rgba(246,250,243,.94);border:3px solid var(--leaf);border-radius:999px;padding:10px 18px;box-shadow:0 4px 0 var(--leaf-deep);display:flex;flex-direction:column;align-items:center;line-height:1.2;transition:transform .12s}
 .tbtn small{font-size:11px;font-weight:700;color:var(--ink-soft);margin-top:2px}
 .tbtn.main{background:var(--sun);border-color:#c8851c;box-shadow:0 4px 0 #c8851c;font-size:20px}
@@ -415,6 +422,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
         <p class="tagline">くらすほど、じぶんも島も育っていく。</p>
       </div>
       <div class="tmenu">
+        <div id="tLoading" class="tloading" role="status" aria-live="polite">読み込み中<span>.</span><span>.</span><span>.</span></div>
         <button id="tContinue" class="tbtn main" hidden>つづきから<small id="tContInfo"></small></button>
         <button id="tNew" class="tbtn">はじめから</button>
         <button id="tHowto" class="tbtn sub">あそびかた</button>
@@ -474,7 +482,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.965";</script>
+<script>const GAME_VERSION="0.966";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -4741,6 +4749,7 @@ function showTitlePane(id){for(const p of ['titleMain','titleSetup','titleConfir
 function saveInfo(){return `${S.name&&S.name!=='あなた'?S.name+'・':''}${SEASONS[season()]} ${dayInSeason()}日目`}
 function setupTitle(hasSave){
   titleHasSave=hasSave;
+  $('title').classList.add('booted');   // 読み込み完了：「読み込み中...」を消してボタンを押せるようにする
   $('tContinue').hidden=!hasSave;
   if(hasSave)$('tContInfo').textContent=saveInfo();
   $('tContinue').onclick=()=>{if(RT.needName||!S.gender)openSetup('continue');else continueGame()};
