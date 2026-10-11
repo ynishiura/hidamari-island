@@ -489,7 +489,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.970";</script>
+<script>const GAME_VERSION="0.971";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -4724,7 +4724,7 @@ addEventListener('resize',()=>{if($('app').classList.contains('menuOpen'))setMen
 $('bMenu').onclick=()=>setMenuOpen(!$('app').classList.contains('menuOpen'));
 // 中のボタンを押したら閉じる（音の切りかえも含む）。メニューの外をさわっても閉じる
 $('menubtns').addEventListener('click',e=>{if(e.target.closest('.mbtn'))setMenuOpen(false)});
-addEventListener('pointerdown',e=>{if($('app').classList.contains('menuOpen')&&!e.target.closest('#menubtns,#bMenu'))setMenuOpen(false)},true);
+addEventListener('pointerdown',e=>{if($('app').classList.contains('menuOpen')&&!e.target.closest('#menubtns,#bMenu,#abtn'))setMenuOpen(false)},true);   // A ボタンは自分で開け閉めする
 // バージョン表示
 for(const id of ['verTitle','verGame']){const el=$(id);if(el)el.textContent='ver '+(typeof GAME_VERSION!=='undefined'?GAME_VERSION:'?')}
 $('minimap').addEventListener('click',()=>{if(!RT.title&&!RT.dlg)openMap()});
@@ -4987,7 +4987,12 @@ const pad={x:0,y:0,id:null};
   dp.addEventListener('pointermove',e=>{if(pad.id===e.pointerId)upd(e)});
   const end=e=>{if(pad.id!==e.pointerId)return;pad.id=null;pad.x=pad.y=0;kn.style.transform=''};
   dp.addEventListener('pointerup',end);dp.addEventListener('pointercancel',end);
-  $('abtn').addEventListener('pointerdown',e=>{e.preventDefault();if(!RT.title)pressA()});
+  // スマホの A ボタン：できることが何もないときは、メニューを開く（開いているときはもう一度押すと閉じる）
+  $('abtn').addEventListener('pointerdown',e=>{e.preventDefault();if(RT.title)return;
+    const menuOpen=$('app').classList.contains('menuOpen');
+    if(menuOpen){setMenuOpen(false);return}
+    if(S&&!RT.dlg&&!RT.catchShow&&!RT.panel&&!RT.fishing&&!RT.jump&&!RT.layout&&!hintText()){setMenuOpen(true);return}
+    pressA()});
 })();
 
 // ===================== ループ =====================
