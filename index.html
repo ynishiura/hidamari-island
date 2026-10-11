@@ -348,7 +348,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
   .tool .lbl{font-size:9px}
   #dpad{left:max(12px,env(safe-area-inset-left,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));width:104px;height:104px}
   #dpad i{width:34px;height:34px;left:33px;top:33px}
-  #abtn{right:calc(24px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));width:60px;height:60px;font-size:18px}
+  #abtn{right:calc(52px + env(safe-area-inset-right,0px));bottom:calc(38px + env(safe-area-inset-bottom,0px));width:60px;height:60px;font-size:18px}   /* 右下の角から少し左上へ（親指が届きやすく、角の丸みに隠れないように） */
   #toasts{top:8px;width:min(calc(100% - 450px),360px);min-width:220px}
   .toast{font-size:12px;padding:4px 12px}
   #dialog{bottom:calc(54px + env(safe-area-inset-bottom,0px));width:min(calc(100% - 140px),560px);padding:14px 16px 10px;border-radius:18px}
@@ -489,7 +489,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.969";</script>
+<script>const GAME_VERSION="0.970";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
