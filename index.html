@@ -497,7 +497,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.973";</script>
+<script>const GAME_VERSION="0.974";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2006,6 +2006,44 @@ function castShadows(list){
   sg.setTransform(1,0,0,1,0,0);sg.globalCompositeOperation='source-in';sg.fillStyle='rgb(22,34,26)';sg.fillRect(0,0,cv.width,cv.height);sg.globalCompositeOperation='source-over';
   ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=sun.a;ctx.drawImage(shadowCv,0,0);ctx.restore();
 }
+// 洞窟の上り階段：岩のアーチの奥へ石段がのぼっていき、上から外（上の階）の光がさしこむ。横に「出口」の立て札
+function drawUpStairs(g,x,y,t){
+  const px=x*T,py=y*T,cx=px+T/2,exit=caveFloor()===1,pl=.5+.5*Math.sin(t*2.2);
+  const lit=exit?'255,236,180':'200,215,255';
+  // 足もとに広がる光
+  const fl=g.createRadialGradient(cx,py+T*.9,2,cx,py+T*.9,T*1.1);fl.addColorStop(0,`rgba(${lit},${.28+.1*pl})`);fl.addColorStop(1,`rgba(${lit},0)`);
+  g.fillStyle=fl;g.beginPath();g.ellipse(cx,py+T*.9,T*1.1,T*.55,0,0,Math.PI*2);g.fill();
+  // 岩のアーチ（ふち）
+  const ax0=px-3,ax1=px+T+3,atop=py-16,abot=py+T-2;
+  g.fillStyle='#3a312b';g.beginPath();g.moveTo(ax0,abot);g.lineTo(ax0,atop+14);g.quadraticCurveTo(cx,atop-8,ax1,atop+14);g.lineTo(ax1,abot);g.closePath();g.fill();
+  g.fillStyle='#4f443c';for(const [sx,sy,r] of [[ax0+3,abot-6,3.5],[ax0+2,atop+20,3],[ax1-3,abot-9,3.5],[ax1-2,atop+18,3],[cx-8,atop+3,3],[cx+7,atop+2,3.2]])ell(g,sx,sy,r,r*.8,'#5a4e45');
+  // 入口の中（上ほど明るい＝外の光）
+  const ix0=px+3,ix1=px+T-3,itop=atop+9,ibot=abot;
+  const ig=g.createLinearGradient(0,itop,0,ibot);ig.addColorStop(0,`rgba(${lit},1)`);ig.addColorStop(.35,`rgba(${lit},.75)`);ig.addColorStop(1,'rgba(40,32,26,1)');
+  g.fillStyle=ig;g.beginPath();g.moveTo(ix0,ibot);g.lineTo(ix0,itop+10);g.quadraticCurveTo(cx,itop-6,ix1,itop+10);g.lineTo(ix1,ibot);g.closePath();g.fill();
+  // 石段：手前ほど広く暗く、奥（上）ほど細く明るい。踏み面と蹴上げを塗り分ける
+  const N=6;
+  for(let i=0;i<N;i++){
+    const k=i/(N-1),w=(T-6)*(1-k*.45),yb=ibot-i*((ibot-itop-8)/N),h=(ibot-itop-8)/N;
+    const bright=.35+.65*k,tread=`rgb(${Math.round(120+95*bright)},${Math.round(106+86*bright)},${Math.round(86+70*bright)})`,riser=`rgb(${Math.round(70+70*bright)},${Math.round(60+62*bright)},${Math.round(50+50*bright)})`;
+    g.fillStyle=riser;g.fillRect(cx-w/2,yb-h,w,h);                                  // 蹴上げ（正面）
+    g.fillStyle=tread;g.fillRect(cx-w/2,yb-h,w,Math.max(1.5,h*.42));                 // 踏み面（上）
+    g.fillStyle=`rgba(255,255,255,${.25+.35*k})`;g.fillRect(cx-w/2,yb-h,w,.8);       // 段のふちの光
+    g.fillStyle='rgba(0,0,0,.25)';g.fillRect(cx-w/2,yb-h,1.2,h);g.fillRect(cx+w/2-1.2,yb-h,1.2,h);
+  }
+  // 上からさしこむ光の筋（ゆっくり明るさが変わる）
+  g.save();g.globalCompositeOperation='lighter';
+  const rg=g.createLinearGradient(0,itop,0,ibot+6);rg.addColorStop(0,`rgba(${lit},${.35+.15*pl})`);rg.addColorStop(1,`rgba(${lit},0)`);
+  g.fillStyle=rg;g.beginPath();g.moveTo(cx-5,itop);g.lineTo(cx+5,itop);g.lineTo(cx+13,ibot+6);g.lineTo(cx-13,ibot+6);g.closePath();g.fill();
+  for(let i=0;i<4;i++){const ph=(t*.35+i*.27)%1;circ(g,cx-8+((i*37)%16),itop+4+ph*(ibot-itop),.7,`rgba(${lit},${.6*(1-ph)})`)}   // 光の中のほこり
+  g.restore();
+  // 立て札（左）
+  const sx=ax0-9,sy=abot-4;
+  g.fillStyle='#6b4a2a';g.fillRect(sx-1,sy-16,2.4,16);
+  rrect(g,sx-10,sy-25,20,11,2,'#a8763f');g.strokeStyle='#5a3a1e';g.lineWidth=.8;g.strokeRect(sx-10,sy-25,20,11);
+  g.fillStyle='#fff6dc';g.font='bold 7px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(exit?'出口':'上へ',sx,sy-19.3);
+  g.fillStyle=`rgba(255,240,180,${.5+.4*pl})`;g.beginPath();g.moveTo(cx,atop-9);g.lineTo(cx-4,atop-4);g.lineTo(cx+4,atop-4);g.closePath();g.fill();   // 上向きの小さな目じるし
+}
 function render(t){
   const s=season();
   ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=W.home?'#1f1712':'#4a9fcd';ctx.fillRect(0,0,cv.width,cv.height);
@@ -2027,6 +2065,7 @@ function render(t){
   if(isl)for(const [x,y] of S.holes){ell(ctx,(x+.5)*T,(y+.5)*T+4,10,6,'#6b4f32');ell(ctx,(x+.5)*T,(y+.5)*T+5,7,4,'#4a3522')}
   ctx.strokeStyle='rgba(80,55,30,.75)';ctx.lineWidth=2;
   drawShadows(ctx,t);
+  if(inCave())for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)if(tileAt(x,y)===10)drawUpStairs(ctx,x,y,t);   // 上り階段（外への出口）
   ctx.strokeStyle='rgba(80,55,30,.75)';ctx.lineWidth=2;
   if(isl)for(const [x,y,hid] of S.dig){if(hid&&skLv('dig')<3)continue;const px=(x+.5)*T,py=(y+.5)*T+4;if(hid){circ(ctx,px,py-2,9,`rgba(255,240,160,${.25+.2*Math.sin(t*3)})`);ctx.strokeStyle='rgba(120,80,30,.85)'}else ctx.strokeStyle='rgba(80,55,30,.75)';ctx.beginPath();ctx.moveTo(px-6,py-4);ctx.lineTo(px+6,py+4);ctx.moveTo(px+6,py-4);ctx.lineTo(px-6,py+4);ctx.moveTo(px,py-6);ctx.lineTo(px,py-2);ctx.stroke()}
   if(isl)for(const [x,y] of S.shells){const px=(x+.5)*T,py=(y+.5)*T+4;ctx.fillStyle='#f7c9c0';ctx.beginPath();ctx.moveTo(px-6,py+3);ctx.quadraticCurveTo(px,py-9,px+6,py+3);ctx.closePath();ctx.fill();ctx.strokeStyle='#e09a8c';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(px,py+3);ctx.lineTo(px,py-4);ctx.moveTo(px-3,py+3);ctx.lineTo(px-2,py-2);ctx.moveTo(px+3,py+3);ctx.lineTo(px+2,py-2);ctx.stroke()}
@@ -2897,11 +2936,20 @@ function drawNode(g,o,i){
   if(o.type==='silver'||o.type==='gold'||o.type==='crystal'){const tw=.5+.5*Math.sin(performance.now()/300+i);circ(g,x+3,y-17,1.4+tw,'rgba(255,255,255,.9)')}
   g.restore();
 }
+let caveDarkCv=null;
 function drawCaveDark(cx,cy,vw,vh){
   const r1=S.flags.lantern?175:100,px=S.px,py=S.py-14;
-  const gr=ctx.createRadialGradient(px,py,r1*.35,px,py,r1);
+  // 暗さはいったん別のキャンバスに描き、上り階段（出口）のまわりだけ暗さを抜いてから重ねる（外の光で明るく見えるように）
+  if(!caveDarkCv)caveDarkCv=document.createElement('canvas');
+  if(caveDarkCv.width!==cv.width||caveDarkCv.height!==cv.height){caveDarkCv.width=cv.width;caveDarkCv.height=cv.height}
+  const dg=caveDarkCv.getContext('2d');dg.setTransform(1,0,0,1,0,0);dg.clearRect(0,0,cv.width,cv.height);dg.setTransform(ctx.getTransform());
+  const gr=dg.createRadialGradient(px,py,r1*.35,px,py,r1);
   gr.addColorStop(0,'rgba(6,5,12,0)');gr.addColorStop(1,'rgba(6,5,12,.93)');
-  ctx.fillStyle=gr;ctx.fillRect(cx-10,cy-10,vw+20,vh+20);
+  dg.fillStyle=gr;dg.fillRect(cx-10,cy-10,vw+20,vh+20);
+  if(W.up){const ux=(W.up.x+.5)*T,uy=(W.up.y+.2)*T,hole=dg.createRadialGradient(ux,uy,10,ux,uy,58);
+    hole.addColorStop(0,'rgba(0,0,0,1)');hole.addColorStop(.55,'rgba(0,0,0,.75)');hole.addColorStop(1,'rgba(0,0,0,0)');
+    dg.globalCompositeOperation='destination-out';dg.fillStyle=hole;dg.fillRect(ux-60,uy-60,120,120);dg.globalCompositeOperation='source-over'}
+  ctx.save();ctx.setTransform(1,0,0,1,0,0);if(cv.width&&cv.height)ctx.drawImage(caveDarkCv,0,0);ctx.restore();
   ctx.globalCompositeOperation='lighter';
   const glow=(x,y,r,c)=>{const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,c);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2)};
   if(W.up)glow((W.up.x+.5)*T,(W.up.y+.5)*T,56,'rgba(255,230,170,.35)');
@@ -3395,7 +3443,7 @@ function caveGround(){
   blob(g,lake,'#1f4a66',T*.5);
   for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){
     const t=tt(x,y),px=x*T,py=y*T;
-    if(t===10){g.fillStyle='#8a7a62';for(let i=0;i<4;i++){g.fillRect(px+4+i*2,py+22-i*6,T-8-i*4,5);g.fillStyle=i%2?'#8a7a62':'#9c8b70'}g.fillStyle='rgba(255,240,200,.28)';g.fillRect(px+4,py+2,T-8,T-4)}
+    // 上り階段（t===10）は p6.js の drawUpStairs が毎回描く（光が動くため）
     if(t===11){g.fillStyle='#0f0c0a';g.beginPath();g.ellipse(px+16,py+16,13,12,0,0,7);g.fill();g.fillStyle='#6b5d4c';for(let i=0;i<4;i++)g.fillRect(px+8+i*2,py+7+i*5,T-16-i*4,2.5)}
   }
   return c;
