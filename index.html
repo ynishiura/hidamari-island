@@ -517,7 +517,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.986";</script>
+<script>const GAME_VERSION="0.987";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -861,7 +861,7 @@ const RECIPES=[
   {id:'r_bow',name:'弓',lv:4,mats:{wood:4,silk:2},weapon:'bow',note:'武器。矢を放って、離れた敵をねらう'},
   {id:'r_hammer',name:'ハンマー',lv:5,mats:{iron:4,fang:2},weapon:'hammer',note:'武器。まわり全体を強くたたく（少し遅い）'},
   {id:'r_bait',name:'釣りエサ ×3',lv:1,mats:{shell:1},out:['bait',3],note:'釣りの腕が上がると、役に立つらしい'},
-  {id:'r_f_box',name:'収納箱',lv:1,mats:{wood:6},furn:'box',note:'家具。家に置くと、50個までしまっておける'},
+  {id:'r_f_box',name:'収納箱',lv:1,mats:{wood:6},furn:'box',note:'家具。1つに50個までしまえる（箱ごとに別々）。置ける数は家の大きさで決まる'},
   {id:'r_f_plant',name:'植木鉢',lv:1,mats:{stone:3,branch:2},furn:'plant',note:'家具。部屋に緑をそえる'},
   {id:'r_f_table',name:'テーブル',lv:2,mats:{wood:5},furn:'table',note:'家具。木のテーブル'},
   {id:'r_f_shelf',name:'本だな',lv:3,mats:{wood:8},furn:'shelf',note:'家具。壁ぎわにどうぞ'},
@@ -884,7 +884,8 @@ const HOUSE=[
   {name:'木の家',cap:50,bells:20000,mat:'wood',n:20},
   {name:'大きな家',cap:70,bells:60000,mat:'gold',n:3},
 ];
-const BOX_CAP=50;   // 家の収納箱に入る数
+const BOX_CAP=50;   // 収納箱1つに入る数（箱ごとに別々にしまう）
+const BOX_MAX=[2,3,4,6];   // 家に置ける収納箱の数（テント／小さな家／木の家／大きな家）
 const TITLES=[[1,'島の新入り'],[3,'見習い島民'],[5,'ひだまりの住人'],[8,'島の物知り'],[12,'自然の友'],[16,'島のたつじん'],[20,'ひだまりの名人'],[25,'島の伝説']];
 function titleFor(lv){let t=TITLES[0][1];for(const [l,n] of TITLES)if(lv>=l)t=n;return t}
 const MAX_LV=30, MAX_SK=10;
@@ -1245,7 +1246,6 @@ const maxSta=()=>50+(S.lv-1)*6;
 const maxMp=()=>10+skLv('magic')*4;
 const bagCap=()=>HOUSE[S.house].cap;
 const bagCount=()=>Object.values(S.bag).reduce((a,b)=>a+b,0);
-const boxCount=()=>Object.values(S.box).reduce((a,b)=>a+b,0);
 const skLv=id=>S.skills[id].lv;
 const tier=id=>S.tools[id]||0;
 const sellPrice=id=>ITEMS[id].price;
@@ -2468,7 +2468,7 @@ function openShop(tab){
       body.append(grid);
     }
     if(t==='furn'){
-      body.append(h('p',{class:'muted',style:'margin:0 0 10px'},'買った家具は、家の中の「レイアウト」から好きな所に置けるよ。収納箱・植木鉢・テーブル・本だなはクラフトでも作れる。'));
+      body.append(h('p',{class:'muted',style:'margin:0 0 10px'},'買った家具は、家の中の「レイアウト」から好きな所に置けるよ。収納箱・植木鉢・テーブル・本だなはクラフトでも作れる。収納箱は箱ごとに別々にしまえて、置ける数は家の大きさで決まる（テント2・小さな家3・木の家4・大きな家6）。'));
       const grid=h('div',{class:'grid'});
       for(const [type,d] of Object.entries(FURN_DEF)){
         if(!d.price)continue;
@@ -2775,15 +2775,21 @@ function moveItem(from,to,id,n,cap,capFn){
   if(n>room){n=room;toast(`入るのは${room}個まで。${room}個だけ移した`)}
   from[id]-=n;if(from[id]<=0)delete from[id];to[id]=(to[id]||0)+n;if(S.held===id&&!S.bag[id])S.held=null;updateHud();refresh();
 }
-function openBox(){
-  openPanel('収納箱',null,null,body=>{
+// 収納箱は1つずつ別々の入れ物（家具 f.items）。何番目の箱かを名前に出す
+const itemCount=o=>Object.values(o).reduce((a,b)=>a+b,0);
+function openBox(f){
+  boxAdopt(W.furn);
+  const boxes=W.furn.filter(o=>o.type==='box');f=f||boxes[0];if(!f)return;
+  f.items=f.items||{};
+  const no=boxes.indexOf(f)+1,cnt=()=>itemCount(f.items);
+  openPanel(boxes.length>1?`収納箱 ${no}（${boxes.length}個のうち）`:'収納箱',null,null,body=>{
     const col=(title,src,dst,cap,capFn,lbl)=>{
       const ids=Object.keys(src);
       return h('div',{class:'card',style:'min-width:0'},h('b',{class:'prog'},title),
         ids.length?h('div',{class:'stack',style:'gap:6px'},ids.map(id=>h('div',{class:'rowline',style:'margin:0;gap:6px'},iconCanvas(id,22),h('span',{class:'grow'},`${ITEMS[id].name} ×${src[id]}`),
           h('button',{class:'btn sub',on:()=>moveItem(src,dst,id,1,cap,capFn)},lbl),src[id]>1?h('button',{class:'btn sub',on:()=>moveItem(src,dst,id,src[id],cap,capFn)},'全部'):null))):h('p',{class:'muted'},'からっぽ'));
     };
-    body.append(h('div',{class:'two'},col(`ポケット ${bagCount()}/${bagCap()}`,S.bag,S.box,BOX_CAP,boxCount,'預ける'),col(`収納箱 ${boxCount()}/${BOX_CAP}`,S.box,S.bag,bagCap(),bagCount,'取り出す')));
+    body.append(h('div',{class:'two'},col(`ポケット ${bagCount()}/${bagCap()}`,S.bag,f.items,BOX_CAP,cnt,'預ける'),col(`収納箱${boxes.length>1?' '+no:''} ${cnt()}/${BOX_CAP}`,f.items,S.bag,bagCap(),bagCount,'取り出す')));
   });
 }
 
@@ -3097,7 +3103,7 @@ const HOME_OX=6,HOME_OY=6;                        // 部屋の左上のマス
 const FURN_DEF={
   bed:{name:'ベッド',w:1,h:2,fixed:true},
   bench:{name:'作業台',w:2,h:1,fixed:true},
-  box:{name:'収納箱',w:1,h:1,price:3000,note:'50個までしまっておける'},
+  box:{name:'収納箱',w:1,h:1,price:3000,note:'1つに50個。箱ごとに別々にしまえる'},
   plant:{name:'植木鉢',w:1,h:1,price:1200,note:'部屋に緑をそえる'},
   rug:{name:'カーペット',w:3,h:2,price:2500,floor:true,note:'床に敷く。上を歩ける'},
   table:{name:'テーブル',w:2,h:1,price:4000,note:'木のテーブル'},
@@ -3107,7 +3113,15 @@ const FURN_DEF={
 const FURN_NAME=Object.fromEntries(Object.entries(FURN_DEF).map(([k,d])=>[k,d.name]));
 const isFloor=f=>!!FURN_DEF[f.type].floor;
 // 置いた家具：x,y は部屋の左上からのマス、w,h は今の向きでの大きさ、bw,bh は回転する前の大きさ、rot は 0〜3（90°ずつ）
-const mkFurn=(type,x=0,y=0)=>{const d=FURN_DEF[type];return {type,x,y,w:d.w,h:d.h,bw:d.w,bh:d.h,rot:0}};
+const mkFurn=(type,x=0,y=0)=>{const d=FURN_DEF[type],f={type,x,y,w:d.w,h:d.h,bw:d.w,bh:d.h,rot:0};if(type==='box')f.items={};return f};
+// 収納箱：中身は箱ごと（f.items）。以前の版の「家に1つの収納」（S.box）の中身や、置けなくなった箱の中身は、
+// S.box に預かっておき、部屋に箱があれば最初の箱へ移す
+function boxAdopt(list){
+  for(const f of list)if(f.type==='box')f.items=f.items||{};
+  const b=list.find(f=>f.type==='box');if(!b||!S.box||!Object.keys(S.box).length)return;
+  for(const [id,n] of Object.entries(S.box))b.items[id]=(b.items[id]||0)+n;S.box={};
+}
+const boxMax=()=>BOX_MAX[S.house]||2;
 // はじめての家：ベッドと作業台だけ
 function defaultFurn(w,h){return [mkFurn('bed',0,0),mkFurn('bench',w-2,0)]}
 // 以前の版で遊んでいたセーブ：そのころ部屋にあった家具（収納箱など）をそのまま引きつぐ
@@ -3171,7 +3185,7 @@ function placeFree(list,f,w,h,ex,ey){
 // 部屋が変わって（増築など）今の並びが合わなくなったら、ベッドと作業台を元の場所に戻し、ほかは置ける所へ。置けない物はしまう
 function arrangeFurn(list,w,h,ex,ey){
   const out=defaultFurn(w,h);
-  for(const f of list){if(FURN_DEF[f.type].fixed)continue;const g={...f};if(!placeFree(out,g,w,h,ex,ey))S.furnInv[f.type]=(S.furnInv[f.type]||0)+1}
+  for(const f of list){if(FURN_DEF[f.type].fixed)continue;const g={...f};if(!placeFree(out,g,w,h,ex,ey)){S.furnInv[f.type]=(S.furnInv[f.type]||0)+1;if(f.items){S.box=S.box||{};for(const [id,n] of Object.entries(f.items))S.box[id]=(S.box[id]||0)+n}}}
   return out;
 }
 // 通れないマスを、家具の今の位置から作り直す（床に敷く物は通れる）
@@ -3190,6 +3204,7 @@ function genHome(lv){
   if(S.furnLegacy){S.homeFurn=legacyFurn(lv,w,h);delete S.furnLegacy;delete S.homeLayout}
   if(!S.homeFurn)S.homeFurn=defaultFurn(w,h);
   if(furnProblem(S.homeFurn,w,h,ex,ey))S.homeFurn=arrangeFurn(S.homeFurn,w,h,ex,ey);
+  boxAdopt(S.homeFurn);
   const M={id:'home'+lv,home:true,lv,w,h,ox,oy,tiles,block,door,furn:S.homeFurn,
     trees:[],rocks:[],bld:[],treeAt:new Map(),rockAt:new Map(),nodes:[],nodeAt:new Map(),
     start:{x:(door.x+.5)*T,y:(door.y-.5)*T+4},
@@ -3223,7 +3238,7 @@ function useFurn(f){
     ['セーブする',()=>{save();closeDialog();toast('セーブしました')}],
     ['やめる',closeDialog]]);
   else if(f.type==='bench')openCraft();
-  else if(f.type==='box')openBox();
+  else if(f.type==='box')openBox(f);
   else toast(f.type==='plant'?'葉っぱがつやつやしている':f.type==='shelf'?'島の図鑑や、釣りの本が並んでいる':f.type==='sofa'?'すわり心地のいいソファ':'木のテーブル。');
 }
 function atDoor(x,y){return inHome()&&x===W.door.x&&y===W.door.y}
@@ -3296,41 +3311,181 @@ function drawFurn(g,f){
   const FW=(f.bw||f.w)*T,FH=(f.bh||f.h)*T,X=-FW/2,Y=-FH/2,lv=W.lv;
   drawFurnArt(g,f,X,Y,FW,FH,lv);g.restore();
 }
+// 家具の絵：木目・布の織り目・光と影をつけて、本物らしく描く。
+// 描くのに手間がかかるので、種類・大きさ・家の段階ごとに一度だけ下絵（3倍の細かさ）に描いておき、毎回はそれを貼る
+const FURN_ART={},FURN_SC=3,FURN_PAD=40;
 function drawFurnArt(g,f,X,Y,FW,FH,lv){
-  if(f.type==='rug'){
-    g.fillStyle='#d9887a';g.beginPath();g.roundRect(X+5,Y+5,FW-10,FH-10,10);g.fill();
-    g.strokeStyle='#f6e2c8';g.lineWidth=3;g.beginPath();g.roundRect(X+11,Y+11,FW-22,FH-22,6);g.stroke();
-    g.fillStyle='rgba(255,240,220,.35)';for(let i=0;i<3;i++){g.beginPath();g.arc(X+FW/2+(i-1)*14,Y+FH/2,3,0,7);g.fill()}
+  const key=f.type+':'+FW+'x'+FH+':'+lv;let c=FURN_ART[key];
+  if(!c){c=document.createElement('canvas');c.width=(FW+FURN_PAD*2)*FURN_SC;c.height=(FH+FURN_PAD*2)*FURN_SC;
+    const cg=c.getContext('2d');cg.scale(FURN_SC,FURN_SC);cg.translate(FURN_PAD,FURN_PAD);furnPaint(cg,f.type,FW,FH,lv);FURN_ART[key]=c}
+  g.drawImage(c,X-FURN_PAD,Y-FURN_PAD,FW+FURN_PAD*2,FH+FURN_PAD*2);
+}
+// ---- 材料の描き方 ----
+const fRR=(g,x,y,w,h,r)=>{g.beginPath();g.roundRect(x,y,w,h,r)};
+function fLin(g,x0,y0,x1,y1,stops){const l=g.createLinearGradient(x0,y0,x1,y1);stops.forEach(([o,c])=>l.addColorStop(o,c));return l}
+// 木の板：上から光が当たる濃淡＋細い木目＋ところどころの節
+function fWood(g,x,y,w,h,r,base,seed,vert){
+  g.save();fRR(g,x,y,w,h,r);g.clip();
+  g.fillStyle=fLin(g,x,y,x,y+h,[[0,shade(base,.14)],[.5,base],[1,shade(base,-.18)]]);g.fillRect(x,y,w,h);
+  g.lineWidth=.45;
+  const n=Math.max(3,Math.round((vert?w:h)/2.6));
+  for(let i=0;i<n;i++){const q=hash(seed*7+i,i*13+seed),p=(i+.3+q*.4)/n;
+    g.strokeStyle=`rgba(70,38,16,${.12+q*.16})`;g.beginPath();
+    if(vert){const xx=x+p*w;g.moveTo(xx,y);g.bezierCurveTo(xx+(q-.5)*3,y+h*.35,xx-(q-.5)*3,y+h*.7,xx+(q-.5),y+h)}
+    else{const yy=y+p*h;g.moveTo(x,yy);g.bezierCurveTo(x+w*.35,yy+(q-.5)*3,x+w*.7,yy-(q-.5)*3,x+w,yy+(q-.5))}
+    g.stroke()}
+  if(hash(seed,3)>.45){const kx=x+w*(.2+hash(seed,5)*.6),ky=y+h*(.2+hash(seed,6)*.6);g.strokeStyle='rgba(70,38,16,.35)';g.lineWidth=.6;g.beginPath();g.ellipse(kx,ky,vert?1.2:2.6,vert?2.6:1.2,0,0,7);g.stroke();g.fillStyle='rgba(70,38,16,.3)';g.beginPath();g.ellipse(kx,ky,.6,.6,0,0,7);g.fill()}
+  g.restore();
+  g.strokeStyle='rgba(255,236,200,.35)';g.lineWidth=.7;g.beginPath();g.moveTo(x+r,y+.5);g.lineTo(x+w-r,y+.5);g.stroke();   // 上のふちの光
+}
+// 布：やわらかい濃淡＋細かい織り目
+function fCloth(g,x,y,w,h,r,base,grad=.12){
+  g.save();fRR(g,x,y,w,h,r);g.clip();
+  g.fillStyle=fLin(g,x,y,x+w*.3,y+h,[[0,shade(base,grad)],[1,shade(base,-grad)]]);g.fillRect(x,y,w,h);
+  g.fillStyle='rgba(255,255,255,.07)';for(let yy=y;yy<y+h;yy+=1.4)g.fillRect(x,yy,w,.5);
+  g.fillStyle='rgba(0,0,0,.05)';for(let xx=x;xx<x+w;xx+=1.4)g.fillRect(xx,y,.5,h);
+  g.restore();
+}
+// 床に落ちる影（ぼかし）
+function fShadow(g,x,y,w,h,r=6,a=.32){g.save();g.filter='blur(2.5px)';g.fillStyle=`rgba(40,22,10,${a})`;fRR(g,x+2,y+3,w,h,r);g.fill();g.restore()}
+function fMetal(g,x,y,w,h){g.fillStyle=fLin(g,x,y,x,y+h,[[0,'#9aa3ab'],[.45,'#e6ebef'],[1,'#5e666e']]);g.fillRect(x,y,w,h)}
+// ---- 家具ごと ----
+function furnPaint(g,type,FW,FH,lv){
+  const X=0,Y=0;
+  if(type==='rug'){
+    const base=['#b4563f','#3f6f8f','#7a4f8a','#4f7a52'][lv]||'#b4563f';
+    fShadow(g,X+4,Y+4,FW-8,FH-8,4,.18);
+    fCloth(g,X+5,Y+5,FW-10,FH-10,3,base,.06);
+    g.strokeStyle=shade(base,.55);g.lineWidth=2.2;fRR(g,X+9,Y+9,FW-18,FH-18,2);g.stroke();
+    g.strokeStyle=shade(base,-.35);g.lineWidth=1;fRR(g,X+12.5,Y+12.5,FW-25,FH-25,2);g.stroke();
+    // 縁の模様（小さなひし形を並べる）
+    g.fillStyle=shade(base,.4);for(let x=X+16;x<X+FW-14;x+=7){for(const yy of [Y+7.2,Y+FH-7.2]){g.beginPath();g.moveTo(x,yy-1.6);g.lineTo(x+1.6,yy);g.lineTo(x,yy+1.6);g.lineTo(x-1.6,yy);g.fill()}}
+    // まん中のメダリオン
+    const cx=X+FW/2,cy=Y+FH/2,rx=Math.min(FW*.22,30),ry=Math.min(FH*.26,18);
+    g.fillStyle=shade(base,.35);g.beginPath();g.ellipse(cx,cy,rx,ry,0,0,7);g.fill();
+    g.fillStyle=shade(base,-.25);g.beginPath();g.ellipse(cx,cy,rx*.66,ry*.66,0,0,7);g.fill();
+    g.fillStyle='#e9d6a8';for(let k=0;k<8;k++){const a=k*Math.PI/4;g.beginPath();g.ellipse(cx+Math.cos(a)*rx*.45,cy+Math.sin(a)*ry*.45,2.2,1.1,a,0,7);g.fill()}
+    g.fillStyle=shade(base,.5);g.beginPath();g.arc(cx,cy,2.4,0,7);g.fill();
+    // 両はしのふさ
+    g.strokeStyle='#efe3c4';g.lineWidth=.8;for(let y=Y+7;y<Y+FH-6;y+=2.2){g.beginPath();g.moveTo(X+5,y);g.lineTo(X+1.5,y+.4);g.moveTo(X+FW-5,y);g.lineTo(X+FW-1.5,y+.4);g.stroke()}
     return;
   }
-  const rr=(x,y,w,h,r,c)=>{g.fillStyle=c;g.beginPath();g.roundRect(x,y,w,h,r);g.fill()};
-  if(f.type==='bed'){
-    const blanket=['#7fb2d9','#e8a0a8','#9cc98a','#e5c46a'][lv];
-    rr(X+2,Y-6,FW-4,14,4,'#8a5f3c');rr(X+3,Y+2,FW-6,FH-6,5,'#a8794f');
-    rr(X+5,Y+4,FW-10,FH-12,4,'#fbf7ef');rr(X+7,Y+6,FW-14,10,4,'#ffffff');
-    rr(X+5,Y+20,FW-10,FH-28,4,blanket);g.fillStyle='rgba(255,255,255,.35)';g.fillRect(X+5,Y+22,FW-10,3);
-  }else if(f.type==='box'){
-    rr(X+4,Y+6,FW-8,FH-8,4,'#a8794f');rr(X+3,Y+2,FW-6,10,4,'#c08e5f');
-    g.fillStyle='#6f4a2c';g.fillRect(X+4,Y+12,FW-8,2);g.fillStyle='#d9b45a';g.fillRect(X+FW/2-3,Y+10,6,7);
-  }else if(f.type==='bench'){
-    rr(X+2,Y+2,FW-4,12,3,'#b07a4a');g.fillStyle='#8a5f3c';g.fillRect(X+2,Y+12,FW-4,3);
-    g.fillRect(X+5,Y+14,4,FH-14);g.fillRect(X+FW-9,Y+14,4,FH-14);
-    g.fillStyle='#9aa3ab';g.fillRect(X+10,Y+4,14,3);g.fillStyle='#6f4a2c';g.fillRect(X+22,Y+3,6,5);
-    g.fillStyle='#d6dde4';g.beginPath();g.moveTo(X+FW-26,Y+9);g.lineTo(X+FW-10,Y+3);g.lineTo(X+FW-10,Y+9);g.fill();
-  }else if(f.type==='plant'){
-    rr(X+9,Y+16,FW-18,FH-18,4,'#c87d54');g.fillStyle='#a8603e';g.fillRect(X+9,Y+16,FW-18,3);
-    for(const [a,l] of [[-1.2,13],[-.5,16],[0,18],[.5,16],[1.2,13]]){g.fillStyle=a===0?'#4f9a5a':'#3f8a4a';g.beginPath();g.ellipse(X+FW/2+Math.sin(a)*l*.6,Y+14-Math.cos(a)*l*.6,4,l*.5,a,0,7);g.fill()}
-  }else if(f.type==='shelf'){
-    rr(X+2,Y-T+6,FW-4,T+FH-8,3,'#8a5f3c');
-    for(let r=0;r<3;r++){g.fillStyle='#5e3e25';g.fillRect(X+5,Y-T+10+r*14,FW-10,11);
-      for(let i=0;i<7;i++){g.fillStyle=['#d0654f','#5f9e6e','#4fa3cf','#e5c46a','#9a6bb0'][(i+r*2)%5];g.fillRect(X+7+i*7.5,Y-T+11+r*14+(i%3),5,10-(i%3))}}
-  }else if(f.type==='table'){
-    g.fillStyle='rgba(0,0,0,.12)';g.beginPath();g.ellipse(X+FW/2,Y+FH-4,FW*.42,6,0,0,7);g.fill();
-    rr(X+3,Y+4,FW-6,16,6,'#b98a5e');g.fillStyle='#8a5f3c';g.fillRect(X+8,Y+18,4,FH-20);g.fillRect(X+FW-12,Y+18,4,FH-20);
-    g.fillStyle='#f6faf3';g.beginPath();g.ellipse(X+FW/2,Y+11,7,4,0,0,7);g.fill();g.fillStyle='#e8a0a8';g.beginPath();g.arc(X+FW/2,Y+9,3,0,7);g.fill();
-  }else if(f.type==='sofa'){
-    rr(X+2,Y,FW-4,14,6,'#6f9fc4');rr(X+2,Y+10,FW-4,FH-12,6,'#82b2d6');rr(X,Y+6,9,FH-8,4,'#6f9fc4');rr(X+FW-9,Y+6,9,FH-8,4,'#6f9fc4');
-    g.fillStyle='rgba(255,255,255,.25)';for(let i=1;i<f.w;i++)g.fillRect(X+i*T-1,Y+12,2,FH-16);
+  if(type==='bed'){
+    const blanket=['#5f8fbf','#d98a96','#7fae6e','#d6a94a'][lv];
+    fShadow(g,X+2,Y-4,FW-4,FH+2,4);
+    fWood(g,X+1,Y-8,FW-2,15,5,'#7a4e2c',11,true);                 // 頭の板
+    g.fillStyle='rgba(0,0,0,.2)';g.fillRect(X+3,Y+5,FW-6,2);
+    fWood(g,X+2,Y+3,FW-4,FH-4,3,'#9a6a40',12,true);                // わく
+    fCloth(g,X+4,Y+4,FW-8,FH-10,3,'#f7f3ea',.05);                    // シーツ
+    // まくら（ふくらみの影と、まん中のくぼみ）
+    g.fillStyle=fLin(g,X,Y+6,X,Y+17,[[0,'#ffffff'],[1,'#dcd7cc']]);fRR(g,X+6,Y+6,FW-12,11,5);g.fill();
+    g.strokeStyle='rgba(150,140,125,.5)';g.lineWidth=.6;g.beginPath();g.moveTo(X+FW/2-5,Y+11.5);g.quadraticCurveTo(X+FW/2,Y+13.5,X+FW/2+5,Y+11.5);g.stroke();
+    // かけ布団：上を折り返し、キルトの縫い目としわ
+    const by=Y+21,bh=FH-28;
+    fCloth(g,X+3,by,FW-6,bh,3,blanket,.16);
+    g.fillStyle=fLin(g,X,by,X,by+5,[[0,'#ffffff'],[1,'#e4ded2']]);g.fillRect(X+3,by,FW-6,4.5);
+    g.strokeStyle='rgba(0,0,0,.12)';g.lineWidth=.6;g.setLineDash([1.6,1.2]);
+    for(let yy=by+11;yy<by+bh-3;yy+=9){g.beginPath();g.moveTo(X+5,yy);g.lineTo(X+FW-5,yy);g.stroke()}
+    g.beginPath();g.moveTo(X+FW/2,by+6);g.lineTo(X+FW/2,by+bh-2);g.stroke();g.setLineDash([]);
+    g.strokeStyle='rgba(255,255,255,.25)';g.lineWidth=1;g.beginPath();g.moveTo(X+6,by+bh-8);g.quadraticCurveTo(X+11,by+bh-12,X+15,by+bh-7);g.stroke();
+    fWood(g,X+2,Y+FH-4,FW-4,5,2,'#7a4e2c',13,true);                // 足もとの板
+    return;
+  }
+  if(type==='box'){
+    fShadow(g,X+3,Y+5,FW-6,FH-6,3);
+    // 前の面（3枚の板）と、ふた（上から見える面）
+    for(let k=0;k<3;k++)fWood(g,X+3,Y+11+k*((FH-13)/3),FW-6,(FH-13)/3,k===2?2:0,'#8f5f36',20+k,false);
+    fWood(g,X+3,Y+2,FW-6,10,3,'#a9764a',24,false);
+    g.fillStyle='rgba(0,0,0,.28)';g.fillRect(X+3,Y+11.5,FW-6,1.2);
+    // 金具の帯と鋲
+    for(const bx of [X+6,X+FW-9]){fMetal(g,bx,Y+2,3,FH-4);g.fillStyle='#3d4247';for(const yy of [Y+5,Y+15,Y+FH-5])g.fillRect(bx+1,yy,1,1)}
+    // 錠前
+    g.fillStyle=fLin(g,0,Y+9,0,Y+18,[[0,'#f2d27a'],[1,'#a77a23']]);fRR(g,X+FW/2-3.5,Y+9,7,8,1.5);g.fill();
+    g.fillStyle='#4a3512';g.beginPath();g.arc(X+FW/2,Y+12.5,1,0,7);g.fill();g.fillRect(X+FW/2-.4,Y+12.5,.8,2.5);
+    return;
+  }
+  if(type==='bench'){
+    fShadow(g,X+2,Y+4,FW-4,FH-4,3);
+    // 脚と横木
+    for(const lx of [X+4,X+FW-9]){fWood(g,lx,Y+12,5,FH-13,1,'#6f4527',30+lx,true)}
+    fWood(g,X+6,Y+FH-8,FW-12,3,1,'#6f4527',33,false);
+    // 厚い天板（前のふちを暗く）
+    fWood(g,X+1,Y+1,FW-2,13,3,'#b98552',31,false);
+    g.fillStyle=fLin(g,0,Y+12,0,Y+16,[[0,'#7a4e2c'],[1,'#5a371c']]);g.fillRect(X+1,Y+12,FW-2,3.5);
+    // 万力
+    fMetal(g,X+2,Y+3,8,7);g.fillStyle='#4a5157';g.fillRect(X+4,Y+10,1.2,6);g.beginPath();g.arc(X+4.6,Y+16.5,1.2,0,7);g.fill();
+    // かんなくず
+    g.strokeStyle='#e8c690';g.lineWidth=.9;for(const [a,b] of [[16,5],[19,8],[22,4.5]]){g.beginPath();g.arc(X+a,Y+b,1.8,.3,5.2);g.stroke()}
+    // のこぎり
+    g.fillStyle=fLin(g,0,Y+3,0,Y+9,[[0,'#eef2f5'],[1,'#9aa3ab']]);g.beginPath();g.moveTo(X+FW-28,Y+9);g.lineTo(X+FW-12,Y+3.5);g.lineTo(X+FW-12,Y+9);g.closePath();g.fill();
+    g.strokeStyle='#6c757c';g.lineWidth=.4;g.beginPath();for(let i=0;i<8;i++){const xx=X+FW-27+i*2;g.moveTo(xx,Y+9);g.lineTo(xx+1,Y+10)}g.stroke();
+    fWood(g,X+FW-12,Y+3,6,6,2,'#7a4e2c',34,true);
+    // 金づち
+    g.fillStyle='#8a5f3c';g.save();g.translate(X+FW/2+2,Y+6);g.rotate(-.35);g.fillRect(-1,-.8,13,1.8);fMetal(g,10,-3,4,6.5);g.restore();
+    return;
+  }
+  if(type==='plant'){
+    fShadow(g,X+8,Y+FH-12,FW-16,10,5);
+    // 素焼きの鉢：ふちと胴の丸み
+    g.fillStyle=fLin(g,X+9,0,X+FW-9,0,[[0,'#9c5434'],[.35,'#d98a5c'],[1,'#8a4428']]);
+    g.beginPath();g.moveTo(X+10,Y+18);g.lineTo(X+FW-10,Y+18);g.lineTo(X+FW-12,Y+FH-2);g.lineTo(X+12,Y+FH-2);g.closePath();g.fill();
+    g.fillStyle=fLin(g,X+8,0,X+FW-8,0,[[0,'#a85c3a'],[.4,'#e59a6a'],[1,'#96502e']]);fRR(g,X+8,Y+15.5,FW-16,4.5,1.5);g.fill();
+    g.fillStyle='#4a3020';g.beginPath();g.ellipse(X+FW/2,Y+16.5,(FW-18)/2,1.6,0,0,7);g.fill();
+    // 葉（モンステラ風：濃淡と葉脈）
+    const leaf=(a,l,w,c)=>{g.save();g.translate(X+FW/2,Y+16);g.rotate(a);
+      g.fillStyle=fLin(g,0,0,0,-l,[[0,shade(c,-.25)],[1,shade(c,.15)]]);g.beginPath();g.moveTo(0,0);g.bezierCurveTo(w,-l*.3,w*.9,-l*.8,0,-l);g.bezierCurveTo(-w*.9,-l*.8,-w,-l*.3,0,0);g.fill();
+      g.strokeStyle='rgba(220,255,200,.45)';g.lineWidth=.5;g.beginPath();g.moveTo(0,-1);g.lineTo(0,-l+1.5);for(let k=1;k<4;k++){const yy=-l*k/4;g.moveTo(0,yy);g.lineTo(w*.55,yy-1.5);g.moveTo(0,yy);g.lineTo(-w*.55,yy-1.5)}g.stroke();g.restore()};
+    leaf(-1.15,13,5,'#3d7d40');leaf(1.1,13,5,'#3d7d40');leaf(-.6,17,6,'#468f48');leaf(.55,16,6,'#468f48');leaf(0,19,6.5,'#53a052');
+    return;
+  }
+  if(type==='shelf'){
+    const top=Y-T+4,H=T+FH-6;
+    fShadow(g,X+2,Y+FH-10,FW-4,10,3,.3);
+    fWood(g,X+1,top,FW-2,H,2,'#7a4e2c',40,true);
+    // 奥の暗い板と、3段の棚
+    const sh=3,rowH=(H-8)/sh;
+    for(let r=0;r<sh;r++){const ry=top+3+r*rowH;
+      g.fillStyle=fLin(g,0,ry,0,ry+rowH-2,[[0,'#2f1d10'],[1,'#4a2f1a']]);g.fillRect(X+4,ry,FW-8,rowH-2.5);
+      // 本：高さ・太さ・色をばらばらに。背表紙の帯と光
+      let bx=X+5;let k=0;
+      while(bx<X+FW-6){const q=hash(r*31+k,lv+7),bw=2.6+q*2.4,bh=(rowH-4)*(.72+hash(k,r*5)*.28);
+        if(bx+bw>X+FW-5)break;
+        if(r===1&&k===3){g.fillStyle='#d6e6ee';g.beginPath();g.ellipse(bx+3,ry+rowH-4.5,3,2,0,0,7);g.fill();g.fillStyle='#e8a0a8';g.beginPath();g.arc(bx+3,ry+rowH-8,2.2,0,7);g.fill();bx+=7;k++;continue}   // 小さな花びん
+        const col=['#a8423a','#3f7a58','#2f6d9a','#c99a3a','#6f4a8f','#8a5a3a','#d0d6da'][Math.floor(q*7)];
+        const lean=hash(k,r)>.86?.18:0;g.save();g.translate(bx,ry+rowH-2.5);g.rotate(lean);
+        g.fillStyle=fLin(g,0,0,bw,0,[[0,shade(col,-.25)],[.4,shade(col,.12)],[1,shade(col,-.3)]]);g.fillRect(0,-bh,bw,bh);
+        g.fillStyle='rgba(255,230,160,.65)';g.fillRect(0,-bh+2,bw,.7);g.fillRect(0,-3,bw,.7);
+        g.restore();bx+=bw+.4;k++}
+      fWood(g,X+3,ry+rowH-2.5,FW-6,2.5,0,'#8f5f36',41+r,false)}
+    return;
+  }
+  if(type==='table'){
+    fShadow(g,X+4,Y+6,FW-8,FH-6,6,.28);
+    for(const lx of [X+7,X+FW-11])fWood(g,lx,Y+15,4,FH-16,1,'#6f4527',50+lx,true);
+    fWood(g,X+2,Y+3,FW-4,15,5,'#b4814f',51,false);
+    g.fillStyle=fLin(g,0,Y+16,0,Y+19,[[0,'#7a4e2c'],[1,'#5a371c']]);fRR(g,X+3,Y+16,FW-6,3,1.5);g.fill();
+    // テーブルランナーと、花びん・カップ
+    fCloth(g,X+FW/2-9,Y+3,18,15,1,'#efe6d2',.05);g.strokeStyle='rgba(160,120,80,.4)';g.lineWidth=.5;g.strokeRect(X+FW/2-7.5,Y+4.5,15,12);
+    g.fillStyle=fLin(g,X+FW/2-3,0,X+FW/2+3,0,[[0,'#7aa7c7'],[.5,'#cfe6f2'],[1,'#5f8fb0']]);fRR(g,X+FW/2-2.6,Y+6,5.2,7,2);g.fill();
+    for(const [a,b,c] of [[-2.5,4,'#e8a0a8'],[2,3.5,'#f6d36a'],[0,2.5,'#f19aa0']]){g.fillStyle=c;g.beginPath();g.arc(X+FW/2+a,Y+b,2,0,7);g.fill()}
+    g.fillStyle='#fbf8f0';g.beginPath();g.ellipse(X+12,Y+10,3.5,2.6,0,0,7);g.fill();g.fillStyle='#8a5a34';g.beginPath();g.ellipse(X+12,Y+9.8,2.4,1.6,0,0,7);g.fill();
+    return;
+  }
+  if(type==='sofa'){
+    const base=['#6f8fb4','#b76f63','#6f9a72','#8a7aa8'][lv]||'#6f8fb4';
+    fShadow(g,X+1,Y+2,FW-2,FH-2,7);
+    fCloth(g,X+3,Y,FW-6,14,6,shade(base,-.12),.14);                          // 背もたれ
+    const n=Math.max(1,Math.round(FW/T));
+    for(let i=0;i<n;i++){const cx=X+8+i*(FW-16)/n,cw=(FW-16)/n-1;          // 座面のクッション
+      fCloth(g,cx,Y+9,cw,FH-13,5,base,.12);
+      g.strokeStyle='rgba(0,0,0,.15)';g.lineWidth=.6;fRR(g,cx+1.5,Y+10.5,cw-3,FH-16,4);g.stroke();
+      g.fillStyle='rgba(255,255,255,.18)';fRR(g,cx+2,Y+10,cw-4,3,1.5);g.fill()}
+    for(const ax of [X,X+FW-9]){fCloth(g,ax,Y+4,9,FH-6,4,shade(base,-.2),.16);g.fillStyle='rgba(255,255,255,.2)';fRR(g,ax+1.5,Y+5,6,2.5,1.2);g.fill()}   // ひじかけ
+    // クッション（模様入り）
+    for(const [px,c] of [[X+13,'#f2e3c4'],[X+FW-21,'#e8c46a']]){g.save();g.translate(px+4,Y+8);g.rotate(px<X+FW/2?-.2:.2);fCloth(g,-5,-4.5,10,9,3,c,.18);g.fillStyle='rgba(0,0,0,.12)';g.beginPath();g.arc(0,0,1,0,7);g.fill();g.restore()}
+    // 木の脚
+    for(const lx of [X+3,X+FW-6])fWood(g,lx,Y+FH-3,3,3,1,'#5a371c',60+lx,true);
+    return;
   }
 }
 // ===================== 家具のレイアウト（家の中だけ） =====================
@@ -3345,6 +3500,7 @@ function layoutProblem(){return furnProblem(W.furn,W.w,W.h,...layoutEntry())}
 // 持っている家具を部屋に出す（空いている所に置いて選ぶ）
 function layoutPut(type){
   const L=RT.layout;if(!L||!(S.furnInv[type]>0))return;
+  if(type==='box'&&W.furn.filter(o=>o.type==='box').length>=boxMax()){toast(`${HOUSE[S.house].name}に置ける収納箱は${boxMax()}個まで`);sfx('swing');return}
   const f=mkFurn(type);
   if(!placeFree(W.furn,f,W.w,W.h,...layoutEntry())){toast(`${FURN_NAME[type]}を置ける場所がない。ほかの家具を動かすか、しまってね`);return}
   if(--S.furnInv[type]<=0)delete S.furnInv[type];
@@ -3354,6 +3510,7 @@ function layoutPut(type){
 function layoutStow(){
   const L=RT.layout;if(!L||L.sel==null)return;
   const f=W.furn[L.sel];if(FURN_DEF[f.type].fixed){toast(`${FURN_NAME[f.type]}はしまえない`);return}
+  if(f.items&&itemCount(f.items)>0){toast('中に物が入っている収納箱はしまえない。先に中身を取り出してね');sfx('swing');return}
   W.furn.splice(L.sel,1);S.furnInv[f.type]=(S.furnInv[f.type]||0)+1;L.sel=null;layoutRefresh();sfx('swing');
 }
 function layoutMove(i,x,y){const f=W.furn[i];f.x=clamp(x,0,W.w-f.w);f.y=clamp(y,0,W.h-f.h);layoutRefresh()}
@@ -3373,7 +3530,7 @@ function layoutRefresh(){
   const own=Object.entries(S.furnInv||{}).filter(([,n])=>n>0);
   if(own.length){
     inv.append(Object.assign(document.createElement('span'),{className:'lbInvHead',textContent:'持っている家具：'}));
-    for(const [type,n] of own){const b=document.createElement('button');b.className='mbtn lbChip';b.append(furnIcon(type,22),`${FURN_NAME[type]}${n>1?' ×'+n:''}`);b.onclick=()=>layoutPut(type);inv.append(b)}
+    for(const [type,n] of own){const b=document.createElement('button');b.className='mbtn lbChip';b.append(furnIcon(type,22),`${FURN_NAME[type]}${n>1?' ×'+n:''}`+(type==='box'?`（置ける数 ${W.furn.filter(o=>o.type==='box').length}/${boxMax()}）`:''));b.onclick=()=>layoutPut(type);inv.append(b)}
   }else inv.append(Object.assign(document.createElement('span'),{className:'lbInvHead',textContent:'家具はクラフトやお店で手に入るよ'}));
 }
 function startLayout(){
