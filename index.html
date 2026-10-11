@@ -497,7 +497,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.974";</script>
+<script>const GAME_VERSION="0.975";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2801,7 +2801,43 @@ function genCave(f){
     for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){let c=0;for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++){const xx=x+i,yy=y+j;c+=(!inMap(xx,yy)||g[ti(xx,yy)])?1:0}n[ti(x,y)]=edge(x,y)||c>=5?1:0}
     g=n;
   }
-  // いちばん大きな空間だけを残す
+  // 迷路にしない：小さすぎない空間はすべて残し、トンネルでつなぐ。さらに近道のトンネルを何本も通して、いろんな方向から行き来できるようにする
+  const carve=(x0,y0,x1,y1)=>{   // 幅3のトンネル（少しうねらせる）
+    let x=x0,y=y0,n=0;
+    while((x!==x1||y!==y1)&&n++<400){
+      if(x!==x1&&(y===y1||r()<.5))x+=Math.sign(x1-x);else y+=Math.sign(y1-y);
+      for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++){const xx=x+i,yy=y+j;if(!edge(xx,yy))g[ti(xx,yy)]=0}
+    }
+  };
+  const label=()=>{const reg=new Int32Array(MW*MH).fill(-1),rs=[];let rid=0;
+    for(let i=0;i<MW*MH;i++){if(g[i]||reg[i]>=0)continue;const q=[i];reg[i]=rid;
+      for(let h=0;h<q.length;h++){const c=q[h],x=c%MW,y=(c/MW)|0;for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){if(!inMap(x+dx,y+dy))continue;const k=ti(x+dx,y+dy);if(!g[k]&&reg[k]<0){reg[k]=rid;q.push(k)}}}
+      rs.push(q);rid++}
+    return {reg,rs}};
+  {const {reg,rs}=label();
+   for(const q of rs)if(q.length<25)for(const i of q)g[i]=1;           // とても小さなすき間は埋める
+   const big=rs.filter(q=>q.length>=25).map(q=>{const c=q[Math.floor(q.length/2)];return {cells:q,x:c%MW,y:(c/MW)|0}});
+   // 空間どうしを、近いものから順につないでいく（全部が1つにつながるまで）
+   const joined=[big[0]];const rest=big.slice(1);
+   while(rest.length){let bi=0,bj=0,bd=1e9;
+     for(let i=0;i<rest.length;i++)for(const jn of joined){const d=Math.abs(rest[i].x-jn.x)+Math.abs(rest[i].y-jn.y);if(d<bd){bd=d;bi=i;bj=jn}}
+     const a2=rest.splice(bi,1)[0];carve(a2.x,a2.y,bj.x,bj.y);joined.push(a2)}
+  }
+  // 近道：近いのに歩くと遠回りになる2点を見つけて、トンネルでつなぐ
+  {const fl=[];for(let i=0;i<MW*MH;i++)if(!g[i])fl.push(i);
+   const bfs=s=>{const d=new Int16Array(MW*MH).fill(-1);d[s]=0;const q=[s];for(let h=0;h<q.length;h++){const c=q[h],x=c%MW,y=(c/MW)|0;for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const k=ti(x+dx,y+dy);if(inMap(x+dx,y+dy)&&!g[k]&&d[k]<0){d[k]=d[c]+1;q.push(k)}}}return d};
+   let made=0;
+   for(let tries=0;tries<60&&made<10;tries++){
+     const s=fl[Math.floor(r()*fl.length)],d=bfs(s),sx=s%MW,sy=(s/MW)|0;
+     let pick=-1,ratio=2.2;
+     for(let k=0;k<200;k++){const e=fl[Math.floor(r()*fl.length)],ex=e%MW,ey=(e/MW)|0,m=Math.abs(ex-sx)+Math.abs(ey-sy);
+       if(m<6||m>26||d[e]<0)continue;const rt=d[e]/m;if(rt>ratio){ratio=rt;pick=e}}
+     if(pick>=0){carve(sx,sy,pick%MW,(pick/MW)|0);made++}
+   }
+  }
+  // 細い通路を少し広げる（両側が床の1マスの壁をくずす）
+  {const n=g.slice();for(let y=2;y<MH-2;y++)for(let x=2;x<MW-2;x++){const i=ti(x,y);if(!g[i])continue;
+     if((!g[ti(x-1,y)]&&!g[ti(x+1,y)])||(!g[ti(x,y-1)]&&!g[ti(x,y+1)]))n[i]=0}g=n}
   const reg=new Int32Array(MW*MH).fill(-1);let best=-1,bestN=0,rid=0;
   for(let i=0;i<MW*MH;i++){
     if(g[i]||reg[i]>=0)continue;const q=[i];reg[i]=rid;
