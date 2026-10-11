@@ -470,7 +470,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.963";</script>
+<script>const GAME_VERSION="0.964";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2639,6 +2639,9 @@ function nextOverlay(){
   $('cNote').textContent=o.note||'';$('cMeta').textContent=o.meta||'';
   $('cBig').textContent=o.big||'';$('cBig').hidden=!o.big;   // 魚が釣れたときなどの大きな文字
   drawIcon($('cIcon'),o.icon);$('catch').hidden=false;RT.catchShow=true;
+  // 自動で閉じる表示（魚が釣れたとき：2秒）。その前にクリックしても閉じられる
+  clearTimeout(RT.catchTimer);if(o.auto)RT.catchTimer=setTimeout(()=>{if(RT.catchShow)closeCatch()},o.auto);
+  $('catch').querySelector('.cclose').textContent=o.auto?'':'クリック / Space で閉じる';
 }
 const SKILL_ICON={run:'drink',fish:'rod',chop:'axe',dig:'shovel',bug:'net',craft:'wood',fight:'sword',magic:'wand'};
 function showLearn(skillId,name,desc){
@@ -2648,10 +2651,10 @@ function showLearn(skillId,name,desc){
 function showCatch(id,place){
   const it=ITEMS[id];const verb={bug:'つかまえた',fish:'釣りあげた',fossil:'掘りだした'}[it.kind];
   const cheer=it.rar>=6?'伝説は本当だったんだ…！':it.rar>=5?'すごい！ めったに出会えないぞ！':it.rar>=4?'やった、これはレアだ！':it.rar>=3?'いい感じ！':'';
-  pushOverlay({big:it.kind==='fish'?(it.rar>=4?'大物だ！':'釣れた！'):'',badge:RT.newDex===id?'NEW 図鑑登録':'',title:`${it.name}を${verb}！`,cheer,note:it.note,meta:`${'★'.repeat(Math.min(it.rar,5))}${it.rar>=6?'（伝説）':''}　${it.price.toLocaleString()}円${place?'　'+PLACE_LABEL[place]:''}`,icon:id});
+  pushOverlay({auto:it.kind==='fish'?2000:0,big:it.kind==='fish'?(it.rar>=4?'大物だ！':'釣れた！'):'',badge:RT.newDex===id?'NEW 図鑑登録':'',title:`${it.name}を${verb}！`,cheer,note:it.note,meta:`${'★'.repeat(Math.min(it.rar,5))}${it.rar>=6?'（伝説）':''}　${it.price.toLocaleString()}円${place?'　'+PLACE_LABEL[place]:''}`,icon:id});
   RT.newDex=null;if(it.rar>=4)sfx('lv');
 }
-function closeCatch(){$('catch').hidden=true;RT.catchShow=false;if(OVQ.length)setTimeout(nextOverlay,120)}
+function closeCatch(){clearTimeout(RT.catchTimer);$('catch').hidden=true;RT.catchShow=false;if(OVQ.length)setTimeout(nextOverlay,120)}
 $('catch').addEventListener('click',closeCatch);
 
 // ===================== 今日のやること（HUD） =====================
