@@ -226,6 +226,19 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
 .lic-list dd span{color:var(--ink-soft);font-size:12px}
 .lic-list a{color:var(--leaf-deep);font-weight:700}
 @media (max-width:420px){.lic-list{grid-template-columns:1fr;gap:2px}.lic-list dd{margin-bottom:10px}}
+/* データ引継ぎ（xfer.js）：タイトルの画面とゲーム中のパネルで同じ見た目 */
+.xfer{display:flex;flex-direction:column;gap:14px;text-align:left}
+.xfer section{display:flex;flex-direction:column;gap:8px;background:rgba(255,255,255,.55);border:2px solid var(--line);border-radius:16px;padding:12px}
+.xfer h3{margin:0;font-size:16px;color:var(--leaf-deep)}
+.xfer p{margin:0;font-size:13px;line-height:1.6;color:var(--ink-soft)}
+.xfer .xbtn{font-family:var(--f-body);font-weight:900;font-size:15px;color:var(--ink);background:#fff;border:2px solid var(--leaf);border-radius:999px;padding:8px 14px;box-shadow:0 3px 0 var(--leaf-deep);cursor:pointer}
+.xfer .xbtn.main{background:var(--sun);border-color:#c8851c;box-shadow:0 3px 0 #c8851c}
+.xfer .xbtn:active{transform:translateY(2px);box-shadow:none}
+.xfer .xcode{width:100%;box-sizing:border-box;font:12px/1.4 ui-monospace,monospace;padding:8px;border-radius:10px;border:2px solid var(--line);background:#fff;color:var(--ink);resize:vertical;word-break:break-all}
+.xfer .xconf{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:12px;background:#fff6dc;border:2px solid #e2b85a}
+.xfer .xmsg{min-height:1.2em;font-weight:700;color:var(--leaf-deep)}
+.xfer .xmsg.bad{color:var(--berry)}
+#titleXfer{max-height:calc(100% - 8px);overflow:auto}
 .tback{background:none;border:none;color:var(--ink-soft);font-weight:700;font-size:14px;text-decoration:underline;padding:4px}
 #title .keys{font-size:12px;color:var(--ink-soft);line-height:1.8;text-align:left;background:var(--panel-2);border-radius:12px;padding:10px 14px}
 @keyframes logoIn{from{opacity:0;transform:translateY(-24px) scale(.9)}to{opacity:1;transform:none}}
@@ -416,6 +429,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
     <button class="mbtn" id="bMap">地図<small>M</small></button>
     <button class="mbtn" id="bCraft">クラフト<small>C</small></button>
     <button class="mbtn" id="bSnd">音: OFF</button>
+    <button class="mbtn" id="bXfer">引継ぎ</button>
     <button class="mbtn" id="bQuit">終了</button>
     <div class="mvol"><label for="volIn">音量 <b id="volNum">100</b></label><input id="volIn" type="range" min="0" max="100" step="5" value="100" aria-label="音量"></div>
   </div>
@@ -440,6 +454,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
         <button id="tContinue" class="tbtn main" hidden>つづきから<small id="tContInfo"></small></button>
         <button id="tNew" class="tbtn">はじめから</button>
         <button id="tHowto" class="tbtn sub">あそびかた</button>
+        <button id="tXfer" class="tbtn sub">データ引継ぎ</button>
         <button id="tLicense" class="tbtn sub">ライセンス</button>
         <button id="tExit" class="tbtn sub">終了</button>
       </div>
@@ -459,6 +474,11 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
       <p>いまのセーブ（<span id="confirmInfo"></span>）は消えて、もとに戻せません。</p>
       <button class="go danger" id="tConfirmYes">セーブを消して、はじめから</button>
       <button class="tback" id="tConfirmNo">やめる</button>
+    </div>
+    <div id="titleXfer" class="tpane box" hidden>
+      <h2>データ引継ぎ</h2>
+      <div id="tXferBody"></div>
+      <button class="tback" id="xferBack">もどる</button>
     </div>
     <div id="titleLicense" class="tpane box lic" hidden>
       <h2>ライセンス</h2>
@@ -497,7 +517,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.983";</script>
+<script>const GAME_VERSION="0.984";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2116,7 +2136,9 @@ function render(t){
   const isl=onIsland();
   const x0=Math.max(0,Math.floor(cx/T)),x1=Math.min(MW-1,Math.ceil((cx+vw)/T)),y0=Math.max(0,Math.floor(cy/T)),y1=Math.min(MH-1,Math.ceil((cy+vh)/T)+1);
   ctx.fillStyle='rgba(255,255,255,.28)';
-  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const tt=tileAt(x,y);if(tt===0){const h=hash(x,y),ph=t*1.2+h*6;ctx.fillRect(x*T+6+Math.sin(ph)*5+h*8,y*T+8+h*14,8+Math.sin(ph*1.3)*3,1.6)}else if(tt===3||tt===5){for(let k=0;k<2;k++){const h=hash(x*3+k,y),yy=((h*T+t*(16+h*10)+k*16)%T),a=Math.sin(yy/T*Math.PI);ctx.fillStyle=`rgba(255,255,255,${.30*a})`;ctx.fillRect(x*T+5+h*20,y*T+yy,5+h*5,1.4)}ctx.fillStyle='rgba(255,255,255,.28)'}else if(tt===6){const h=hash(x,y),a=.5+.5*Math.sin(t*1.5+h*9);if(h<.5){circ(ctx,x*T+6+h*20,y*T+8+h*16,1.1,`rgba(255,255,255,${.35*a})`)}ctx.fillStyle='rgba(255,255,255,.28)'}}
+  // 水の動き（ground2.js の drawWaterFx：川の流れ・海のきらめき・打ち寄せる波）。池は小さな光の点だけ
+  drawWaterFx(ctx,x0,x1,y0,y1,t,isl&&hour()>=6&&hour()<18);
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const tt=tileAt(x,y);if(tt===6){const h=hash(x,y),a=.5+.5*Math.sin(t*1.5+h*9);if(h<.5){circ(ctx,x*T+6+h*20,y*T+8+h*16,1.1,`rgba(255,255,255,${.35*a})`)}}}
   if(isl)for(const [x,y] of S.holes){ell(ctx,(x+.5)*T,(y+.5)*T+4,10,6,'#6b4f32');ell(ctx,(x+.5)*T,(y+.5)*T+5,7,4,'#4a3522')}
   ctx.strokeStyle='rgba(80,55,30,.75)';ctx.lineWidth=2;
   drawShadows(ctx,t);
@@ -3480,12 +3502,7 @@ function groundFor(season){
   const wet=(x,y)=>{const t=tt(x,y);return t===3||t===5||t===6};
   const path=(x,y)=>tt(x,y)===4;
   // 海
-  g.fillStyle=P.sea;g.fillRect(0,0,c.width,c.height);
-  for(let y=0;y<c.height;y+=8)for(let x=0;x<c.width;x+=8){const n=vnoise(x,y,90);if(n>.62){g.fillStyle='rgba(20,60,110,.10)';g.fillRect(x,y,8,8)}}
-  blob(g,land,shade(P.shallow,-.08),T*1.55);
-  blob(g,land,P.shallow,T*1.15);
-  blob(g,land,'rgba(255,255,255,.65)',T*.74);
-  blob(g,land,P.sand,T*.6);
+  drawSeaReal(g,P,season,land);   // ground2.js：深さで色が変わる海と砂浜
   // 砂のつぶつぶ
   for(let y=0;y<MH;y++)for(let x=0;x<MW;x++)if(tt(x,y)===1){g.fillStyle='rgba(170,135,80,.28)';for(let i=0;i<5;i++)g.fillRect(x*T+hash(x+i,y*3)*T,y*T+hash(x*7,y+i)*T,1.6,1.6)}
   // 草地の段差（崖）
@@ -3514,18 +3531,14 @@ function groundFor(season){
   for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){
     const t=tt(x,y),px=x*T,py=y*T;
     if(t===5){
-      const vert=wet(x-1,y)&&wet(x+1,y);
-      g.fillStyle='rgba(0,0,0,.18)';g.fillRect(px,py+4,T,T);
-      g.fillStyle='#b98252';g.fillRect(px,py+3,T,T-6);
-      g.fillStyle='#8f5f36';for(let i=0;i<T;i+=6){vert?g.fillRect(px,py+3+i,T,1.2):g.fillRect(px+i,py+3,1.2,T-6)}
-      g.fillStyle='#7a4e2c';if(vert){g.fillRect(px,py+1,3,T-2);g.fillRect(px+T-3,py+1,3,T-2)}else{g.fillRect(px,py+1,T,3);g.fillRect(px,py+T-5,T,3)}
+      // 左右が水なら縦に渡る橋。はし（first/last）には柱を立てる（ground2.js）
+      const vert=wet(x-1,y)&&wet(x+1,y),br=(a,b)=>tt(a,b)===5;
+      drawBridgeReal(g,x,y,vert,vert?!br(x,y-1):!br(x-1,y),vert?!br(x,y+1):!br(x+1,y));
     }
     if(t===7){
-      g.fillStyle='rgba(10,40,70,.25)';g.fillRect(px+2,py+5,T,T);
-      g.fillStyle='#c48d58';g.fillRect(px+1,py+1,T-2,T-2);
-      g.fillStyle='#a3703f';for(let i=0;i<T;i+=7)g.fillRect(px+1,py+i+1,T-2,1.4);
-      g.fillStyle='#e0b07a';g.fillRect(px+1,py+1,T-2,1.2);
-      for(const [a,b] of [[2,2],[T-6,2],[2,T-6],[T-6,T-6]]){g.fillStyle='#5e3e22';g.fillRect(px+a,py+b,4,4);g.fillStyle='#7a5432';g.fillRect(px+a,py+b,4,1.5)}
+      // 桟橋：海へのびる向きに歩く（上下が桟橋か陸なら縦）。板は橋と同じ描き方（ground2.js）
+      const pv=(a,b)=>{const u=tt(a,b);return u===7||u===1||u===2||u===4};
+      drawBridgeReal(g,x,y,pv(x,y-1)||pv(x,y+1),false,false,true);
     }
   }
   groundCache[key]=c;return c;
@@ -3706,9 +3719,9 @@ function drawPathReal(g,P,season,path){
 }
 // ---------- 川と池 ----------
 const WATER_PAL=[
-  {deep:'#2b78ad',shallow:'#6fc0c8',pdeep:'#2f8a8f',pshallow:'#86c9b2'},
-  {deep:'#226fa6',shallow:'#5fb8c4',pdeep:'#277f86',pshallow:'#7cc2a8'},
-  {deep:'#2a6d9c',shallow:'#6cb0b8',pdeep:'#2f7a7c',pshallow:'#86b89c'},
+  {deep:'#1f6390',shallow:'#5cadb2',pdeep:'#2a7a80',pshallow:'#7fbfa6'},
+  {deep:'#1a5c88',shallow:'#52a6ae',pdeep:'#24727a',pshallow:'#74b89c'},
+  {deep:'#225c84',shallow:'#5e9fa6',pdeep:'#2a6c70',pshallow:'#7eaa92'},
   {deep:'#4a86a8',shallow:'#a4cfdb',pdeep:'#5a8f9a',pshallow:'#b6d6d8'},
 ];
 function drawWaterReal(g,P,season,wet){
@@ -3717,6 +3730,9 @@ function drawWaterReal(g,P,season,wet){
   const img=g.getImageData(0,0,Wp,Hp),d=img.data,WP=WATER_PAL[season];
   const deep=hexRGB(WP.deep),sh=hexRGB(WP.shallow),pd=hexRGB(WP.pdeep),ps=hexRGB(WP.pshallow);
   const mud=season===3?[150,140,128]:[120,96,64],sand=season===3?[205,198,186]:[196,176,132];
+  // 川の流れる向き（マスごと）：上下につながっていれば縦、左右なら横。流れに沿って細長い模様にする
+  const rv=(x,y)=>{const t=tt(x,y);return t===3||t===5},fdir=new Uint8Array(MW*MH);
+  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++)if(rv(x,y)){const v=(rv(x,y-1)?1:0)+(rv(x,y+1)?1:0),h=(rv(x-1,y)?1:0)+(rv(x+1,y)?1:0);fdir[y*MW+x]=v>=h?1:2}
   for(let y=0;y<Hp;y++)for(let x=0;x<Wp;x++){
     const i=y*Wp+x,mv=m[i];if(mv<.1)continue;
     const n=nz(x,y,18)*.6+nz(x+500,y,5)*.4,e=mv+(n-.5)*.34;
@@ -3731,6 +3747,14 @@ function drawWaterReal(g,P,season,wet){
       const ca=.94+nz(x,y,26)*.12;                       // 水の中のゆらぎ
       let wr=(cs[0]+(cd[0]-cs[0])*dp)*ca,wg=(cs[1]+(cd[1]-cs[1])*dp)*ca,wb=(cs[2]+(cd[2]-cs[2])*dp)*ca;
       const lip=1-Math.abs(water-.5)*2;wr+=lip*28;wg+=lip*30;wb+=lip*30; // 水ぎわの明るい線
+      if(!pond){
+        // 流れの筋（流れの向きに長くのびたノイズ）と、空の映りこみ（大きなゆるい明るさ）
+        const fd=fdir[Math.floor(y/T)*MW+Math.floor(x/T)],st=fd===2?nz(x*.12,y,4):nz(x,y*.12,4),sky=nz(x,y,90);
+        const sv=(st-.5)*26*dp+(sky-.5)*18;wr+=sv;wg+=sv;wb+=sv*.9;
+      }
+      // 岸のかげ：岸に近い水は少し暗い（岸が高いので影になる）。浅い所は川底の石が少し見える
+      const bs=(1-sstep(.44,.62,e))*.2,peb=(1-dp)*(nz(x*1.7,y*1.7,3)>.62?1:0)*.12;
+      wr*=1-bs-peb;wg*=1-bs-peb;wb*=1-bs-peb*.6;
       r=r+(wr-r)*water;gg=gg+(wg-gg)*water;b=b+(wb-b)*water;
     }
     d[o]=d[o]+(r-d[o])*bank;d[o+1]=d[o+1]+(gg-d[o+1])*bank;d[o+2]=d[o+2]+(b-d[o+2])*bank;
@@ -3755,6 +3779,127 @@ function drawWaterReal(g,P,season,wet){
   for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){const t=tt(x,y),h=hash(x,y);if(t===6&&h<.35&&season!==3){const lx=x*T+8+h*40,ly=y*T+10+h*30;
     ell(g,lx+1,ly+1.5,6,4.2,'rgba(20,50,40,.3)');ell(g,lx,ly,6,4.2,'#4f9a50');ell(g,lx-1.5,ly-1,3.5,2,'#6db866');g.fillStyle=WP.pshallow;g.beginPath();g.moveTo(lx,ly);g.arc(lx,ly,6.5,-.3,.3);g.fill();
     if(h<.12&&season<2){for(let k=0;k<6;k++)ell(g,lx+2+Math.cos(k)*2.2,ly-1+Math.sin(k)*1.6,1.8,1.1,'#f7b6d2',k);circ(g,lx+2,ly-1,1,'#f6d14a')}}}
+}
+// ---------- 海（深さで色が変わる・浅い所は砂の底が透ける・ぬれた砂浜） ----------
+// 陸からの近さを3つの広さでぼかした形（softMask）で測り、1画素ずつ色を決める。
+// 以前の「円を重ねた海岸」をやめて、ノイズで海岸線を自然にゆらす
+const SEA_PAL=[
+  {deep:'#174f80',mid:'#2a7fb4',sh:'#4fbcc8',lagoon:'#8ad8cf'},
+  {deep:'#12497c',mid:'#2479b2',sh:'#43b6c6',lagoon:'#7fd6cc'},
+  {deep:'#1a4a72',mid:'#2b72a3',sh:'#4daab8',lagoon:'#8bcac2'},
+  {deep:'#2b5a7c',mid:'#4a84a8',sh:'#7fb6c8',lagoon:'#b2d6d8'},
+];
+function drawSeaReal(g,P,season,land){
+  const Wp=MW*T,Hp=MH*T,SP=SEA_PAL[season];
+  const mL=softMask(land,32),mW=softMask(land,80),mD=softMask(land,224);
+  const deep=hexRGB(SP.deep),mid=hexRGB(SP.mid),sh=hexRGB(SP.sh),lag=hexRGB(SP.lagoon),sand=hexRGB(P.sand);
+  const wetS=[sand[0]*.78,sand[1]*.74,sand[2]*.68];
+  const img=g.createImageData(Wp,Hp),d=img.data;
+  for(let y=0;y<Hp;y++)for(let x=0;x<Wp;x++){
+    const i=y*Wp+x,o=i*4;
+    const e=mL[i]+(nz(x,y,34)-.5)*.42+(nz(x+300,y,9)-.5)*.1;   // 海岸線（.47 より上が砂浜）
+    let r,gg,b;
+    if(e>.47){                                                   // 砂浜：水ぎわはぬれて暗い
+      const w=1-sstep(.47,.56,e),grain=(nz(x*2.3,y*2.3,1.6)-.5)*16;
+      r=sand[0]+(wetS[0]-sand[0])*w+grain;gg=sand[1]+(wetS[1]-sand[1])*w+grain;b=sand[2]+(wetS[2]-sand[2])*w+grain;
+    }else{
+      // 浅さ：陸に近いほど浅い。沖ほど深く暗い
+      const near=Math.min(1,mW[i]*1.7+mL[i]*.8),far=Math.min(1,mD[i]*1.8);
+      const dep=1-Math.min(1,near*.75+far*.35);
+      let c0,c1,k;
+      if(dep<.3){c0=lag;c1=sh;k=dep/.3}else if(dep<.65){c0=sh;c1=mid;k=(dep-.3)/.35}else{c0=mid;c1=deep;k=Math.min(1,(dep-.65)/.35)}
+      r=c0[0]+(c1[0]-c0[0])*k;gg=c0[1]+(c1[1]-c0[1])*k;b=c0[2]+(c1[2]-c0[2])*k;
+      // 浅い所は砂の底が透ける（波打ちぎわほど砂の色）
+      const see=sstep(.2,.47,e)*.55;r+=(sand[0]-r)*see;gg+=(sand[1]-gg)*see;b+=(sand[2]-b)*see;
+      // うねり（ゆるい横長の波の帯）と、浅い所のゆらめく光の網目（コースティクス）
+      const wave=Math.sin((y+nz(x,y,60)*70)*.16+nz(x,y,30)*4)*5*(1-dep*.4);
+      const cz=1-Math.abs(nz(x,y*1.2,10)-.5)*2,cau=Math.pow(cz,8)*(1-dep)*34;
+      r+=wave+cau*.8;gg+=wave+cau;b+=wave+cau;
+      // 波打ちぎわの白い泡の線（二重）
+      const f1=Math.max(0,1-Math.abs(e-.44)/.025),f2=Math.max(0,1-Math.abs(e-.36)/.02);
+      const foam=f1*.85+f2*.35*(nz(x,y,9)>.45?1:.3);
+      r+=(250-r)*foam;gg+=(252-gg)*foam;b+=(250-b)*foam;
+    }
+    d[o]=r;d[o+1]=gg;d[o+2]=b;d[o+3]=255;
+  }
+  g.putImageData(img,0,0);
+}
+// ---------- 橋（板を1枚ずつ・木目・くぎ・手すり・水に落ちる影） ----------
+function drawBridgeReal(g,x,y,vert,first,last,pier){
+  const px=x*T,py=y*T,h=i=>hash(x*13+i,y*7+i*3);
+  g.save();
+  // 水に落ちる影（少し右下へ）
+  g.fillStyle='rgba(8,30,50,.32)';vert?g.fillRect(px+3,py,T+3,T):g.fillRect(px,py+5,T,T);
+  // 板：歩く向きに対して横に並ぶ。1枚ずつ色を少し変え、すき間を暗く
+  const n=5,wpl=T/n;
+  g.fillStyle='#4a3020';vert?g.fillRect(px+2,py,T-4,T):g.fillRect(px,py+3,T,T-6);   // すき間の暗さ
+  for(let k=0;k<n;k++){
+    const c=h(k),o=k*wpl;
+    const rx=vert?px+2:px+o,ry=vert?py+o:py+3,rw=vert?T-4:wpl-1,rh=vert?wpl-1:T-6;
+    g.fillStyle=`rgb(${176+c*26|0},${122+c*20|0},${78+c*12|0})`;g.fillRect(rx,ry,rw,rh);
+    // 木目（板の長い向きに細い線）
+    g.strokeStyle='rgba(90,55,25,.3)';g.lineWidth=.6;
+    for(let j=0;j<3;j++){const q=h(k*5+j);g.beginPath();
+      if(vert){const yy=ry+.8+q*(rh-1.6);g.moveTo(rx+1,yy);g.bezierCurveTo(rx+rw*.3,yy+(q-.5)*1.4,rx+rw*.6,yy-(q-.5)*1.4,rx+rw-1,yy+.3)}
+      else{const xx=rx+.8+q*(rw-1.6);g.moveTo(xx,ry+1);g.bezierCurveTo(xx+(q-.5)*1.4,ry+rh*.3,xx-(q-.5)*1.4,ry+rh*.6,xx+.3,ry+rh-1)}
+      g.stroke()}
+    // 板のふちの光と、すり減った明るい所
+    g.fillStyle='rgba(255,235,200,.25)';vert?g.fillRect(rx,ry,rw,.9):g.fillRect(rx,ry,.9,rh);
+    if(c>.7){g.fillStyle='rgba(255,240,210,.14)';vert?g.fillRect(rx+rw*.3,ry+1,rw*.4,rh-2):g.fillRect(rx+1,ry+rh*.3,rw-2,rh*.4)}
+    // くぎ（両はし）
+    if(vert){circ(g,rx+4,ry+rh/2,.8,'#3e2f25');circ(g,rx+rw-4,ry+rh/2,.8,'#3e2f25')}else{circ(g,rx+rw/2,ry+4,.8,'#3e2f25');circ(g,rx+rw/2,ry+rh-4,.8,'#3e2f25')}
+  }
+  // 手すり：両側の太い木（上のふちを明るく）と、はしの柱
+  const rail=(rx,ry,rw,rh)=>{g.fillStyle='rgba(0,0,0,.25)';g.fillRect(rx+1,ry+1.5,rw,rh);g.fillStyle='#7a4c2a';g.fillRect(rx,ry,rw,rh);g.fillStyle='#a06a3e';vert?g.fillRect(rx,ry,1.2,rh):g.fillRect(rx,ry,rw,1.2)};
+  const post=(cx,cy)=>{g.fillStyle='rgba(0,0,0,.3)';g.fillRect(cx-2,cy-1,6,6);g.fillStyle='#5e3a20';g.fillRect(cx-3,cy-5,6,8);g.fillStyle='#8a5a34';g.fillRect(cx-3,cy-5,6,2);g.fillStyle='#b07a4a';g.fillRect(cx-2,cy-5,4,.8)};
+  // 桟橋は手すりなし。四すみに水から立つ杭（くい）
+  // 杭は外側の角だけ（となりも桟橋の角には立てない）。長い桟橋は1マスおきに横にも立てる
+  const pr=(a,b)=>tileAt(a,b)===7;
+  if(pier){for(const [a,b,dx,dy] of [[3,3,-1,-1],[T-3,3,1,-1],[3,T-3,-1,1],[T-3,T-3,1,1]]){const sideOpen=!pr(x+dx,y),endOpen=!pr(x,y+dy);if(!(vert?sideOpen&&(endOpen||y%2===0):endOpen&&(sideOpen||x%2===0)))continue;g.fillStyle='rgba(8,30,50,.3)';g.beginPath();g.ellipse(px+a+1,py+b+3,4,2,0,0,7);g.fill();circ(g,px+a,py+b,2.8,'#5e3a20');circ(g,px+a-.6,py+b-.6,1.7,'#8a5a34');circ(g,px+a-.6,py+b-.6,.7,'#a87a4c')}g.restore();return}
+  if(vert){rail(px-1,py,3.2,T);rail(px+T-2.2,py,3.2,T);if(first){post(px+1,py+2);post(px+T-1,py+2)}if(last){post(px+1,py+T-3);post(px+T-1,py+T-3)}}
+  else{rail(px,py,T,3.2);rail(px,py+T-4.5,T,3.2);if(first){post(px+2,py+2);post(px+2,py+T-3)}if(last){post(px+T-2,py+2);post(px+T-2,py+T-3)}}
+  g.restore();
+}
+// ---------- 水の動き（毎回描く）：川は流れる向きに筋が流れ、海は波が打ち寄せ、日の光がきらめく ----------
+let WFX=null;
+function waterFxPrep(){
+  // 川のマスごとの流れる向き（上下につながっていれば縦、左右なら横）と、海岸のマスの「陸の向き」
+  const fl={},sh=[],rv=(x,y)=>{const t=tileAt(x,y);return t===3||t===5};
+  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){
+    const t=tileAt(x,y);
+    if(t===3){const v=(rv(x,y-1)?1:0)+(rv(x,y+1)?1:0),hz=(rv(x-1,y)?1:0)+(rv(x+1,y)?1:0);fl[y*MW+x]=v>=hz?[0,1]:[1,0]}
+    else if(t===0){let nx=0,ny=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const u=tileAt(x+dx,y+dy);if(u===1||u===2||u===4){nx+=dx;ny+=dy}}
+      const l=Math.hypot(nx,ny);if(l>0)sh.push([x,y,nx/l,ny/l])}
+  }
+  WFX={key:S.seed,fl,sh};
+}
+function drawWaterFx(ctx,x0,x1,y0,y1,t,day){
+  if(!onIsland())return;
+  if(!WFX||WFX.key!==S.seed)waterFxPrep();
+  ctx.save();
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+    const tt=tileAt(x,y),h=hash(x,y);
+    if(tt===3){                                         // 川：流れる向きに細い筋が動く
+      const [fx,fy]=WFX.fl[y*MW+x]||[0,1];
+      for(let k=0;k<3;k++){const q=hash(x*3+k,y*5),p=((q*T+t*(18+q*12)+k*11)%T),a=Math.sin(p/T*Math.PI)*.32,len=6+q*7,off=4+q*24;
+        ctx.strokeStyle=`rgba(235,250,255,${a})`;ctx.lineWidth=1.1;ctx.beginPath();
+        if(fy){const xx=x*T+off,yy=y*T+p;ctx.moveTo(xx,yy);ctx.quadraticCurveTo(xx+1.5,yy+len/2,xx,yy+len)}
+        else{const xx=x*T+p,yy=y*T+off;ctx.moveTo(xx,yy);ctx.quadraticCurveTo(xx+len/2,yy+1.5,xx+len,yy)}
+        ctx.stroke()}
+    }else if(tt===0&&day&&h<.35){                         // 海：日の光のきらめき（ちらちら光って消える）
+      const ph=(t*.7+h*13)%3;if(ph<.6){const a=Math.sin(ph/.6*Math.PI),cx=x*T+h*28+2,cy=y*T+hash(y,x)*28+2,s=1.2+a*2.2;
+        ctx.fillStyle=`rgba(255,255,240,${.75*a})`;ctx.fillRect(cx-s,cy-.5,s*2,1);ctx.fillRect(cx-.5,cy-s*.6,1,s*1.2)}
+    }
+  }
+  // 海岸：波が寄せては返す（白い泡の帯が陸へ進み、薄くなって戻る）
+  for(const [x,y,nx,ny] of WFX.sh){if(x<x0||x>x1||y<y0||y>y1)continue;
+    const h=hash(x*7,y*11),ph=(t*.28+h*.35)%1,adv=ph<.6?ph/.6:1-(ph-.6)/.4,a=ph<.6?.55*Math.sin(ph/.6*Math.PI*.9+.2):.25*(1-(ph-.6)/.4);
+    const cx=(x+.5)*T+nx*(adv*12-4),cy=(y+.5)*T+ny*(adv*12-4),tx=-ny,ty=nx;
+    ctx.strokeStyle=`rgba(255,255,255,${Math.max(0,a)})`;ctx.lineWidth=1.6+adv;ctx.beginPath();
+    ctx.moveTo(cx-tx*18,cy-ty*18);ctx.quadraticCurveTo(cx+nx*3,cy+ny*3,cx+tx*18,cy+ty*18);ctx.stroke();
+    ctx.strokeStyle=`rgba(255,255,255,${Math.max(0,a*.45)})`;ctx.lineWidth=1;ctx.beginPath();
+    ctx.moveTo(cx-tx*14-nx*5,cy-ty*14-ny*5);ctx.quadraticCurveTo(cx-nx*3,cy-ny*3,cx+tx*14-nx*5,cy+ty*14-ny*5);ctx.stroke()}
+  ctx.restore();
 }
 </script>
 <script>
@@ -4230,6 +4375,30 @@ function drawBustWalker(g,x,y,dir,walking,sw,v,im,hasRight){
   g.drawImage(im,-bw/2,-LH-bh+3,bw,bh);
   g.restore();
 }
+// 歩く絵の足の場所を調べる（絵ごとに1回だけ）。足もと（下から 8%）の不透明な列のかたまりから、
+//  split … 正面・後ろで左右の足を分ける x（足のあいだのすき間のまん中）
+//  x0,x1,back … 横向きで足のある列の範囲と、その部分を少し暗くした写し（奥の足として描く）
+const WK_LEG=new Map();
+function wkLegs(im,hipS){
+  let r=WK_LEG.get(im);if(r)return r;
+  const iw=im.naturalWidth,ih=im.naturalHeight;r={split:iw/2,x0:iw*.35,x1:iw*.65,back:null};WK_LEG.set(im,r);
+  try{
+    const c=document.createElement('canvas');c.width=iw;c.height=ih;const cg=c.getContext('2d');cg.drawImage(im,0,0);
+    const d=cg.getImageData(0,0,iw,ih).data,A=(x,y)=>d[(y*iw+x)*4+3]>100;
+    const col=new Uint8Array(iw);for(let y=Math.floor(ih*.92);y<ih;y++)for(let x=0;x<iw;x++)if(A(x,y))col[x]=1;
+    const runs=[];for(let x=0;x<iw;){if(!col[x]){x++;continue}const s=x;while(x<iw&&col[x])x++;if(x-s>1)runs.push([s,x])}
+    let h0=iw,h1=0;for(let x=0;x<iw;x++)if(A(x,hipS)){h0=Math.min(h0,x);h1=x}
+    const hc=h1>=h0?(h0+h1)/2:iw/2;r.split=Math.round(hc);
+    // 足のあいだ：腰のまん中にいちばん近いすき間
+    let best=1e9;for(let i=0;i+1<runs.length;i++){const m=(runs[i][1]+runs[i+1][0])/2;if(Math.abs(m-hc)<best&&Math.abs(m-hc)<iw*.2){best=Math.abs(m-hc);r.split=Math.round(m)}}
+    // 横向きの足：腰のまん中にいちばん近いかたまり（しっぽは横にずれているので選ばれない）
+    if(runs.length){const rn=runs.reduce((a,b)=>Math.abs((a[0]+a[1])/2-hc)<=Math.abs((b[0]+b[1])/2-hc)?a:b),mg=Math.round(iw*.05);
+      r.x0=Math.max(0,rn[0]-mg);r.x1=Math.min(iw,rn[1]+mg)}
+    const bw=r.x1-r.x0,bh=ih-hipS;if(bw>0&&bh>0){const b=document.createElement('canvas');b.width=bw;b.height=bh;const bg=b.getContext('2d');
+      bg.drawImage(im,r.x0,hipS,bw,bh,0,0,bw,bh);bg.globalCompositeOperation='source-atop';bg.fillStyle='rgba(30,20,20,.3)';bg.fillRect(0,0,bw,bh);r.back=b}
+  }catch(e){}
+  return r;
+}
 const VW_H=50;                                       // 住民の絵の高さ（ピクセル）＝主人公と同じ（pc2.js の PC_H。pc2.js は後で読まれるので数で書く）
 drawAnimal=function(g,x,y,dir,frame,v){
   // 右向きの絵（wk_<ID>_right）があればそれを使い、無ければ左向きを反転する
@@ -4242,8 +4411,22 @@ drawAnimal=function(g,x,y,dir,frame,v){
   // 高さを VW_H にそろえる。ただし横に長い絵（しっぽの長い横向きなど）は横幅も 1.6 倍までにおさえる
   const ih=im.naturalHeight,iw=im.naturalWidth,k=Math.min(VW_H/ih,VW_H*1.6/iw),w=iw*k,hh=ih*k,hipS=Math.round(ih*.74),hipD=hipS*k;
   g.save();g.translate(x,y-bob);g.rotate(walking?sw*.04:0);if(dir==='right'&&!rimg)g.scale(-1,1);
-  const top=-hh+1,sk=walking?sw*(view==='side'?.3:.12):0;
-  g.save();g.translate(0,top+hipD);g.transform(1,0,sk,1,0,0);g.drawImage(im,0,hipS,iw,ih-hipS,-w/2,0,w,(ih-hipS)*k);g.restore();
+  const top=-hh+1,L=wkLegs(im,hipS),LH2=(ih-hipS)*k;
+  g.save();g.translate(0,top+hipD);
+  if(view==='side'){
+    // 横向き：奥の足（少し暗い写し）と手前の足（絵そのもの）を、腰を中心に反対へふる
+    const sk=walking?sw*.45:0;
+    if(walking&&L.back){g.save();g.transform(1,0,-sk,1,0,0);g.drawImage(L.back,-w/2+L.x0*k,0,(L.x1-L.x0)*k,LH2);g.restore()}
+    g.transform(1,0,sk,1,0,0);g.drawImage(im,0,hipS,iw,ih-hipS,-w/2,0,w,LH2);
+  }else{
+    // 正面・後ろ：左右の足を分けて、交互に持ち上げる（持ち上げた足は短く縮めて、足先が上がって見えるように）
+    const sp=L.split,lift=walking?LH2*.3:0,lL=Math.max(0,sw)*lift,lR=Math.max(0,-sw)*lift,sk=walking?sw*.05:0;
+    g.save();g.transform(1,0,sk,1,0,0);
+    g.drawImage(im,0,hipS,sp,ih-hipS,-w/2,0,sp*k,LH2-lL);
+    g.drawImage(im,sp,hipS,iw-sp,ih-hipS,-w/2+sp*k,0,(iw-sp)*k,LH2-lR);
+    g.restore();
+  }
+  g.restore();
   g.drawImage(im,0,0,iw,hipS+2,-w/2,top,w,(hipS+2)*k);
   g.restore();
 };
@@ -4934,10 +5117,87 @@ $('bSnd').onclick=()=>{soundOn=!soundOn;try{localStorage.setItem('hidamari-sound
 updateSndBtn();
 </script>
 <script>
+// ===================== データ引継ぎ =====================
+// 機種変更やデータが消えたときのために、セーブを「引継ぎコード」（文字）や「引継ぎファイル」にして持ち出し、別の端末で読み込む。
+// サーバーは使わない（公開サイトは静的なファイルだけ）。コードは JSON を圧縮して base64 にしたもの。
+//   HIDA2:<base64url(deflate-raw(JSON))>   … 圧縮できるブラウザ
+//   HIDA0:<base64url(JSON)>                … 圧縮できないブラウザ
+const XFER_FILE='ひだまり島_引継ぎ';
+const b64u=bytes=>{let s='';for(let i=0;i<bytes.length;i+=0x8000)s+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
+const unb64u=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u};
+async function pipeBytes(bytes,stream){return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer())}
+async function makeXferCode(){
+  if(S&&!RT.title)save();                                           // 遊んでいる途中なら、今の状態をセーブしてから
+  const raw=localStorage.getItem(SAVE_KEY);if(!raw)throw new Error('セーブがありません');
+  const bytes=new TextEncoder().encode(raw);
+  if(typeof CompressionStream==='function')return 'HIDA2:'+b64u(await pipeBytes(bytes,new CompressionStream('deflate-raw')));
+  return 'HIDA0:'+b64u(bytes);
+}
+async function readXferCode(text){
+  const m=String(text||'').replace(/\s+/g,'').match(/HIDA([02]):([A-Za-z0-9_-]+)/);
+  if(!m)throw new Error('引継ぎコードが見つかりません');
+  if(m[1]==='2'&&typeof DecompressionStream!=='function')throw new Error('このブラウザでは読み込めません');
+  let s;
+  try{let bytes=unb64u(m[2]);if(m[1]==='2')bytes=await pipeBytes(bytes,new DecompressionStream('deflate-raw'));s=JSON.parse(new TextDecoder().decode(bytes))}
+  catch(e){throw new Error('コードがこわれています（途中で切れていないか確かめてください）')}
+  if(!s||(s.v!==1&&s.v!==2)||typeof s.day!=='number')throw new Error('ひだまり島のセーブではありません');
+  return s;
+}
+const xferInfo=s=>`${s.name&&s.name!=='あなた'?s.name+'・':''}${SEASONS[Math.floor((s.day-1)/DAYS_PER_SEASON)%4]} ${(s.day-1)%DAYS_PER_SEASON+1}日目`;
+function xferDate(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`}
+// 引継ぎの画面（タイトルの画面とゲーム中のパネルの両方で使う）
+function renderXfer(el){
+  el.innerHTML='';el.classList.add('xfer');
+  let hasSave=false;try{hasSave=!!localStorage.getItem(SAVE_KEY)}catch(e){}
+  const msg=h('p',{class:'xmsg',role:'status','aria-live':'polite'});
+  const say=(t,bad)=>{msg.textContent=t;msg.classList.toggle('bad',!!bad)};
+  // ---- 渡す ----
+  const out=h('section',{},h('h3',{},'この端末のデータを渡す'));
+  if(hasSave){
+    const box=h('textarea',{class:'xcode',readonly:'',rows:'3','aria-label':'引継ぎコード',placeholder:'「コードを表示」を押すと、ここに出ます'});
+    const fileBtn=h('button',{class:'xbtn main',on:async()=>{
+      try{const code=await makeXferCode(),name=`${XFER_FILE}_${xferDate()}.txt`,file=new File([code],name,{type:'text/plain'});
+        // スマホは「共有」で LINE・メール・ドライブなどへ送れる。できないときはダウンロード
+        if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:'ひだまり島ぐらし 引継ぎ'});say('送りました。新しい端末で「ファイルから読み込む」を押してください');return}catch(e){if(e&&e.name==='AbortError')return}}
+        const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+        say(`「${name}」を保存しました。このファイルを新しい端末へ送ってください`);
+      }catch(e){say('保存できませんでした：'+e.message,true)}}},'引継ぎファイルを保存');
+    const codeBtn=h('button',{class:'xbtn',on:async()=>{
+      try{const code=await makeXferCode();box.value=code;box.hidden=false;box.focus();box.select();
+        let ok=false;try{await navigator.clipboard.writeText(code);ok=true}catch(e){}
+        say(ok?`コードをコピーしました（${code.length}文字）。メモやLINEなどに貼って、新しい端末へ送ってください`:'下のコードを全部選んでコピーしてください');
+      }catch(e){say('作れませんでした：'+e.message,true)}}},'引継ぎコードをコピー');
+    box.hidden=true;
+    out.append(h('p',{},'ファイルかコードにして、新しい端末へ送ります。ときどき保存しておくと、データが消えたときにも戻せます。'),fileBtn,codeBtn,box);
+  }else out.append(h('p',{},'この端末にはまだセーブがありません。'));
+  // ---- 受け取る ----
+  const inp=h('section',{},h('h3',{},'前の端末のデータを受け取る'));
+  const pick=h('input',{type:'file',accept:'.txt,text/plain',hidden:''});
+  const paste=h('textarea',{class:'xcode',rows:'3','aria-label':'引継ぎコードを貼り付ける',placeholder:'ここに引継ぎコードを貼り付け'});
+  let pending=null;
+  const conf=h('div',{class:'xconf',hidden:''});
+  const apply=s=>{
+    pending=s;conf.hidden=false;conf.innerHTML='';
+    conf.append(h('p',{},`「${xferInfo(s)}」のデータを読み込みます。`+(hasSave?'この端末のいまのセーブは上書きされ、もとに戻せません。':'')),
+      h('button',{class:'xbtn main',on:()=>{try{localStorage.setItem(SAVE_KEY,JSON.stringify(pending));say('読み込みました。ゲームを開き直します…');RT.quit=true;setTimeout(()=>location.reload(),600)}catch(e){say('書きこめませんでした：'+e.message,true)}}},'読み込む'),
+      h('button',{class:'tback',on:()=>{pending=null;conf.hidden=true;say('')}},'やめる'));
+  };
+  pick.onchange=async()=>{const f=pick.files&&pick.files[0];pick.value='';if(!f)return;try{apply(await readXferCode(await f.text()))}catch(e){say('読み込めませんでした：'+e.message,true)}};
+  inp.append(h('p',{},'前の端末で作ったファイルかコードを読み込みます。'),
+    h('button',{class:'xbtn main',on:()=>pick.click()},'ファイルから読み込む'),pick,paste,
+    h('button',{class:'xbtn',on:async()=>{try{apply(await readXferCode(paste.value))}catch(e){say('読み込めませんでした：'+e.message,true)}}},'コードで読み込む'),conf);
+  el.append(out,inp,msg);
+}
+function openXferPanel(){if(RT.title||RT.dlg)return;openPanel('データ引継ぎ',null,null,body=>renderXfer(body))}
+$('bXfer').onclick=openXferPanel;
+// ブラウザが空き容量のために勝手にデータを消さないように頼む（できるブラウザだけ）
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+</script>
+<script>
 // ===================== タイトル画面 =====================
 // 画面：titleMain（ロゴとメニュー）/ titleSetup（名前と男女）/ titleConfirm（はじめからの確認）/ titleHowto（あそびかた）
 let titleMode='new',titleHasSave=false;
-function showTitlePane(id){for(const p of ['titleMain','titleSetup','titleConfirm','titleHowto','titleLicense'])$(p).hidden=p!==id}
+function showTitlePane(id){for(const p of ['titleMain','titleSetup','titleConfirm','titleHowto','titleLicense','titleXfer'])$(p).hidden=p!==id}
 function saveInfo(){return `${S.name&&S.name!=='あなた'?S.name+'・':''}${SEASONS[season()]} ${dayInSeason()}日目`}
 function setupTitle(hasSave){
   titleHasSave=hasSave;
@@ -4948,6 +5208,7 @@ function setupTitle(hasSave){
   $('tNew').onclick=()=>{if(titleHasSave){$('confirmInfo').textContent=saveInfo();showTitlePane('titleConfirm')}else openSetup('new')};
   $('tHowto').onclick=()=>showTitlePane('titleHowto');
   $('tLicense').onclick=()=>showTitlePane('titleLicense');
+  $('tXfer').onclick=()=>{renderXfer($('tXferBody'));showTitlePane('titleXfer')};   // データ引継ぎ（xfer.js）
   // 終了：音を止めて、閉じられるときは画面（アプリ）を閉じる。ブラウザのタブはゲームの側からは閉じられないことが多いので、
   // 閉じられなかったときは「タブを閉じて終了してください」と出す
   $('tExit').onclick=()=>quitGame(!!(S&&!RT.needName&&titleHasSave));   // ゲームを完全に終える（map.js）
@@ -4956,7 +5217,7 @@ function setupTitle(hasSave){
     S=newState('');genWorld(S.seed);initDaily();placeAtHome();resetVillagers();
     titleHasSave=false;$('tContinue').hidden=true;RT.needName=false;openSetup('new');
   };
-  for(const id of ['tConfirmNo','howtoBack','setupBack','licenseBack'])$(id).onclick=()=>showTitlePane('titleMain');
+  for(const id of ['tConfirmNo','howtoBack','setupBack','licenseBack','xferBack'])$(id).onclick=()=>showTitlePane('titleMain');
   showTitlePane('titleMain');titleChars();startTitleFx();
 }
 function openSetup(mode){
