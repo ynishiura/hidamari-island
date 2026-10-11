@@ -542,7 +542,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.990";</script>
+<script>const GAME_VERSION="0.991";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -875,13 +875,22 @@ const TOOLS=[
   {id:'wand',name:'杖',key:'8',skill:'magic'},
 ];
 const TIER_LABEL=['ふつうの','丈夫な','金の'];
-const TIER_OF={axe:['石のオノ','鉄のオノ','金のオノ'],sword:['木の剣','鉄の剣','金の剣'],wand:['魔法の杖','星の杖','伝説の杖']};
+// 剣・スコップ・つりざお・あみは、作る材料で質が決まる（木→石→鉄の順に良い）。ランク 1〜3 が 木・石・鉄
+const TIER_OF={axe:['石のオノ','鉄のオノ','金のオノ'],sword:['木の剣','石の剣','鉄の剣'],wand:['魔法の杖','星の杖','伝説の杖'],
+  net:['木のあみ','石のあみ','鉄のあみ'],rod:['木のつりざお','石のつりざお','鉄のつりざお'],shovel:['木のスコップ','石のスコップ','鉄のスコップ']};
+const MAT_TOOLS=['sword','shovel','rod','net'];
+const MAT_COL=[null,'#b07a4a','#8f8a80','#c4ccd4'];   // 木・石・鉄の色（手に持った絵とアイコン）
 const toolName=(id,tr)=>TIER_OF[id]?TIER_OF[id][tr-1]:(tr>1?TIER_LABEL[tr-1]:'')+TOOLS.find(t=>t.id===id).name;
 const TOOL_UP=[null,{bells:2000,mat:'copper',n:5,lv:3},{bells:8000,mat:'silver',n:3,lv:6}];
 // クラフトのレシピ
 const RECIPES=[
   {id:'r_axe1',name:'石のオノ',lv:1,mats:{branch:3,stone:2},tool:['axe',1],note:'木を切って木材を集める'},
   {id:'r_sword1',name:'木の剣',lv:1,mats:{wood:4},tool:['sword',1],note:'夜のスライムやハチと戦える'},
+  {id:'r_shovel1',name:'木のスコップ',lv:1,mats:{wood:3,branch:1},tool:['shovel',1],note:'化石を掘ったり、岩をたたける（商店でも買える）'},
+  {id:'r_sword2',name:'石の剣',lv:3,mats:{stone:5,wood:2},tool:['sword',2],need:['sword',1],note:'攻撃力 +1'},
+  {id:'r_shovel2',name:'石のスコップ',lv:3,mats:{stone:4,wood:1},tool:['shovel',2],need:['shovel',1],note:'レアな化石と鉱石が出やすく、岩を広くたたける'},
+  {id:'r_rod2',name:'石のつりざお',lv:3,mats:{stone:3,wood:2},tool:['rod',2],need:['rod',1],note:'アタリの猶予が長くなり、大物がかかりやすい'},
+  {id:'r_net2',name:'石のあみ',lv:3,mats:{stone:3,wood:2},tool:['net',2],need:['net',1],note:'虫を捕まえる成功率 +10%'},
   {id:'r_spear',name:'槍',lv:3,mats:{wood:2,iron:2},weapon:'spear',note:'武器。まっすぐ遠くまで届き、並んだ敵をまとめて突く'},
   {id:'r_bow',name:'弓',lv:4,mats:{wood:4,silk:2},weapon:'bow',note:'武器。矢を放って、離れた敵をねらう'},
   {id:'r_hammer',name:'ハンマー',lv:5,mats:{iron:4,fang:2},weapon:'hammer',note:'武器。まわり全体を強くたたく（少し遅い）'},
@@ -897,10 +906,12 @@ const RECIPES=[
   {id:'r_lure',name:'虫寄せの蜜',lv:3,mats:{honey:1,branch:2},out:['lure',1],note:'使うと珍しい虫が集まる'},
   {id:'r_torch',name:'松明 ×2',lv:1,mats:{branch:2,wood:1},out:['torch',2],note:'使うと、しばらく自分のまわりが明るくなる（夜や洞窟で）'},
   {id:'r_axe2',name:'鉄のオノ',lv:4,mats:{iron:2,hardwood:2},tool:['axe',2],need:['axe',1],note:'1回で取れる木材が増え、疲れにくい'},
-  {id:'r_sword2',name:'鉄の剣',lv:4,mats:{iron:3,wood:2},tool:['sword',2],need:['sword',1],note:'攻撃力 +1'},
+  {id:'r_sword3',name:'鉄の剣',lv:6,mats:{iron:4,wood:2},tool:['sword',3],need:['sword',2],note:'攻撃力 +2'},
+  {id:'r_shovel3',name:'鉄のスコップ',lv:6,mats:{iron:3,wood:1},tool:['shovel',3],need:['shovel',2],note:'さらにレアな物が出やすく、岩をもっと広くたたける'},
+  {id:'r_rod3',name:'鉄のつりざお',lv:6,mats:{iron:3,wood:2},tool:['rod',3],need:['rod',2],note:'さらに大物がかかりやすい'},
+  {id:'r_net3',name:'鉄のあみ',lv:6,mats:{iron:3,wood:2},tool:['net',3],need:['net',2],note:'虫を捕まえる成功率 さらに +10%'},
   {id:'r_wand2',name:'星の杖',lv:6,mats:{silver:2,mstone:3,hardwood:2},tool:['wand',2],need:['wand',1],note:'魔法の消費 -25%、光の玉が強くなる'},
   {id:'r_axe3',name:'金のオノ',lv:7,mats:{gold:2,hardwood:1},tool:['axe',3],need:['axe',2],note:'さらに木材が増え、ほとんど疲れない'},
-  {id:'r_sword3',name:'金の剣',lv:7,mats:{gold:2,silver:1,hardwood:2},tool:['sword',3],need:['sword',2],note:'攻撃力 +2'},
   {id:'r_wand3',name:'伝説の杖',lv:9,mats:{gold:2,mstone:5},tool:['wand',3],need:['wand',2],note:'魔法の消費 -50%'},
 ];
 const HOUSE=[
@@ -1932,7 +1943,7 @@ function drawWeapon(g,kind,dir,s,tr,anim){
   g.save();g.rotate(rot);g.lineCap='round';g.lineJoin='round';
   const shine=back?.12:.45;
   if(kind==='sword'){
-    const blade=tr===3?'#f3d35a':tr===2?'#d6dde4':'#c9a06b',wood=tr===1;   // ランク1は木の剣
+    const blade=tr===3?'#dfe6ec':tr===2?'#9a958c':'#c9a06b',wood=tr===1;   // 木・石・鉄の剣
     const bw=side?2.6:3.2;
     const gr=g.createLinearGradient(-bw,0,bw,0);gr.addColorStop(0,shade(blade,.35));gr.addColorStop(.5,blade);gr.addColorStop(1,shade(blade,-.3));
     g.beginPath();g.moveTo(-bw/2,-4);g.lineTo(-bw/2,-19);g.lineTo(0,-23);g.lineTo(bw/2,-19);g.lineTo(bw/2,-4);g.closePath();
@@ -1940,7 +1951,7 @@ function drawWeapon(g,kind,dir,s,tr,anim){
     if(!wood){g.strokeStyle='rgba(255,255,255,'+shine+')';g.lineWidth=.5;g.beginPath();g.moveTo(-.3,-5);g.lineTo(-.3,-19);g.stroke()}   // 刃のみぞ
     else{g.strokeStyle='rgba(110,70,35,.5)';g.lineWidth=.4;for(const y of [-8,-12,-16]){g.beginPath();g.moveTo(-bw/2+.3,y);g.lineTo(bw/2-.3,y-1);g.stroke()}}  // 木目
     // つば（両はしに丸）
-    const gc=tr===3?'#c99a28':'#b08a3e';
+    const gc=tr===3?'#7d8a96':tr===2?'#6f6458':'#b08a3e';
     g.fillStyle=gc;g.fillRect(-4.5,-4.6,9,1.8);circ(g,-4.6,-3.7,1.1,gc);circ(g,4.6,-3.7,1.1,gc);
     // 持ち手（巻いた革）と柄頭
     g.fillStyle='#6b4423';g.fillRect(-1.1,-2.8,2.2,5.6);
@@ -2011,13 +2022,13 @@ function drawWeapon(g,kind,dir,s,tr,anim){
 function drawToolInHand(g,x,y){
   const tool=S.tool;if(tool==='hand')return;
   const [dx]=DIRV[S.dir];const hx=x+(dx||1)*9,hy=y-14;
-  const tr=tier(tool);const metal=tr===3?'#e8b830':tr===2?'#9aa6b2':'#b07a4a';
+  const tr=tier(tool);const metal=MAT_COL[tr]||MAT_COL[1];   // 木・石・鉄
   g.save();g.translate(hx,hy);
   if(RT.swing>0&&tool==='net'){g.rotate((dx||1)*(1-RT.swing/.35)*2.2-1)}
   g.strokeStyle='#8a5a34';g.lineWidth=2;
-  if(tool==='net')drawNet(g,S.dir,dx||1,metal==='#b07a4a'?'#d8d8d8':metal);
-  if(tool==='rod'){const tp=drawRod(g,S.dir,dx||1,tr===3?'#d4a020':tr===2?'#4f7a5c':'#2f4f7f');RT.rodTip=[hx+tp[0],hy+tp[1]]}   // 竿先の位置（釣り糸はここから）
-  if(tool==='shovel')drawShovel(g,S.dir,dx||1,metal==='#b07a4a'?'#9aa3ab':metal);
+  if(tool==='net')drawNet(g,S.dir,dx||1,metal);
+  if(tool==='rod'){const tp=drawRod(g,S.dir,dx||1,metal);RT.rodTip=[hx+tp[0],hy+tp[1]]}   // 竿先の位置（釣り糸はここから）
+  if(tool==='shovel')drawShovel(g,S.dir,dx||1,metal);
   if(tool==='can'){g.fillStyle=tr===3?'#e8b830':tr===2?'#6aa0d8':'#5fae7a';g.fillRect(-5,-6,10,8);g.fillRect(4,-6,5,2)}
   if(tool==='axe'){if(RT.shakeAxe)g.rotate((dx||1)*.8);g.beginPath();g.moveTo(0,2);g.lineTo(0,-14);g.stroke();g.fillStyle=tr===3?'#e8b830':tr===2?'#9aa6b2':'#8f979e';g.beginPath();g.moveTo(0,-14);g.lineTo((dx||1)*7,-16);g.lineTo((dx||1)*7,-8);g.lineTo(0,-10);g.fill()}
   // 武器と杖（drawWeapon）。攻撃の動きはこれまでと同じ（剣を振る・槍を突く・弓を引く・ハンマーを振り下ろす）
@@ -2370,7 +2381,7 @@ function buildToolbar(){
     if(t.id==='sword'){const want=curWeapon()==='sword'?'sword':'w_'+curWeapon();if(b.dataset.ic!==want){b.querySelector('canvas').replaceWith(iconCanvas(want,28));b.dataset.ic=want}}   // 持っている武器の絵
     b.querySelector('.lbl').textContent=t.id==='hand'&&S.held?'種を持つ':t.id==='wand'&&tr?curSpell().name.slice(0,4):t.id==='sword'&&tr?weaponLabel().slice(-4):tr?toolName(t.id,tr).slice(-4):t.name});
 }
-const HOW_GET={shovel:'ひだまり商店で買えるよ',can:'ひだまり商店で買えるよ',axe:'クラフトで作れるよ（木の枝×3＋石×2）',sword:'クラフトで作れるよ（木の剣は木材×4。槍・弓・ハンマーもある）',wand:'クラフトで作れるよ（木材×3＋魔石×1）'};
+const HOW_GET={shovel:'ひだまり商店で買えるよ（クラフトでも作れる）',can:'ひだまり商店で買えるよ',axe:'クラフトで作れるよ（木の枝×3＋石×2）',sword:'クラフトで作れるよ（木の剣は木材×4。槍・弓・ハンマーもある）',wand:'クラフトで作れるよ（木材×3＋魔石×1）'};
 function selectTool(id){
   if(id==='sword'){if(!hasWeapon()){toast(`武器はまだ持っていない。${HOW_GET.sword}`);return}if(S.tool==='sword'){cycleWeapon();return}}
   else if(!S.tools[id]){toast(`${TOOLS.find(t=>t.id===id).name}はまだ持っていない。${HOW_GET[id]||''}`);return}
@@ -2505,7 +2516,7 @@ function openShop(tab){
     }
     if(t==='tool'){
       const wrap=h('div',{class:'two'});
-      for(const tl of TOOLS.filter(t=>['net','rod','shovel','can'].includes(t.id))){
+      for(const tl of TOOLS.filter(t=>['can'].includes(t.id))){   // あみ・つりざお・スコップ・剣は、クラフトで石や鉄を使って作る
         const tr=S.tools[tl.id];
         const card=h('div',{class:'card'},h('div',{class:'rowline',style:'margin:0'},iconCanvas(tl.id),h('div',{class:'grow'},h('b',{},tr?TIER_LABEL[tr-1]+tl.name:tl.name),h('div',{class:'muted'},tr?`ランク ${tr}/3`:'まだ持っていない'))));
         if(tr&&tr<3){
@@ -2518,7 +2529,7 @@ function openShop(tab){
         }else if(tr===3)card.append(h('span',{class:'pill ok'},'最高ランク'));
         wrap.append(card);
       }
-      body.append(h('p',{class:'muted',style:'margin:0 0 10px'},'銅や銀などの鉱石は、北西の洞窟で掘れる（島の岩からも少し出る）。オノ・剣・杖はクラフトで強化する。'),wrap);
+      body.append(h('p',{class:'muted',style:'margin:0 0 10px'},'あみ・つりざお・スコップ・剣は、クラフトで作る。材料が良いほど良い道具になる（木→石→鉄）。オノ・杖もクラフトで強化する。銅や銀などの鉱石は、北西の洞窟で掘れる（島の岩からも少し出る）。'),wrap);
     }
     if(t==='house'){
       const nx=HOUSE[S.house+1];
@@ -4938,14 +4949,14 @@ drawIcon=function(c,id){
   const WK={sword:'sword',wand:'wand',w_spear:'spear',w_bow:'bow',w_hammer:'hammer'}[id];   // 武器と杖も手に持ったときと同じ絵
   if(!['net','rod','shovel'].includes(id)&&!WK)return _drawIconTool(c,id);
   const tr=(typeof S!=='undefined'&&S&&S.tools&&S.tools[WK&&WK!=='wand'?'sword':id])||1;
-  const metal=tr===3?'#e8b830':tr===2?'#9aa6b2':'#b07a4a';
+  const metal=MAT_COL[tr]||MAT_COL[1];   // 木・石・鉄
   // いったん大きなキャンバスに描いて、絵のある範囲だけをアイコンの枠いっぱいに入れる
   const Z=6,tmp=document.createElement('canvas');tmp.width=tmp.height=60*Z;const tg=tmp.getContext('2d');
   tg.scale(Z,Z);tg.translate(26,38);
   const keepF=RT.fishing;RT.fishing=null;
-  if(id==='net')drawNet(tg,'right',1,metal==='#b07a4a'?'#d8d8d8':metal);
-  if(id==='shovel')drawShovel(tg,'right',1,metal==='#b07a4a'?'#9aa3ab':metal);
-  if(id==='rod')drawRod(tg,'right',1,tr===3?'#d4a020':tr===2?'#4f7a5c':'#2f4f7f');
+  if(id==='net')drawNet(tg,'right',1,metal);
+  if(id==='shovel')drawShovel(tg,'right',1,metal);
+  if(id==='rod')drawRod(tg,'right',1,metal);
   if(WK)drawWeapon(tg,WK,'right',1,WK==='sword'||WK==='wand'?tr:2,WK==='bow'?{pull:3}:{rot:WK==='sword'?.75:.6});
   RT.fishing=keepF;
   const d=tg.getImageData(0,0,tmp.width,tmp.height).data,W=tmp.width;let x0=W,y0=W,x1=0,y1=0;
