@@ -497,7 +497,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.979";</script>
+<script>const GAME_VERSION="0.980";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -629,6 +629,7 @@ const MISC=[
   {id:'drink',name:'元気ドリンク',price:400,kind:'food',heal:45},
   {id:'mpwater',name:'魔力の水',price:500,kind:'potion',mp:15},
   {id:'lure',name:'虫寄せの蜜',price:600,kind:'use'},
+  {id:'torch',name:'松明',price:60,kind:'use'},   // 使うと、ゲームの中で6時間、自分のまわりが明るくなる（夜の島・洞窟）
   {id:'bait',name:'釣りエサ',price:20,kind:'mat'},
   {id:'branch',name:'木の枝',price:5,kind:'mat'},
   {id:'wood',name:'木材',price:60,kind:'mat'},
@@ -849,6 +850,7 @@ const RECIPES=[
   {id:'r_lantern',name:'銅のランタン',lv:2,mats:{copper:3,wood:1},flag:'lantern',note:'洞窟の中が明るく、遠くまで見える'},
   {id:'r_mp',name:'魔力の水',lv:3,mats:{gel:2,apple:1},out:['mpwater',1],note:'魔力が15回復'},
   {id:'r_lure',name:'虫寄せの蜜',lv:3,mats:{honey:1,branch:2},out:['lure',1],note:'使うと珍しい虫が集まる'},
+  {id:'r_torch',name:'松明 ×2',lv:1,mats:{branch:2,wood:1},out:['torch',2],note:'使うと、しばらく自分のまわりが明るくなる（夜や洞窟で）'},
   {id:'r_axe2',name:'鉄のオノ',lv:4,mats:{iron:2,hardwood:2},tool:['axe',2],need:['axe',1],note:'1回で取れる木材が増え、疲れにくい'},
   {id:'r_sword2',name:'鉄の剣',lv:4,mats:{iron:3,wood:2},tool:['sword',2],need:['sword',1],note:'攻撃力 +1'},
   {id:'r_wand2',name:'星の杖',lv:6,mats:{silver:2,mstone:3,hardwood:2},tool:['wand',2],need:['wand',1],note:'魔法の消費 -25%、光の玉が強くなる'},
@@ -1212,6 +1214,10 @@ function migrate(s){
   s.stats=Object.assign({defeat:0,craft:0},s.stats);
   return s;
 }
+// 松明：火をつけてから TORCH_MIN 分（ゲームの中の時間）だけ、まわりを明るくする
+const TORCH_MIN=6*60;
+const nowMin=()=>(S.day-1)*1440+S.min;
+const torchOn=()=>!!(S&&S.torchUntil&&nowMin()<S.torchUntil);
 const season=()=>Math.floor((S.day-1)/DAYS_PER_SEASON)%4;
 const dayInSeason=()=>(S.day-1)%DAYS_PER_SEASON+1;
 const hour=()=>Math.floor(S.min/60)%24;
@@ -1738,6 +1744,7 @@ function useCan(fx,fy){
 function eat(id){
   const it=ITEMS[id];if(!takeItem(id))return;
   if(it.kind==='potion'){S.mp=Math.min(maxMp(),S.mp+it.mp);toast(`${it.name}を飲んだ。魔力が ${it.mp} 回復`)}
+  else if(id==='torch'){S.torchUntil=nowMin()+TORCH_MIN;toast('松明に火をつけた。しばらくのあいだ、まわりが明るい',true)}
   else if(it.kind==='use'){RT.lureT=60;for(let i=0;i<4;i++)spawnBug(true);toast('甘い香りが広がった… 珍しい虫が集まってくる！',true)}
   else{S.sta=Math.min(maxSta(),S.sta+it.heal);RT.tiredWarned=false;toast(`${it.name}を食べた。体力が ${it.heal} 回復`)}
   updateHud();sfx('get');
@@ -2077,7 +2084,22 @@ function drawDownStairs(g,x,y,t){
   rrect(g,sx-10,sy-25,20,11,2,'#a8763f');g.strokeStyle='#5a3a1e';g.lineWidth=.8;g.strokeRect(sx-10,sy-25,20,11);
   g.fillStyle='#fff6dc';g.font='bold 7px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('奥へ',sx,sy-19.3);
 }
+// 手に持った松明（道具とは反対の手）。炎がゆらめき、火の粉が上がる
+function drawHeldTorch(g,x,y,t){
+  const [dx]=DIRV[S.dir],s=-(dx||1),hx=x+s*9,hy=y-15;
+  g.save();g.translate(hx,hy);g.rotate(s*.25);
+  g.fillStyle='#7a5030';g.fillRect(-1.3,-2,2.6,12);g.fillStyle='#5a3a1e';g.fillRect(-1.8,-3.5,3.6,2.5);
+  const f=1+.15*Math.sin(t*17)+.1*Math.sin(t*9.7);
+  const gl=g.createRadialGradient(0,-7,0,0,-7,14);gl.addColorStop(0,'rgba(255,200,90,.55)');gl.addColorStop(1,'rgba(255,200,90,0)');g.fillStyle=gl;g.fillRect(-14,-21,28,28);
+  g.fillStyle='#f28a2a';g.beginPath();g.moveTo(0,-4-9*f);g.quadraticCurveTo(4.5,-8,2.8,-3.5);g.lineTo(-2.8,-3.5);g.quadraticCurveTo(-4.5,-8,0,-4-9*f);g.fill();
+  g.fillStyle='#ffe28a';g.beginPath();g.moveTo(0,-4-5.5*f);g.quadraticCurveTo(2.4,-6,1.6,-3.8);g.lineTo(-1.6,-3.8);g.quadraticCurveTo(-2.4,-6,0,-4-5.5*f);g.fill();
+  for(let i=0;i<3;i++){const p=(t*1.3+i*.37)%1;circ(g,Math.sin(t*3+i*2)*2.5,-10-p*12,.7,`rgba(255,200,120,${1-p})`)}
+  g.restore();
+}
+// 松明が燃えつきたら知らせる
+function torchCheck(){if(S&&S.torchUntil&&!torchOn()){S.torchUntil=0;toast('松明が燃えつきた')}}
 function render(t){
+  torchCheck();
   const s=season();
   ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=W.home?'#1f1712':'#4a9fcd';ctx.fillRect(0,0,cv.width,cv.height);
   // レイアウト中は部屋全体が入るように引いて映す（下の帯のぶん、上に寄せる）
@@ -2119,7 +2141,7 @@ function render(t){
   if(isl)S.flowers.forEach(f=>{if(inV(f.x,f.y))D.push([(f.y+.5)*T+6,()=>drawFlower(ctx,f,s)])});skip();
   if(villagersOut())RT.vill.forEach(a=>D.push([a.y,()=>drawAnimal(ctx,a.x,a.y,a.dir,a.frame,a.v)]));take();
   RT.bugs.forEach(b=>D.push([b.y+(b.d.where==='tree'?2:0),()=>{ctx.save();if(b.flee)ctx.globalAlpha=1-b.flee/1.2;drawBug(ctx,b,t,night);ctx.restore()}]));skip();
-  D.push([S.py,()=>{const jh=RT.jumpH||0;if(jh)shadow(ctx,S.px,S.py,8);if(RT.hurt>0&&Math.floor(t*20)%2)ctx.globalAlpha=.45;drawHuman(ctx,S.px,S.py-jh,S.dir,RT.walk||0,{shirt:'#f08a5d',hair:'#5a3a2a'});drawToolInHand(ctx,S.px,S.py-jh);ctx.globalAlpha=1;
+  D.push([S.py,()=>{const jh=RT.jumpH||0;if(jh)shadow(ctx,S.px,S.py,8);if(RT.hurt>0&&Math.floor(t*20)%2)ctx.globalAlpha=.45;drawHuman(ctx,S.px,S.py-jh,S.dir,RT.walk||0,{shirt:'#f08a5d',hair:'#5a3a2a'});drawToolInHand(ctx,S.px,S.py-jh);if(torchOn())drawHeldTorch(ctx,S.px,S.py-jh,t);ctx.globalAlpha=1;
     if(RT.slash>0&&skLv('fight')>=3){ctx.strokeStyle=`rgba(255,255,255,${RT.slash*3})`;ctx.lineWidth=3;ctx.beginPath();ctx.arc(S.px,S.py-12,34,0,7);ctx.stroke()}}]);take();
   if(skLv('bug')>=5)RT.bugs.forEach(b=>{if(b.d.rar>=4&&!b.flee)D.push([b.y+1,()=>{for(let i=0;i<3;i++){const a=t*2+i*2.1;circ(ctx,b.x+Math.cos(a)*12,b.y-14+Math.sin(a)*8,1.6,'rgba(255,240,150,.95)')}}])});skip();
   // 光の当たり方：朝は右（東）から、昼は上から、夕方は左（西）から。夜・家の中・洞窟では使わない
@@ -2152,7 +2174,15 @@ function render(t){
     ctx.fillStyle=hz;ctx.fillRect(0,0,cv.width,cv.height*.5)}
   if(isl&&S.weather!=='晴れ'){ctx.fillStyle=`rgba(90,100,110,${S.weather==='くもり'?.08:.16})`;ctx.fillRect(0,0,cv.width,cv.height)}
   if(sk.sun>0){ctx.fillStyle=`rgba(255,140,60,${sk.sun})`;ctx.fillRect(0,0,cv.width,cv.height)}
-  if(sk.night>0){ctx.fillStyle=`rgba(14,24,70,${sk.night})`;ctx.fillRect(0,0,cv.width,cv.height)}
+  if(sk.night>0){
+    if(torchOn()){   // 松明：自分のまわりだけ夜の暗さを抜き、あたたかい光をのせる
+      const sx=S.px*k-Math.round(cx*k),sy=(S.py-16)*k-Math.round(cy*k),fl=1+.04*Math.sin(t*13)+.03*Math.sin(t*7.3),R=150*k*fl;
+      const ng=ctx.createRadialGradient(sx,sy,R*.35,sx,sy,R);ng.addColorStop(0,'rgba(14,24,70,0)');ng.addColorStop(1,`rgba(14,24,70,${sk.night})`);
+      ctx.fillStyle=ng;ctx.fillRect(0,0,cv.width,cv.height);
+      ctx.save();ctx.globalCompositeOperation='lighter';const wg=ctx.createRadialGradient(sx,sy,0,sx,sy,R*.8);wg.addColorStop(0,`rgba(255,150,60,${.12*sk.night/.5})`);wg.addColorStop(1,'rgba(255,170,80,0)');
+      ctx.fillStyle=wg;ctx.fillRect(sx-R,sy-R,R*2,R*2);ctx.restore();
+    }else{ctx.fillStyle=`rgba(14,24,70,${sk.night})`;ctx.fillRect(0,0,cv.width,cv.height)}
+  }
   ctx.setTransform(k,0,0,k,Math.round(-cx*k),Math.round(-cy*k));
   if(inCave())drawCaveDark(cx,cy,vw,vh);
   if(sk.night>.15){
@@ -2408,7 +2438,7 @@ function openShop(tab){
     body.append(h('div',{class:'rowline'},h('div',{class:'grow muted'},'店主のコマチ「いらっしゃい。図鑑にのった子も、売ってくれてかまわないよ」'),h('span',{class:'pill'},`${S.bells.toLocaleString()}円`)));
     if(t==='sell'){body.append(h('div',{class:'rowline'},h('button',{class:'btn',on:sellAll},'生き物・化石・花・貝をまとめて売る'),h('span',{class:'muted'},'素材や道具の材料は残るよ')));body.append(bagGrid('sell'))}
     if(t==='buy'){
-      const items=[...SEEDS.map(s=>({id:s.id,name:s.name,price:s.buy,note:FLOWER_DEF[s.species].name+'。水やりで3日ほどで咲く'})),{id:'apple',name:'リンゴ',price:250,note:'食べると体力が15回復'}];
+      const items=[...SEEDS.map(s=>({id:s.id,name:s.name,price:s.buy,note:FLOWER_DEF[s.species].name+'。水やりで3日ほどで咲く'})),{id:'apple',name:'リンゴ',price:250,note:'食べると体力が15回復'},{id:'torch',name:'松明',price:120,note:'使うと、しばらく自分のまわりが明るくなる（夜や洞窟で）'}];
       const grid=h('div',{class:'grid'});
       for(const tl of TOOLS.filter(t=>t.buy&&!S.tools[t.id]))grid.append(h('div',{class:'cell'},iconCanvas(tl.id),h('div',{class:'nm'},tl.name),h('div',{class:'meta'},tl.id==='shovel'?'化石を掘ったり、岩をたたける':'花に水をあげて育てる'),h('button',{on:()=>{if(S.bells<tl.buy){toast('お金が足りない');return}S.bells-=tl.buy;S.tools[tl.id]=1;S.tool=tl.id;toast(`${tl.name}を買った！ キー${tl.key}で持ちかえ`,true);sfx('lv');updateHud();refresh()}},`${tl.buy}円`)));
       for(const it of items)grid.append(h('div',{class:'cell'},iconCanvas(it.id),h('div',{class:'nm'},it.name),h('div',{class:'meta'},it.note),h('div',{class:'rowline',style:'justify-content:center;margin:0;gap:4px'},
@@ -3007,7 +3037,7 @@ function drawNode(g,o,i){
 }
 let caveDarkCv=null;
 function drawCaveDark(cx,cy,vw,vh){
-  const r1=S.flags.lantern?175:100,px=S.px,py=S.py-14;
+  const r1=torchOn()?230:S.flags.lantern?175:100,px=S.px,py=S.py-14;   // 松明がいちばん明るい
   // 暗さはいったん別のキャンバスに描き、上り階段（出口）のまわりだけ暗さを抜いてから重ねる（外の光で明るく見えるように）
   if(!caveDarkCv)caveDarkCv=document.createElement('canvas');
   if(caveDarkCv.width!==cv.width||caveDarkCv.height!==cv.height){caveDarkCv.width=cv.width;caveDarkCv.height=cv.height}
@@ -4409,6 +4439,9 @@ drawIcon=function(c,id){
     w_bow:g=>{g.strokeStyle='#8a5a34';g.lineWidth=3;g.beginPath();g.arc(12,16,13,-1.2,1.2);g.stroke();g.strokeStyle='#eee';g.lineWidth=1;g.beginPath();g.moveTo(16.7,3.9);g.lineTo(16.7,28.1);g.stroke();g.strokeStyle='#6f4a2c';g.lineWidth=1.5;g.beginPath();g.moveTo(8,16);g.lineTo(28,16);g.stroke();g.fillStyle='#d6dde4';g.beginPath();g.moveTo(30,16);g.lineTo(26,13.5);g.lineTo(26,18.5);g.fill()},
     w_hammer:g=>{g.strokeStyle='#8a5a34';g.lineWidth=3.5;g.beginPath();g.moveTo(8,28);g.lineTo(20,12);g.stroke();g.save();g.translate(21,10);g.rotate(.65);g.fillStyle='#8f979e';g.fillRect(-9,-5,18,10);g.fillStyle='#b8c0c8';g.fillRect(-9,-5,18,3);g.restore()},
     fang:g=>{g.fillStyle='#f6f0dc';g.beginPath();g.moveTo(8,8);g.quadraticCurveTo(26,10,22,28);g.quadraticCurveTo(18,16,8,14);g.fill();g.strokeStyle='#c9bd9a';g.lineWidth=1;g.stroke()},
+    torch:g=>{g.save();g.translate(16,17);g.rotate(.35);g.fillStyle='#7a5030';g.fillRect(-2,-2,4,16);g.fillStyle='#5a3a1e';g.fillRect(-2.6,-3,5.2,3);   // 松明
+      g.fillStyle='#f6a23a';g.beginPath();g.moveTo(0,-14);g.quadraticCurveTo(6,-8,3.5,-3);g.lineTo(-3.5,-3);g.quadraticCurveTo(-6,-8,0,-14);g.fill();
+      g.fillStyle='#ffe28a';g.beginPath();g.moveTo(0,-10);g.quadraticCurveTo(3,-6,2,-3.5);g.lineTo(-2,-3.5);g.quadraticCurveTo(-3,-6,0,-10);g.fill();g.restore()},
     silk:g=>{g.strokeStyle='#f2f2f6';g.lineWidth=2;for(let i=0;i<3;i++){g.beginPath();g.ellipse(16,17,11-i*3,8-i*2,.3,0,7);g.stroke()}circ(g,16,17,2,'#fff')},
     shroom:g=>{g.fillStyle='#f6ead6';g.fillRect(13,16,6,11);ell(g,16,15,11,7,'#d9534f');circ(g,12,13,2,'#fff');circ(g,19,11,1.6,'#fff');circ(g,21,16,1.4,'#fff')},
     scale:g=>{g.fillStyle='#d64b3a';g.beginPath();g.moveTo(16,4);g.quadraticCurveTo(28,14,16,28);g.quadraticCurveTo(4,14,16,4);g.fill();g.fillStyle='rgba(255,220,150,.6)';g.beginPath();g.moveTo(16,8);g.quadraticCurveTo(22,14,16,22);g.quadraticCurveTo(12,14,16,8);g.fill()},
