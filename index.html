@@ -66,10 +66,14 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
 .mbtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--leaf-deep)}
 .mbtn small{color:var(--ink-soft);font-weight:500;margin-left:4px}
 /* 音量のつまみ（音ボタンの下） */
-.mvol{background:var(--panel);border:2px solid var(--leaf);border-radius:12px;box-shadow:0 3px 0 var(--leaf-deep);padding:4px 8px 6px;font-weight:700;font-size:12px;display:flex;flex-direction:column;gap:2px;box-sizing:border-box}
-.mvol label{display:flex;justify-content:space-between;gap:6px}
-.mvol label b{font-variant-numeric:tabular-nums;color:var(--leaf-deep)}
-.mvol input{width:0;min-width:100%;margin:0;   /* 幅0から広げる＝つまみの元の幅で列全体が横に広がらない */accent-color:var(--leaf);cursor:pointer;touch-action:none}
+.mvol{background:var(--panel);border:2px solid var(--leaf);border-radius:12px;box-shadow:0 3px 0 var(--leaf-deep);padding:4px 8px;font-weight:700;font-size:12px;display:flex;flex-direction:row;align-items:center;gap:6px;box-sizing:border-box}
+.mvol b{font-variant-numeric:tabular-nums;color:var(--leaf-deep);min-width:2.1em;text-align:right}
+/* 音量バー：左のスピーカーで音を消す・出す。つまみを一番左（0）にすると音が消える */
+.mvol input{flex:1 1 auto;width:0;min-width:50px;margin:0;   /* 幅0から広げる＝つまみの元の幅で列全体が横に広がらない */accent-color:var(--leaf);cursor:pointer;touch-action:none}
+.vmute{flex:none;width:26px;height:24px;padding:0;border:none;background:none;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:8px}
+.vmute:hover{background:rgba(120,170,110,.18)}
+.vmute svg{width:22px;height:22px}
+.mvol.muted b{color:var(--berry)}
 #bMenu{display:none}
 
 /* トースト */
@@ -408,8 +412,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
    体力・経験値は下の道具バーのすぐ上に横並び、バージョンは左下。スマホの縦・横の配置は上の @media のまま */
 @media (min-width:561px) and (min-height:521px){
   #hud-tr{display:grid;grid-template-columns:auto auto;align-items:start;column-gap:8px}
-  #hud-tr .row{grid-column:1;grid-row:1;flex-direction:column;align-items:stretch;gap:6px}
-  #hud-tr .row .plate{text-align:right}
+  #hud-tr .row{grid-column:1;grid-row:1;gap:6px}
   #minimap{grid-column:2;grid-row:1}
   #hBars{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom,0px));display:grid;grid-auto-flow:column;grid-template-rows:auto auto;column-gap:16px;padding:4px 14px;pointer-events:none}
   #hBars .barlabel[style]{margin-top:0!important}
@@ -417,9 +420,13 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
   #hBars #mpRow[hidden]{display:none}
   #hBars #mpRow .barlabel{margin-top:0!important}
   #app.talking #hBars{display:none}
-  #menubtns{top:152px;bottom:auto;right:12px;display:grid;grid-template-columns:1fr 1fr;width:178px;gap:6px;max-height:calc(100vh - 190px);overflow:auto}
-  #menubtns .mbtn{min-width:0;white-space:nowrap;padding:6px 7px}
-  #menubtns .mvol{grid-column:1/-1}
+  #hud-tr .row{flex-direction:row;align-items:center}
+  #lvplate{font-size:15px;padding:4px 12px}
+  #lvplate b{font-size:26px;margin-left:3px}
+  #menubtns{top:152px;bottom:auto;right:12px;display:flex;flex-direction:column;align-items:stretch;gap:6px;max-height:calc(100vh - 210px);overflow:auto}
+  #menubtns .mbtn{min-width:104px;white-space:nowrap}
+  #bSnd{display:none}   /* 右下の音量バーのスピーカーで切りかえる */
+  #menubtns .mvol{position:fixed;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));width:min(220px,calc(50vw - 192px))}
   #verGame{position:fixed;left:12px;bottom:calc(8px + env(safe-area-inset-bottom,0px))}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -449,7 +456,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
     <button class="mbtn" id="bSnd">音: OFF</button>
     <button class="mbtn" id="bXfer">引継ぎ</button>
     <button class="mbtn" id="bQuit">終了</button>
-    <div class="mvol"><label for="volIn">音量 <b id="volNum">100</b></label><input id="volIn" type="range" min="0" max="100" step="5" value="100" aria-label="音量"></div>
+    <div class="mvol"><button id="volMute" class="vmute" type="button" aria-label="音を消す・出す" title="クリックで音を消す・出す"></button><input id="volIn" type="range" min="0" max="100" step="5" value="100" aria-label="音量"><b id="volNum">100</b></div>
   </div>
   <div id="toasts"></div>
   <div id="layoutBar" hidden><div id="lbTxt"></div><div id="lbInv"></div><div class="lbBtns"><button class="mbtn" id="lbRot">回転</button><button class="mbtn" id="lbStow">しまう</button><button class="mbtn" id="lbSave">保存</button><button class="mbtn" id="lbCancel">やめる</button></div></div>
@@ -535,7 +542,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.989";</script>
+<script>const GAME_VERSION="0.990";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -5276,19 +5283,41 @@ function audioOut(ctx){
   if(!ctx.__vol){const g=ctx.createGain();g.gain.value=volGain();g.connect(ctx.destination);ctx.__vol=g}
   return ctx.__vol;
 }
-function setVolume(v){
+// byUser：つまみを動かしたとき。0 にすると音を消し、0 より上へ動かすと音を出す
+function setVolume(v,byUser){
   volume=Math.max(0,Math.min(100,Math.round(v)));
   try{localStorage.setItem('hidamari-volume',String(volume))}catch(e){}
   if(AC&&AC.__vol)AC.__vol.gain.setTargetAtTime(volGain(),AC.currentTime,.05);
   $('volIn').value=volume;$('volNum').textContent=volume;
+  if(byUser){if(volume===0)setSound(false);else if(!soundOn)setSound(true)}
+  updateSndBtn();
 }
 $('volIn').value=volume;$('volNum').textContent=volume;
-$('volIn').addEventListener('input',e=>setVolume(+e.target.value));
+$('volIn').addEventListener('input',e=>setVolume(+e.target.value,true));
 $('volIn').addEventListener('change',e=>e.target.blur());   // 動かし終わったら、矢印キーが主人公の移動に戻るように
-function updateSndBtn(){$('bSnd').textContent='音: '+(soundOn?'ON':'OFF')}
-$('bSnd').onclick=()=>{soundOn=!soundOn;try{localStorage.setItem('hidamari-sound',soundOn?'1':'0')}catch(e){}
+// スピーカーの絵：音が消えているときは ×、出ているときは音量に合わせて波を 1〜3 本
+function speakerSvg(muted,lv){
+  const waves=muted?'<path d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>':
+    [lv>0?'<path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>':'',
+     lv>33?'<path d="M17.8 7.2a6.8 6.8 0 0 1 0 9.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>':'',
+     lv>66?'<path d="M20 5a10 10 0 0 1 0 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>':''].join('');
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9.5h3.5L11 5.5v13l-4.5-4H3z" fill="currentColor"/>'+waves+'</svg>';
+}
+function updateSndBtn(){
+  const muted=!soundOn||volume===0;
+  $('bSnd').textContent='音: '+(soundOn?'ON':'OFF');
+  $('volMute').innerHTML=speakerSvg(muted,volume);$('volMute').setAttribute('aria-pressed',muted?'true':'false');
+  $('volMute').title=muted?'クリックで音を出す':'クリックで音を消す';
+  document.querySelector('.mvol').classList.toggle('muted',muted);
+}
+function setSound(on){
+  if(on===soundOn)return;soundOn=on;try{localStorage.setItem('hidamari-sound',soundOn?'1':'0')}catch(e){}
   if(soundOn){ensureAudio()}else if(AC){if(MUS.master)MUS.master.gain.setTargetAtTime(0,AC.currentTime,.15);MUS.on=false;if(TRACK.gain){TRACK.gain.gain.setTargetAtTime(0,AC.currentTime,.15);TRACK.on=false;stopTrack()}setTimeout(()=>{if(!soundOn&&AC.state==='running')AC.suspend()},700)}
-  updateSndBtn()};
+  updateSndBtn();
+}
+$('bSnd').onclick=()=>setSound(!soundOn);
+// スピーカー：音を消す・出す。音量 0 のまま音を出すときは、半分の音量にする
+$('volMute').onclick=e=>{e.currentTarget.blur();if(soundOn&&volume>0)setSound(false);else{if(volume===0)setVolume(50);setSound(true)}};
 updateSndBtn();
 </script>
 <script>
