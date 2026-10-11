@@ -517,7 +517,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.984";</script>
+<script>const GAME_VERSION="0.985";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -5158,6 +5158,8 @@ function renderXfer(el){
     const fileBtn=h('button',{class:'xbtn main',on:async()=>{
       try{const code=await makeXferCode(),name=`${XFER_FILE}_${xferDate()}.txt`,file=new File([code],name,{type:'text/plain'});
         // スマホは「共有」で LINE・メール・ドライブなどへ送れる。できないときはダウンロード
+        // claude.ai の Artifact の中ではふつうのダウンロードができないので、Artifact の「保存」を使う（確認が出る）
+        if(window.claude&&claude.use){const dl=await claude.use('downloads');if(dl){try{await dl.save({filename:name,data:code});say(`「${name}」を保存しました。このファイルを新しい端末へ送ってください`)}catch(e){if(e&&e.code!=='declined')say('保存できませんでした。「引継ぎコードをコピー」を使ってください',true)}return}}
         if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:'ひだまり島ぐらし 引継ぎ'});say('送りました。新しい端末で「ファイルから読み込む」を押してください');return}catch(e){if(e&&e.name==='AbortError')return}}
         const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
         say(`「${name}」を保存しました。このファイルを新しい端末へ送ってください`);
