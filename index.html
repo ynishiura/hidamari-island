@@ -555,7 +555,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.009";</script>
+<script>const GAME_VERSION="1.010";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -5687,7 +5687,7 @@ function museumMap(){
   return MUSEUM_MAP={id:'museum',museum:true,w,h,ox,oy,tiles,block,door,counter,owl,cases,
     trees:[],rocks:[],bld:[],treeAt:new Map(),rockAt:new Map(),nodes:[],nodeAt:new Map(),
     start:{x:(door.x+.5)*T,y:(door.y-.5)*T+4},
-    room:{x0:(ox-1)*T,y0:(oy-2.6)*T,x1:(ox+w+1)*T,y1:(oy+h+1.4)*T}};
+    room:{x0:(ox-1)*T,y0:(oy-2.6)*T,x1:(ox+w+1)*T,y1:(oy+h+4.5)*T}};   // 下は広めに：出口が下の道具バーに隠れないように
 }
 function goMuseum(at){
   W=museumMap();S.loc='museum';resetMapRT();
@@ -5763,6 +5763,9 @@ function museumGround(){
   g.fillStyle='#4a3a2a';g.fillRect(X0-10,WY,10,Y1-WY+12);g.fillRect(X1,WY,10,Y1-WY+12);g.fillStyle='#6b5640';g.fillRect(X0-10,Y1,X1-X0+20,12);
   const dx=door.x*T;g.fillStyle='#1d1a24';g.fillRect(dx,Y1,T,12);
   const lg=g.createLinearGradient(0,Y1-T,0,Y1);lg.addColorStop(0,'rgba(255,240,190,0)');lg.addColorStop(1,'rgba(255,240,190,.5)');g.fillStyle=lg;g.fillRect(dx,Y1-T,T,T);
+  // 出口のマットと「出口」の札（どこから出るか分かるように）
+  g.fillStyle='#2f5547';g.beginPath();g.roundRect(dx-6,Y1-T+6,T+12,T-10,5);g.fill();g.strokeStyle='#d9b45a';g.lineWidth=2;g.beginPath();g.roundRect(dx-3,Y1-T+9,T+6,T-16,4);g.stroke();
+  g.fillStyle='#f3e2b8';g.beginPath();g.roundRect(dx-8,Y1+14,T+16,16,4);g.fill();g.fillStyle='#4a3218';g.font='bold 11px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.fillText('出口 ▼',dx+T/2,Y1+26);
   return c;
 }
 // 受付カウンター（木の天板と、前の板）
