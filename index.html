@@ -555,7 +555,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.014";</script>
+<script>const GAME_VERSION="1.015";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -706,6 +706,12 @@ const MISC=[
   {id:'acc_sun',name:'サングラス',price:1500,kind:'acc',note:'顔につける小物'},{id:'acc_bag',name:'リュック',price:2000,kind:'acc',note:'背中にしょう小物'},
   {id:'acc_cape',name:'マント',price:3000,kind:'acc',note:'背中にひるがえる小物'},{id:'acc_wings',name:'天使の羽',price:12000,kind:'acc',note:'背中にはえる小物'},
   {id:'acc_pendant',name:'ペンダント',price:2500,kind:'acc',note:'首にかける小物'},{id:'acc_pochette',name:'ポシェット',price:1800,kind:'acc',note:'かたにかける小物'},
+  {id:'wall_flower',name:'花がらの壁紙',price:3000,kind:'wall',note:'持ち物で「はる」と、家の壁が変わる'},{id:'wall_stripe',name:'青いしまの壁紙',price:3000,kind:'wall',note:'持ち物で「はる」と、家の壁が変わる'},
+  {id:'wall_brick',name:'れんがの壁',price:4500,kind:'wall',note:'持ち物で「はる」と、家の壁が変わる'},{id:'wall_log',name:'丸太の壁',price:4500,kind:'wall',note:'持ち物で「はる」と、家の壁が変わる'},
+  {id:'wall_star',name:'星空の壁紙',price:6000,kind:'wall',note:'持ち物で「はる」と、家の壁が変わる'},
+  {id:'floor_tile',name:'白黒タイルの床',price:3000,kind:'floor',note:'持ち物で「しく」と、家の床が変わる'},{id:'floor_tatami',name:'たたみの床',price:3500,kind:'floor',note:'持ち物で「しく」と、家の床が変わる'},
+  {id:'floor_carpet',name:'赤いじゅうたんの床',price:4000,kind:'floor',note:'持ち物で「しく」と、家の床が変わる'},{id:'floor_marble',name:'大理石の床',price:6000,kind:'floor',note:'持ち物で「しく」と、家の床が変わる'},
+  {id:'floor_grass',name:'しばふの床',price:3500,kind:'floor',note:'持ち物で「しく」と、家の床が変わる'},
   {id:'sapling',name:'木の苗',price:300,kind:'sapling',note:'手に持って、地面を調べると植えられる（砂浜には植えられない）。2日で木が生える'},
   {id:'stump_item',name:'切り株',price:200,kind:'deco',note:'手に持って、地面を調べると置ける（砂浜には置けない）。スコップで掘り起こすと、また持てる'},
   {id:'xq',name:'なぞの化石',price:300,kind:'xq',note:'博物館で鑑定してもらうと、何の化石か分かる'},
@@ -2623,7 +2629,7 @@ function refresh(){if(RT.panel){RT.panel.keepScroll=true;drawPanel()}}
 
 // 持ち物
 function bagGrid(mode){
-  const ids=Object.keys(S.bag).sort((a,b)=>{const o=['food','potion','use','seed','sapling','deco','hat','top','acc','mat','bug','fish','fossil','flower'];return o.indexOf(ITEMS[a].kind)-o.indexOf(ITEMS[b].kind)||ITEMS[b].price-ITEMS[a].price});
+  const ids=Object.keys(S.bag).sort((a,b)=>{const o=['food','potion','use','seed','sapling','deco','wall','floor','hat','top','acc','mat','bug','fish','fossil','flower'];return o.indexOf(ITEMS[a].kind)-o.indexOf(ITEMS[b].kind)||ITEMS[b].price-ITEMS[a].price});
   if(!ids.length)return h('p',{class:'muted'},'ポケットは空っぽ。虫や魚をつかまえたり、木をゆすってみよう。');
   return h('div',{class:'grid'},ids.map(id=>{
     const it=ITEMS[id],n=S.bag[id];
@@ -2632,6 +2638,7 @@ function bagGrid(mode){
     else if(mode==='gift')btns.push(h('button',{on:()=>{const a=RT.giftTo;closePanel();giveGift(a,id)}},'あげる'));
     else{
       if(['food','potion','use'].includes(it.kind))btns.push(h('button',{on:()=>{eat(id);if(it.kind==='use')closePanel();else refresh()}},{food:'食べる',potion:'飲む',use:'使う'}[it.kind]));
+      if(it.kind==='wall'||it.kind==='floor'){const key=it.kind,on=S[key]===id;btns.push(h('button',{on:()=>{S[key]=on?null:id;applyLook();toast(on?`${it.name}をはがした（もとに戻った）`:`${it.name}を${key==='wall'?'はった':'しいた'}。${inHome()?'':'家に帰ると見られるよ'}`);sfx('get');refresh()}},on?'はがす':key==='wall'?'はる':'しく'))}
       if(it.kind==='top')btns.push(h('button',{on:()=>{S.top=S.top===id?null:id;toast(S.top?`${it.name}を着た`:`${it.name}をぬいだ`);sfx('get');refresh()}},S.top===id?'ぬぐ':'着る'));
       if(it.kind==='acc')btns.push(h('button',{on:()=>{S.acc=S.acc===id?null:id;toast(S.acc?`${it.name}をつけた`:`${it.name}をはずした`);sfx('get');refresh()}},S.acc===id?'はずす':'つける'));
       if(it.kind==='hat')btns.push(h('button',{on:()=>{S.hat=S.hat===id?null:id;toast(S.hat?`${it.name}をかぶった`:`${it.name}をぬいだ`);sfx('get');refresh()}},S.hat===id?'ぬぐ':'かぶる'));
@@ -2678,6 +2685,12 @@ function openShop(tab){
     if(t==='furn'){
       body.append(h('p',{class:'muted',style:'margin:0 0 10px'},'買った家具は、家の中の「レイアウト」から好きな所に置けるよ。収納箱・植木鉢・テーブル・本だなはクラフトでも作れる。収納箱は箱ごとに別々にしまえて、置ける数は家の大きさで決まる（テント2・小さな家3・木の家4・大きな家6）。'));
       const grid=h('div',{class:'grid'});
+      // 壁紙と床紙（持ち物で「はる」「しく」）
+      {const gw=h('div',{class:'grid',style:'margin-bottom:12px'});
+       for(const id of [...Object.keys(WALLS),...Object.keys(FLOORS)]){const it=ITEMS[id];
+         gw.append(h('div',{class:'cell'},iconCanvas(id,48),h('div',{class:'nm'},it.name),h('div',{class:'meta'},it.kind==='wall'?'壁紙：家の壁の模様が変わる':'床紙：家の床の模様が変わる'),
+           h('div',{class:'meta'},`持っている：${S.bag[id]||0}`),h('button',{on:()=>buy(it,1)},`${it.price.toLocaleString()}円`)))}
+       body.append(h('b',{},'壁紙・床紙'),gw,h('b',{},'家具'))}
       for(const [type,d] of Object.entries(FURN_DEF)){
         if(!d.price)continue;
         const have=(S.furnInv[type]||0)+((S.homeFurn||[]).filter(f=>f.type===type).length);
@@ -3488,8 +3501,9 @@ function homeGround(){
   g.fillStyle='#1f1712';g.fillRect(0,0,c.width,c.height);
   // 奥の壁（2マスの高さ）：壁紙・腰板・窓
   const WY=Y0-2*T;
+  if(!paintWall(g,X0,WY,X1,Y0)){   // 壁紙（walls.js）。はっていなければ、もとのクリーム色
   g.fillStyle='#f4e6c8';g.fillRect(X0,WY,X1-X0,2*T);
-  g.fillStyle='rgba(214,190,150,.45)';for(let x=X0+8;x<X1;x+=16)g.fillRect(x,WY,3,2*T-14);
+  g.fillStyle='rgba(214,190,150,.45)';for(let x=X0+8;x<X1;x+=16)g.fillRect(x,WY,3,2*T-14);}
   g.fillStyle='#b98a5e';g.fillRect(X0,Y0-14,X1-X0,14);g.fillStyle='#8a5f3c';g.fillRect(X0,Y0-4,X1-X0,4);
   g.fillStyle='#7a5234';g.fillRect(X0,WY,X1-X0,5);
   for(let i=0;i<Math.floor(w/4);i++){
@@ -3503,6 +3517,7 @@ function homeGround(){
   // 床：横向きの板。1マスに2枚、継ぎ目をずらす
   for(let y=oy;y<oy+h;y++)for(let x=ox;x<ox+w;x++){
     const px=x*T,py=y*T;
+    if(paintFloor(g,x,y,px,py))continue;   // 床紙（walls.js）
     for(let k=0;k<2;k++){const hh=hash(x*3+k,y*7);g.fillStyle=hh<.33?'#cfa06d':hh<.66?'#c99a66':'#c3935f';g.fillRect(px,py+k*16,T,16);g.fillStyle='rgba(120,80,40,.28)';g.fillRect(px,py+k*16+15,T,1);if(((x+y+k)&1)===0)g.fillRect(px+((k*13+y*7)%T),py+k*16,1,16)}
   }
   // マス目の線（広さが分かるように）
@@ -3875,7 +3890,7 @@ const GPAL=[
   {g:'#e9f1f4',gd:'#d4e1e8',gl:'#ffffff',cliff:'#8f8578',cliffD:'#6f665b',sand:'#ede6d4',sea:'#4a8fb8',shallow:'#86c3da',river:'#86bfd8',pond:'#a6cfdc',path:'#e2d8ca',pathE:'#cbbfae'},
 ];
 function groundFor(season){
-  const key=W.id+':'+(W.id==='island'?season:0);
+  const key=W.id+':'+(W.id==='island'?season:0)+(W.home&&!W.vhouse?':'+(S.wall||'')+':'+(S.floor||''):'');   // 自分の家は壁紙・床紙ごと
   if(groundCache[key])return groundCache[key];
   for(const k in groundCache)delete groundCache[k];   // 地面の絵は大きいので、いま使う1枚だけ持つ
   if(W.home)return groundCache[key]=homeGround();
@@ -6507,6 +6522,73 @@ furnIcon=function(type,size=40){
   g.scale(k,k);g.translate(size/2,size/2+up*T*sc/2);g.scale(sc,sc);
   drawFurnArt(g,{type},-d.w*T/2,-d.h*T/2,d.w*T,d.h*T,0);return c;
 };
+</script>
+<script>
+// ===================== 壁紙と床紙 =====================
+// 自分の家の中の、奥の壁（S.wall）と床（S.floor）の模様をかえる。持ち物で「はる」「しく」を選ぶと、すぐに変わる。
+// はがしたい時は、もう一度押す（もとのクリーム色の壁紙・木の床に戻る）。住民の家には使わない
+const WALLS={
+  wall_flower:{name:'花がらの壁紙',base:'#f8dfe6'},
+  wall_stripe:{name:'青いしまの壁紙',base:'#dfeef8'},
+  wall_brick:{name:'れんがの壁',base:'#b8644a'},
+  wall_log:{name:'丸太の壁',base:'#a8784a'},
+  wall_star:{name:'星空の壁紙',base:'#27305a'},
+};
+const FLOORS={
+  floor_tile:{name:'白黒タイルの床',base:'#efefea'},
+  floor_tatami:{name:'たたみの床',base:'#cfd39a'},
+  floor_carpet:{name:'赤いじゅうたんの床',base:'#b8434a'},
+  floor_marble:{name:'大理石の床',base:'#efe9dc'},
+  floor_grass:{name:'しばふの床',base:'#8cc878'},
+};
+const myHomeLook=()=>_lookForce||(inHome()&&!W.vhouse);
+// 奥の壁（X0〜X1、WY〜Y0-14）を塗る。かえたら true
+function paintWall(g,X0,WY,X1,Y0){
+  const id=myHomeLook()&&S.wall,P=WALLS[id];if(!P)return false;
+  const h=Y0-WY;g.fillStyle=P.base;g.fillRect(X0,WY,X1-X0,h);
+  g.save();g.beginPath();g.rect(X0,WY,X1-X0,h-14);g.clip();
+  if(id==='wall_flower'){for(let y=WY+8,r=0;y<Y0;y+=16,r++)for(let x=X0+(r%2?8:0);x<X1;x+=16){g.fillStyle='#f49ac1';for(let k=0;k<5;k++){const a=k*1.256;g.beginPath();g.arc(x+Math.cos(a)*2.4,y+Math.sin(a)*2.4,1.8,0,7);g.fill()}g.fillStyle='#f6d14a';g.beginPath();g.arc(x,y,1.2,0,7);g.fill()}}
+  else if(id==='wall_stripe'){g.fillStyle='#9ec8e8';for(let x=X0;x<X1;x+=14)g.fillRect(x,WY,6,h);g.fillStyle='rgba(255,255,255,.35)';for(let x=X0+8;x<X1;x+=14)g.fillRect(x,WY,1,h)}
+  else if(id==='wall_brick'){for(let y=WY,r=0;y<Y0;y+=8,r++)for(let x=X0-(r%2?8:0);x<X1;x+=16){g.fillStyle=((x+y)>>3)%3?'#b8644a':'#a8563e';g.fillRect(x+1,y+1,14,6)}g.fillStyle='rgba(255,230,210,.25)';for(let y=WY;y<Y0;y+=8)g.fillRect(X0,y,X1-X0,1)}
+  else if(id==='wall_log'){for(let y=WY;y<Y0;y+=10){const gr=g.createLinearGradient(0,y,0,y+10);gr.addColorStop(0,'#c99a6b');gr.addColorStop(.5,'#a8784a');gr.addColorStop(1,'#7a5234');g.fillStyle=gr;g.fillRect(X0,y,X1-X0,10);
+    g.fillStyle='rgba(90,55,25,.35)';for(let x=X0+((y/10)|0)*23%40;x<X1;x+=40)g.fillRect(x,y+4,10,1)}}
+  else if(id==='wall_star'){for(let i=0;i<(X1-X0)/4;i++){const x=X0+hash(i,3)*(X1-X0),y=WY+hash(i,7)*h,s=hash(i,9);g.fillStyle=`rgba(255,250,220,${.4+s*.6})`;g.fillRect(x,y,1+s*1.5,1+s*1.5)}
+    g.fillStyle='#f6e7a0';g.beginPath();g.arc(X1-30,WY+16,7,0,7);g.fill();g.fillStyle=P.base;g.beginPath();g.arc(X1-27,WY+14,6,0,7);g.fill()}
+  g.restore();return true;
+}
+// 床の1マスを塗る。かえたら true
+function paintFloor(g,x,y,px,py){
+  const id=myHomeLook()&&S.floor,P=FLOORS[id];if(!P)return false;
+  if(id==='floor_tile'){g.fillStyle=(x+y)&1?'#3a3a40':'#efefea';g.fillRect(px,py,T,T);g.fillStyle='rgba(255,255,255,.12)';g.fillRect(px+2,py+2,T-8,3)}
+  else if(id==='floor_tatami'){const v=(x+y)&1,gr=g.createLinearGradient(px,py,px+T,py+T);gr.addColorStop(0,'#d8dca4');gr.addColorStop(1,'#c3c78a');g.fillStyle=gr;g.fillRect(px,py,T,T);
+    g.strokeStyle='rgba(120,130,60,.3)';g.lineWidth=.6;for(let i=2;i<T;i+=3){g.beginPath();v?(g.moveTo(px+i,py),g.lineTo(px+i,py+T)):(g.moveTo(px,py+i),g.lineTo(px+T,py+i));g.stroke()}
+    g.fillStyle='#4f6b45';v?(g.fillRect(px,py,2,T),g.fillRect(px+T-2,py,2,T)):(g.fillRect(px,py,T,2),g.fillRect(px,py+T-2,T,2))}
+  else if(id==='floor_carpet'){g.fillStyle='#b8434a';g.fillRect(px,py,T,T);g.fillStyle='rgba(255,220,180,.18)';for(let i=0;i<6;i++)g.fillRect(px+hash(x*5+i,y)*T,py+hash(x,y*5+i)*T,1.5,1.5);
+    if(((x+y)%3)===0){g.fillStyle='rgba(230,196,90,.55)';g.beginPath();g.moveTo(px+T/2,py+8);g.lineTo(px+T-8,py+T/2);g.lineTo(px+T/2,py+T-8);g.lineTo(px+8,py+T/2);g.closePath();g.fill()}}
+  else if(id==='floor_marble'){g.fillStyle=(x+y)&1?'#efe9dc':'#ddd4c2';g.fillRect(px,py,T,T);const s=hash(x*5,y*3);g.strokeStyle=`rgba(160,150,140,${.2+s*.2})`;g.lineWidth=1;g.beginPath();g.moveTo(px+s*20,py+4);g.quadraticCurveTo(px+16,py+12+s*8,px+28-s*10,py+T-3);g.stroke()}
+  else if(id==='floor_grass'){g.fillStyle='#8cc878';g.fillRect(px,py,T,T);g.strokeStyle='#6fb05e';g.lineWidth=1.2;for(let i=0;i<4;i++){const ax=px+hash(x*3+i,y)*28+2,ay=py+hash(x,y*5+i)*26+5;g.beginPath();g.moveTo(ax,ay);g.lineTo(ax-1.5,ay-4);g.moveTo(ax+2,ay);g.lineTo(ax+3,ay-5);g.stroke()}
+    if(hash(x,y)<.12){circ(g,px+10,py+12,1.8,'#fff');circ(g,px+10,py+12,.9,'#f6cf3a')}}
+  return true;
+}
+function applyLook(){for(const k in groundCache)delete groundCache[k]}
+// 小さな絵（持ち物とお店）
+const _drawIconWalls=drawIcon;
+drawIcon=function(c,id){
+  const it=ITEMS[id];if(!it||(it.kind!=='wall'&&it.kind!=='floor'))return _drawIconWalls(c,id);
+  const g=c.getContext('2d'),s=c.width;g.clearRect(0,0,s,s);g.save();g.scale(s/32,s/32);
+  // 見本の部屋の一角：上が壁、下が床
+  g.save();g.beginPath();g.roundRect(3,3,26,26,4);g.clip();
+  g.fillStyle='#f4e6c8';g.fillRect(3,3,26,13);g.fillStyle='#c99a66';g.fillRect(3,16,26,13);
+  if(it.kind==='wall'){g.save();g.translate(3,3);g.scale(26/96,13/40);paintWallIcon(g,id);g.restore()}
+  else{g.save();g.translate(3,16);g.scale(26/(T*2),13/T);paintFloorIcon(g,id);g.restore()}
+  g.restore();
+  g.strokeStyle='rgba(0,0,0,.25)';g.lineWidth=.8;g.beginPath();g.roundRect(3,3,26,26,4);g.stroke();g.fillStyle='#8a5f3c';g.fillRect(3,15,26,1.5);
+  g.restore();
+};
+// アイコン用：家の中かどうかに関係なく塗る
+function paintWallIcon(g,id){const s=S.wall;S.wall=id;const f=myHomeLookOverride(true);try{paintWall(g,0,0,96,54)}finally{myHomeLookOverride(f);S.wall=s}}
+function paintFloorIcon(g,id){const s=S.floor;S.floor=id;const f=myHomeLookOverride(true);try{for(let y=0;y<1;y++)for(let x=0;x<2;x++)paintFloor(g,x,y,x*T,y*T)}finally{myHomeLookOverride(f);S.floor=s}}
+let _lookForce=false;function myHomeLookOverride(v){const o=_lookForce;_lookForce=v;return o}
 </script>
 <script>
 // ===================== タイトル画面 =====================
