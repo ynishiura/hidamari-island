@@ -555,7 +555,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.012";</script>
+<script>const GAME_VERSION="1.013";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -601,6 +601,7 @@ const BUGS=[
  ['b19','モルフォチョウ',4000,5,[1],'day','fly','#3aa0ff','青い輝きは色素ではなく、羽の細かな構造の光。'],
  ['b20','ユキムシ',800,3,[3],'day','fly','#eef4ff','白い綿をまとって飛ぶ。初雪が近いしるし。'],
  ['b21','フユシャク',300,1,[3],'night','fly','#ccccbb','寒い冬にだけ現れる、ちょっと変わったガ。'],
+ ['b23','カタツムリ',600,2,[0,1,2],'rain','ground','#c9a46a','雨の日にだけ、のんびり出てくる。殻はうずまき模様。'],
  ['b22','ヒダマリアゲハ',30000,6,[0,1],'day','fly','#ffb347','ひだまり島にだけ伝わる幻のチョウ。羽が日だまりの色に光る。',true],
 ].map(a=>({id:a[0],name:a[1],price:a[2],rar:a[3],seasons:a[4],time:a[5],where:a[6],color:a[7],note:a[8],legend:!!a[9],kind:'bug'}));
 
@@ -628,6 +629,7 @@ const FISH=[
  ['f18','クロマグロ',7000,5,[3],'all',['pier_n','pier_e'],5,'時速80kmで泳ぐこともある、海の王者。'],
  ['f19','ジンベエザメ',13000,5,[1],'all',['pier_s'],6,'世界最大の魚。でもプランクトンを食べるおだやかな性格。'],
  ['f20','シーラカンス',15000,5,ALL,'rain',['pier_e'],5,'大昔からほとんど姿を変えていない「生きた化石」。'],
+ ['f41','アマゴ',1200,3,[0,1,2],'rain',['river'],2,'雨で川の水がふえた日に、よく釣れる。体に朱色の点がある。'],
  ['f21','ヒダマリノヌシ',30000,6,ALL,'all',['river'],6,'島の川の主。百年生きているという言い伝えがある。',true],
  ['f22','コイ',300,1,ALL,'all',['pond'],3,'池の主役。口のヒゲが4本ある。'],
  ['f23','メダカ',300,1,[0,1,2],'day',['pond'],1,'小さくても群れで元気に泳ぐ。'],
@@ -684,6 +686,16 @@ const SEEDS=[
 ];
 const MISC=[
   {id:'apple',name:'リンゴ',price:100,kind:'food',heal:15},
+  {id:'fence_item',name:'木の柵',price:80,kind:'deco',note:'手に持って地面を調べると置ける。となりの柵とつながる'},
+  {id:'bench_item',name:'ベンチ',price:600,kind:'deco',note:'手に持って地面を調べると置ける'},
+  {id:'lamp_item',name:'街灯',price:900,kind:'deco',note:'手に持って地面を調べると置ける。夜に明かりがともる'},
+  {id:'starbit',name:'星のかけら',price:1000,kind:'mat',note:'流れ星に願いごとをすると、次の朝に届く。きらきら光る'},
+  {id:'hat_straw',name:'麦わら帽子',price:300,kind:'hat',note:'かぶると、主人公の頭にのる'},
+  {id:'hat_cap',name:'キャップ',price:300,kind:'hat',note:'かぶると、主人公の頭にのる'},
+  {id:'hat_knit',name:'ニット帽',price:350,kind:'hat',note:'かぶると、主人公の頭にのる'},
+  {id:'hat_beret',name:'ベレー帽',price:1200,kind:'hat',note:'かぶると、主人公の頭にのる'},
+  {id:'hat_ribbon',name:'大きなリボン',price:1000,kind:'hat',note:'かぶると、主人公の頭にのる'},
+  {id:'hat_crown',name:'王冠',price:8000,kind:'hat',note:'かぶると、主人公の頭にのる。きらきら'},
   {id:'sapling',name:'木の苗',price:300,kind:'sapling',note:'手に持って、地面を調べると植えられる（砂浜には植えられない）。2日で木が生える'},
   {id:'stump_item',name:'切り株',price:200,kind:'deco',note:'手に持って、地面を調べると置ける（砂浜には置けない）。スコップで掘り起こすと、また持てる'},
   {id:'xq',name:'なぞの化石',price:300,kind:'xq',note:'博物館で鑑定してもらうと、何の化石か分かる'},
@@ -920,6 +932,7 @@ const RECIPES=[
   {id:'r_lantern',name:'銅のランタン',lv:2,mats:{copper:3,wood:1},flag:'lantern',note:'洞窟の中が明るく、遠くまで見える'},
   {id:'r_mp',name:'魔力の水',lv:3,mats:{gel:2,apple:1},out:['mpwater',1],note:'魔力が15回復'},
   {id:'r_lure',name:'虫寄せの蜜',lv:3,mats:{honey:1,branch:2},out:['lure',1],note:'使うと珍しい虫が集まる'},
+  {id:'r_fence',name:'木の柵 ×4',lv:1,mats:{wood:2},out:['fence_item',4],note:'島に置ける柵。となりの柵とつながる'},
   {id:'r_torch',name:'松明 ×2',lv:1,mats:{branch:2,wood:1},out:['torch',2],note:'使うと、しばらく自分のまわりが明るくなる（夜や洞窟で）'},
   {id:'r_axe2',name:'鉄のオノ',lv:4,mats:{iron:2,hardwood:2},tool:['axe',2],need:['axe',1],note:'1回で取れる木材が増え、疲れにくい'},
   {id:'r_sword3',name:'鉄の剣',lv:6,mats:{iron:4,wood:2},tool:['sword',3],need:['sword',2],note:'攻撃力 +2'},
@@ -1045,6 +1058,7 @@ function genWorld(seed){
   if(typeof S!=='undefined'&&S&&S.cleared)for(const k in S.cleared){const t=W.trees[k];if(t){W.treeAt.delete(ti(t.x,t.y));W.block[ti(t.x,t.y)]=0}}   // 取りのぞいた切り株の木
   if(typeof S!=='undefined'&&S&&S.decos)for(const d of S.decos)W.block[ti(d.x,d.y)]=1;   // 置いた切り株
   if(typeof S!=='undefined'&&S&&S.saplings)for(const d of S.saplings)W.block[ti(d.x,d.y)]=1;   // 植えた苗
+  if(typeof S!=='undefined'&&S&&S.merchant)W.block[ti(S.merchant.x,S.merchant.y)]=1;   // 旅の商人
   for(const k of W.rocks)W.block[ti(k.x,k.y)]=1;
   for(const b of bld)for(let y=b.y;y<b.y+b.h;y++)for(let x=b.x;x<b.x+b.w;x++)W.block[ti(x,y)]=1;
   const h=bld[1];W.start={x:(h.door.x+.5)*T,y:(h.door.y+1.5)*T};
@@ -1257,10 +1271,12 @@ const MOVE_DAYS=30,MOVE_N=2;
 function moveResidents(){
   const rs=S.residents.slice(),others=VILLAGERS.map(v=>v.id).filter(id=>!rs.includes(id));
   if(others.length<MOVE_N)return [];
-  const out=rs.map(id=>({id,p:(S.friends[id]?.pts||0)+Math.random()*.01})).sort((a,b)=>a.p-b.p).slice(0,MOVE_N).map(o=>o.id);
+  // 引っ越すのは、3日前に打ち明けた住民（S.moveOut。引き止めた人は外れている）
+  const out=S.moveOut?S.moveOut.filter(id=>rs.includes(id)):rs.map(id=>({id,p:(S.friends[id]?.pts||0)+Math.random()*.01})).sort((a,b)=>a.p-b.p).slice(0,MOVE_N).map(o=>o.id);
+  S.moveOut=null;if(!out.length)return [];
   for(let i=others.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[others[i],others[j]]=[others[j],others[i]]}
   const moves=out.map((id,i)=>[id,others[i]]);
-  for(const [o,n] of moves){
+  for(const [o,n] of moves.filter(([o,n])=>o&&n)){
     S.residents[S.residents.indexOf(o)]=n;
     for(const b of ISL.bld)if(b.vid===o){b.vid=n;b.roof=HOUSE_ROOF[vById(n).house]}
   }
@@ -1387,7 +1403,7 @@ function freeTile(types){
 const same=(x,y)=>d=>d[0]===x&&d[1]===y;
 function objAt(x,y){
   const f=same(x,y);
-  return S.flowers.some(q=>q.x===x&&q.y===y)||S.dig.some(f)||S.holes.some(f)||S.shells.some(f)||S.branches.some(f)||(S.decos||[]).some(d=>d.x===x&&d.y===y)||(S.saplings||[]).some(d=>d.x===x&&d.y===y);
+  return (S.bottle&&S.bottle[0]===x&&S.bottle[1]===y)||S.flowers.some(q=>q.x===x&&q.y===y)||S.dig.some(f)||S.holes.some(f)||S.shells.some(f)||S.branches.some(f)||(S.decos||[]).some(d=>d.x===x&&d.y===y)||(S.saplings||[]).some(d=>d.x===x&&d.y===y);
 }
 function makeRequest(){
   const s=season(),h=12;
@@ -1410,6 +1426,7 @@ function initDaily(){
   for(let i=0,c=0;i<90&&c<11;i++){const t=pick(W.trees),x=t.x+Math.floor(rnd()*3)-1,y=t.y+1+Math.floor(rnd()*2);if(tileAt(x,y)===2&&!W.block[ti(x,y)]&&!objAt(x,y)){S.branches.push([x,y]);c++}}
   for(const v of residents()){const f=S.friends[v.id]||(S.friends[v.id]={pts:0,gift:0});f.talked=false;f.gifted=false;f.req=makeRequest();f.reqDone=false;f.reqAsked=false}
   if(S.weather==='雨')S.flowers.forEach(f=>f.water=true);
+  dailyLife();dailySurprise();   // 住民（life.js）と、毎日の小さな驚き（surprise.js）
   makeTasks();
   RT.bugs=[];RT.enemies=[];RT.shadows=[];RT.proj=[];RT.tiredWarned=false;
 }
@@ -1427,7 +1444,7 @@ function newDay(slept){
   S.day++;S.min=360;
   const moved=(S.day-1)%MOVE_DAYS===0?moveResidents():[];   // 30日ごとの引っ越し
   if(typeof bgmNewDay==='function')bgmNewDay();   // 日付が変わったら BGM を別の曲へ
-  S.weather=rollWeather();
+  const prevWeather=S.weather;S.weather=rollWeather();
   S.sta=slept?maxSta():Math.ceil(maxSta()/2);S.mp=maxMp();
   initDaily();
   const h=W.bld[1];S.px=(h.door.x+.5)*T;S.py=(h.door.y+1.5)*T;S.dir='down';
@@ -1436,6 +1453,7 @@ function newDay(slept){
   save();updateHud();renderTasks();
   if(season()!==prevSeason)toast(`${SEASONS[season()]}がやってきた。島の生き物たちも入れかわったみたい`,true);
   toast(`${SEASONS[season()]} ${dayInSeason()}日目の朝。天気は${S.weather}。今日のやることが届いた`);
+  lifeMorningNews();surpriseMorning(prevWeather);
   if(moved.length)setTimeout(()=>showDialog('お知らせ',[
     `${moved.map(([o])=>vById(o).name).join('と')}が、島から引っ越していった…。`,
     `かわりに、${moved.map(([,n])=>`${vById(n).species}の${vById(n).name}`).join('と')}が島に引っ越してきた！ あいさつに行ってみよう。`]),600);
@@ -1460,8 +1478,9 @@ function bugPool(){
 }
 function spawnBug(force){
   const lv=skLv('bug');
-  if(!force&&(S.weather==='雨'||S.weather==='雪'&&rnd()<.5))return;
-  const d=weighted(bugPool(),b=>RW[b.rar]*(b.rar>=3?1+(lv-1)*.18:1)*(RT.lureT>0&&b.rar>=3?3:1));if(!d)return;
+  if(!force&&S.weather==='雪'&&rnd()<.5)return;
+  const pool=S.weather==='雨'&&!force?bugPool().filter(b=>b.time==='rain'):bugPool();   // 雨の日は、雨の日だけの虫（カタツムリ）
+  const d=weighted(pool,b=>RW[b.rar]*(b.rar>=3?1+(lv-1)*.18:1)*(RT.lureT>0&&b.rar>=3?3:1));if(!d)return;
   const ptx=Math.floor(S.px/T),pty=Math.floor(S.py/T);
   let x,y;
   if(d.where==='tree'){
@@ -1617,7 +1636,8 @@ function talkTo(a){
     f.talked=true;f.pts+=1;gainPlayerXp(3);task('talk');
     lines.push(h<11?`おはよう、${S.name}！`:h<17?`やあ、${S.name}。`:`こんばんは、${S.name}。`);
     lines.push(fmt(rnd()<.5?v.season[season()]:pick(v.lines)));
-  }else lines.push(fmt(pick(v.lines)));
+    lines.push(...lifeTalkLines(v,f,true));
+  }else{lines.push(fmt(pick(v.lines)));lines.push(...lifeTalkLines(v,f,false))}
   const hv=hearts(v.id);
   if(hv>f.gift){
     const g=HEART_GIFTS[f.gift];f.gift++;
@@ -1659,6 +1679,7 @@ function villagerMenu(a){
     showDialog(v.name,[`${it.name}を持ってきてくれたら、お礼に家具をあげるね。`],null,opts);
   }]);
   if(!f.gifted)ch.push(['プレゼント',()=>{closeDialog();openBag('gift',a)}]);
+  lifeMenu(v,f,ch);
   ch.push(['またね',endTalk]);
   showDialog(v.name,[`${'♥'.repeat(hearts(v.id))||'…'}　なにか用かな？`],null,ch);
 }
@@ -1667,7 +1688,8 @@ function giveGift(a,id){
   takeItem(id);f.gifted=true;
   f.pts+=it.price>=1000?4:it.price>=300?3:2;gainPlayerXp(5);sfx('get');
   const line=it.kind==='flower'?'きれいなお花！ お部屋にかざるね。':it.price>=1000?`えっ、${it.name}！？ こんなにいいもの、いいの？`:`${it.name}だ。ありがとう！`;
-  RT.talking=a;showDialog(v.name,[line],endTalk);
+  const bd=lifeBirthdayGift(v,f);   // 誕生日のプレゼント（life.js）
+  RT.talking=a;showDialog(v.name,bd||[line],endTalk);
 }
 function endTalk(){closeDialog();RT.talking=null}
 
@@ -1680,7 +1702,9 @@ function pressA(){
   const a=villagerNear();if(a&&S.tool!=='sword'){talkTo(a);return}
   const [fx,fy]=facingTile();
   const ptx=Math.floor(S.px/T),pty=Math.floor((S.py-6)/T);
+  if(surprisePressA(fx,fy,ptx,pty))return;   // 流れ星・旅の商人・ビンの手紙（surprise.js）
   if(inHome()){homePressA(fx,fy,ptx,pty);return}
+  if(inVHouse()){vhousePressA(fx,fy,ptx,pty);return}
   if(inMuseum()){museumPressA(fx,fy,ptx,pty);return}
   const st=stairsAt(ptx,pty)||(S.tool!=='sword'&&S.tool!=='wand'?stairsAt(fx,fy):null);if(st){useStairs(st);return}
   for(const b of W.bld){
@@ -1816,7 +1840,7 @@ function clearStump(i){
   for(const k in mapBaseCache)delete mapBaseCache[k];
 }
 // 置いて飾れる物（いまは切り株）。S.decos に {type,x,y}。草の上と道に置ける（砂浜・水・建物の前には置けない）
-const DECO_ITEM={stump:'stump_item'},DECO_OF={stump_item:'stump'};
+const DECO_ITEM={stump:'stump_item',fence:'fence_item',bench:'bench_item',lamp:'lamp_item'},DECO_OF=Object.fromEntries(Object.entries(DECO_ITEM).map(([k,v])=>[v,k]));
 const decoAt=(x,y)=>(S.decos||[]).findIndex(d=>d.x===x&&d.y===y);
 function decoSpotOk(x,y){const t=tileAt(x,y);return onIsland()&&(t===2||t===4)&&!W.block[ti(x,y)]&&!objAt(x,y)&&!W.bld.some(b=>b.door.x===x&&b.door.y===y)&&!(x===Math.floor(S.px/T)&&y===Math.floor((S.py-6)/T))}
 function placeDeco(x,y){
@@ -1923,6 +1947,7 @@ function hintText(){
   if(RT.layout)return null;
   if(inHome())return homeHint();
   if(inMuseum())return museumHint();
+  if(inVHouse())return vhouseHint();
   if(inCave()){
     const [fx,fy]=facingTile(),ptx=Math.floor(S.px/T),pty=Math.floor((S.py-6)/T);
     const st=stairsAt(ptx,pty)||(S.tool!=='sword'&&S.tool!=='wand'?stairsAt(fx,fy):null);
@@ -1932,6 +1957,7 @@ function hintText(){
   if(S.tool==='wand')return curSpell().name;
   if(villagerNear())return '話す';
   const [fx,fy]=facingTile(),ptx=Math.floor(S.px/T),pty=Math.floor((S.py-6)/T);
+  {const sh=surpriseHint(fx,fy,ptx,pty);if(sh)return sh}
   for(const b of W.bld)if(S.dir==='up'&&((fx===b.door.x&&fy===b.y+b.h-1)||(ptx===b.door.x&&pty===b.door.y)))return b.type==='shop'?'お店に入る':b.type==='museum'?'博物館に入る':b.type==='house'?'家に入る':'訪ねる';
   const near=s=>(s[0]===fx&&s[1]===fy)||(s[0]===ptx&&s[1]===pty);
   if(!inCave()&&(S.shells.some(near)||S.branches.some(near)))return '拾う';
@@ -2292,10 +2318,11 @@ function render(t){
   const D=[];const inV=(x,y,m=3)=>x>=x0-m&&x<=x1+m&&y>=y0-m&&y<=y1+m;;let mk=0;const casts=[],take=()=>{for(;mk<D.length;mk++)casts.push(D[mk])},skip=()=>{mk=D.length};   // casts＝影を落とす物
   W.trees.forEach((tr,i)=>{if(inV(tr.x,tr.y)&&!S.cleared?.[i])D.push([(tr.y+1)*T-4,()=>S.stumps[i]?drawStump(ctx,tr):drawTree(ctx,tr,s,S.fruit[i],RT.shake.get(i))])});take();
   if(W.home)W.furn.forEach(f=>D.push([isFloor(f)?-1e9:(W.oy+f.y+f.h)*T-4,()=>drawFurn(ctx,f)]));skip();
-  if(W.museum)museumObjects(D,ctx);skip();   // 博物館の中：展示ケース・受付・ホーホ
+  if(W.museum)museumObjects(D,ctx);skip();
+  lifeObjects(D,ctx,t);surpriseObjects(D,ctx,t);skip();   // 住民の家の主・家に来た住民・誕生日の風船・旅の商人・ビン   // 博物館の中：展示ケース・受付・ホーホ
   if(inCave())W.nodes.forEach((o,i)=>{if(inV(o.x,o.y))D.push([(o.y+1)*T-4,()=>drawNode(ctx,o,i)])});skip();
   RT.enemies.forEach(e=>D.push([e.y+(e.d.fly?20:0),()=>drawEnemy(ctx,e,t)]));take();
-  if(isl)(S.decos||[]).forEach(d=>{if(inV(d.x,d.y))D.push([(d.y+1)*T-4,()=>drawStump(ctx,d)])});take();   // 置いた切り株
+  if(isl)(S.decos||[]).forEach(d=>{if(inV(d.x,d.y))D.push([(d.y+1)*T-4,()=>drawDeco(ctx,d)])});take();   // 置いた物（切り株・柵・ベンチ・街灯。outfit.js）
   if(isl)(S.saplings||[]).forEach(d=>{if(inV(d.x,d.y))D.push([(d.y+1)*T-4,()=>drawSapling(ctx,d,s)])});take();   // 植えた苗
   W.rocks.forEach((r,i)=>{if(inV(r.x,r.y)){const sh=RT.shake.get('r'+i);D.push([(r.y+1)*T-4,()=>{ctx.save();if(sh)ctx.translate(Math.sin(sh*60)*1.5,0);drawRock(ctx,r,S.rockHits[i]);ctx.restore()}])}});take();
   const night=skyTint().night>.2;
@@ -2352,6 +2379,7 @@ function render(t){
     const glow=(x,y,r,a)=>{const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`rgba(255,210,120,${a})`);g.addColorStop(1,'rgba(255,210,120,0)');ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2)};
     for(const b of W.bld){if(b.type==='cave')continue;const by=(b.y+b.h*.42)*T+14;glow(b.x*T+17,by,22,.35*sk.night*2);glow((b.x+b.w)*T-17,by,22,.35*sk.night*2)}
     glow(S.px,S.py-14,70,.22*sk.night*2);
+    if(isl)decoLights(glow,sk.night);   // 街灯
     ctx.globalCompositeOperation='source-over';
   }
   drawGlowBugs(ctx,RT.bugs,t);
@@ -2367,6 +2395,7 @@ function render(t){
   if(ht&&!RT.dlg&&!RT.panel){pill(ctx,S.px,S.py-62,'A：'+ht,ht==='今だ！'?'#f3b03d':'rgba(44,58,49,.85)',ht==='今だ！'?'#3a2a10':'#fff')}
   // 雨と雪
   ctx.setTransform(DPR,0,0,DPR,0,0);
+  drawSkyExtras(ctx,t,VW,VH);   // 虹と流れ星（surprise.js）
   if(isl&&S.weather==='雨'){ctx.strokeStyle='rgba(220,235,255,.55)';ctx.lineWidth=1.2;ctx.beginPath();for(let i=0;i<90;i++){const x=(hash(i,1)*VW+t*60)%VW,y=(hash(i,2)*VH+t*620)%VH;ctx.moveTo(x,y);ctx.lineTo(x-3,y+12)}ctx.stroke()}
   if(isl&&S.weather==='雪'){ctx.fillStyle='rgba(255,255,255,.9)';for(let i=0;i<70;i++){const x=(hash(i,3)*VW+Math.sin(t+i)*20+t*12)%VW,y=(hash(i,4)*VH+t*(30+hash(i,5)*30))%VH;ctx.beginPath();ctx.arc(x,y,1.5+hash(i,6)*1.5,0,7);ctx.fill()}}
 }
@@ -2484,7 +2513,7 @@ function updateHud(){
   if(!S)return;
   $('hDay').textContent=`${SEASONS[season()]} ${dayInSeason()}日目`;
   $('bLayout').hidden=!inHome()||!!RT.layout;
-  $('hWx').textContent=`${inCave()?`洞窟 地下${caveFloor()}階`:inHome()?`わが家 ${W.w}×${W.h}マス`:inMuseum()?'ひだまり博物館':S.weather}・${titleFor(S.lv)}`;
+  $('hWx').textContent=`${inCave()?`洞窟 地下${caveFloor()}階`:inHome()?`わが家 ${W.w}×${W.h}マス`:inMuseum()?'ひだまり博物館':inVHouse()?`${vById(S.loc.slice(3))?.name||''}の家`:S.weather}・${titleFor(S.lv)}`;
   $('bells').textContent=S.bells.toLocaleString()+'円';
   $('hLv').textContent=S.lv;
   $('hSta').textContent=`${Math.ceil(S.sta)}/${maxSta()}`;$('hStaBar').style.width=(S.sta/maxSta()*100)+'%';
@@ -2501,7 +2530,7 @@ function buildToolbar(){
   if(!S)return;
   TOOLS.forEach(t=>{const b=$('tool-'+t.id);const tr=t.id==='sword'?(hasWeapon()?1:0):S.tools[t.id];b.classList.toggle('on',S.tool===t.id);b.classList.toggle('locked',!tr);
     if(t.id==='sword'){const want=curWeapon()==='sword'?'sword':'w_'+curWeapon();if(b.dataset.ic!==want){b.querySelector('canvas').replaceWith(iconCanvas(want,28));b.dataset.ic=want}}   // 持っている武器の絵
-    b.querySelector('.lbl').textContent=t.id==='hand'&&S.held?({deco:'切り株を持つ',sapling:'苗を持つ'}[ITEMS[S.held]?.kind]||'種を持つ'):t.id==='wand'&&tr?curSpell().name.slice(0,4):t.id==='sword'&&tr?weaponLabel().slice(-4):tr?toolName(t.id,tr).slice(-4):t.name});
+    b.querySelector('.lbl').textContent=t.id==='hand'&&S.held?({deco:'置く物',sapling:'苗を持つ'}[ITEMS[S.held]?.kind]||'種を持つ'):t.id==='wand'&&tr?curSpell().name.slice(0,4):t.id==='sword'&&tr?weaponLabel().slice(-4):tr?toolName(t.id,tr).slice(-4):t.name});
 }
 const HOW_GET={shovel:'ひだまり商店で買えるよ（クラフトでも作れる）',can:'ひだまり商店で買えるよ',axe:'クラフトで作れるよ（木の枝×3＋石×2）',sword:'クラフトで作れるよ（木の剣は木材×4。槍・弓・ハンマーもある）',wand:'クラフトで作れるよ（木材×3＋魔石×1）'};
 function selectTool(id){
@@ -2561,7 +2590,8 @@ function enterBuilding(b){
     openShop('sell');
   }else{
     const v=VILLAGERS.find(v=>v.id===b.vid);
-    showDialog(v.name+'の家',[villagersOut()?`${v.name}の家だ。${v.name}は外で過ごしているみたい。`:`${v.name}はもう寝ているみたい。また明日にしよう。`]);
+    if(villagersOut()){goVHouse(v.id,'door');save()}   // 住民の家の中へ（life.js）
+    else showDialog(v.name+'の家',[`${v.name}はもう寝ているみたい。また明日にしよう。`]);
   }
 }
 
@@ -2583,7 +2613,7 @@ function refresh(){if(RT.panel){RT.panel.keepScroll=true;drawPanel()}}
 
 // 持ち物
 function bagGrid(mode){
-  const ids=Object.keys(S.bag).sort((a,b)=>{const o=['food','potion','use','seed','mat','bug','fish','fossil','flower'];return o.indexOf(ITEMS[a].kind)-o.indexOf(ITEMS[b].kind)||ITEMS[b].price-ITEMS[a].price});
+  const ids=Object.keys(S.bag).sort((a,b)=>{const o=['food','potion','use','seed','sapling','deco','hat','mat','bug','fish','fossil','flower'];return o.indexOf(ITEMS[a].kind)-o.indexOf(ITEMS[b].kind)||ITEMS[b].price-ITEMS[a].price});
   if(!ids.length)return h('p',{class:'muted'},'ポケットは空っぽ。虫や魚をつかまえたり、木をゆすってみよう。');
   return h('div',{class:'grid'},ids.map(id=>{
     const it=ITEMS[id],n=S.bag[id];
@@ -2592,6 +2622,7 @@ function bagGrid(mode){
     else if(mode==='gift')btns.push(h('button',{on:()=>{const a=RT.giftTo;closePanel();giveGift(a,id)}},'あげる'));
     else{
       if(['food','potion','use'].includes(it.kind))btns.push(h('button',{on:()=>{eat(id);if(it.kind==='use')closePanel();else refresh()}},{food:'食べる',potion:'飲む',use:'使う'}[it.kind]));
+      if(it.kind==='hat')btns.push(h('button',{on:()=>{S.hat=S.hat===id?null:id;toast(S.hat?`${it.name}をかぶった`:`${it.name}をぬいだ`);sfx('get');refresh()}},S.hat===id?'ぬぐ':'かぶる'));
       if(it.kind==='seed'||it.kind==='deco'||it.kind==='sapling')btns.push(h('button',{on:()=>{S.held=S.held===id?null:id;if(S.held){S.tool='hand';toast(it.kind==='deco'?'素手で地面（草の上か道）を調べると置けるよ':it.kind==='sapling'?'素手で地面（草の上か道）を調べると植えられるよ':'素手で草の上を調べると植えられるよ')}updateHud();refresh()}},S.held===id?'しまう':'手に持つ'));
     }
     return h('div',{class:'cell'+(S.held===id?' sel':'')},iconCanvas(id),h('div',{class:'nm'},it.name),h('div',{class:'meta prog'},`×${n}　${mode==='sell'?sellPrice(id)+'円':it.price?it.price+'円':''}`),h('div',{class:'rowline',style:'justify-content:center;margin:0;gap:4px'},btns));
@@ -2621,7 +2652,9 @@ function openShop(tab){
     body.append(h('div',{class:'rowline'},h('div',{class:'grow muted'},'店主のコマチ「いらっしゃい。図鑑にのった子も、売ってくれてかまわないよ」'),h('span',{class:'pill'},`${S.bells.toLocaleString()}円`)));
     if(t==='sell'){body.append(h('div',{class:'rowline'},h('button',{class:'btn',on:sellAll},'生き物・化石・花・貝をまとめて売る'),h('span',{class:'muted'},'素材や道具の材料は残るよ')));body.append(bagGrid('sell'))}
     if(t==='buy'){
-      const items=[...SEEDS.map(s=>({id:s.id,name:s.name,price:s.buy,note:FLOWER_DEF[s.species].name+'。水やりで3日ほどで咲く'})),{id:'apple',name:'リンゴ',price:250,note:'食べると体力が15回復'},{id:'torch',name:'松明',price:120,note:'使うと、しばらく自分のまわりが明るくなる（夜や洞窟で）'},{id:'sapling',name:'木の苗',price:800,note:'地面に植えると、2日で木が生える（砂浜には植えられない）'}];
+      const items=[...SEEDS.map(s=>({id:s.id,name:s.name,price:s.buy,note:FLOWER_DEF[s.species].name+'。水やりで3日ほどで咲く'})),{id:'apple',name:'リンゴ',price:250,note:'食べると体力が15回復'},{id:'torch',name:'松明',price:120,note:'使うと、しばらく自分のまわりが明るくなる（夜や洞窟で）'},{id:'sapling',name:'木の苗',price:800,note:'地面に植えると、2日で木が生える（砂浜には植えられない）'},
+        {id:'fence_item',name:'木の柵',price:150,note:'島に置ける。となりの柵とつながる'},{id:'bench_item',name:'ベンチ',price:1500,note:'島に置ける'},{id:'lamp_item',name:'街灯',price:2500,note:'島に置ける。夜に明かりがともる'},
+        {id:'hat_straw',name:'麦わら帽子',price:900,note:'持ち物から「かぶる」'},{id:'hat_cap',name:'キャップ',price:900,note:'持ち物から「かぶる」'},{id:'hat_knit',name:'ニット帽',price:1100,note:'持ち物から「かぶる」'}];
       const grid=h('div',{class:'grid'});
       for(const tl of TOOLS.filter(t=>t.buy&&!S.tools[t.id]))grid.append(h('div',{class:'cell'},iconCanvas(tl.id),h('div',{class:'nm'},tl.name),h('div',{class:'meta'},tl.id==='shovel'?'化石を掘ったり、岩をたたける':'花に水をあげて育てる'),h('button',{on:()=>{if(S.bells<tl.buy){toast('お金が足りない');return}S.bells-=tl.buy;S.tools[tl.id]=1;S.tool=tl.id;toast(`${tl.name}を買った！ キー${tl.key}で持ちかえ`,true);sfx('lv');updateHud();refresh()}},`${tl.buy}円`)));
       for(const it of items)grid.append(h('div',{class:'cell'},iconCanvas(it.id),h('div',{class:'nm'},it.name),h('div',{class:'meta'},it.note),h('div',{class:'rowline',style:'justify-content:center;margin:0;gap:4px'},
@@ -5400,7 +5433,7 @@ function faceIcon(key,ring,kind){
 }
 // ---------- ミニマップ ----------
 // 家の中にいる間は、島の地図に切りかえて描く（自分の印は家の前）
-function withIsland(fn){if(!inHome()&&!inMuseum())return fn();const w=W,loc=S.loc,px=S.px,py=S.py,h=inMuseum()?(ISL.bld.find(b=>b.type==='museum')||ISL.bld[1]):ISL.bld[1];W=ISL;S.loc='island';S.px=(h.door.x+.5)*T;S.py=(h.door.y+.5)*T;try{return fn()}finally{W=w;S.loc=loc;S.px=px;S.py=py}}
+function withIsland(fn){if(!inHome()&&!inMuseum()&&!inVHouse())return fn();const w=W,loc=S.loc,px=S.px,py=S.py,h=inMuseum()?(ISL.bld.find(b=>b.type==='museum')||ISL.bld[1]):inVHouse()?(ISL.bld.find(b=>b.vid===S.loc.slice(3))||ISL.bld[1]):ISL.bld[1];W=ISL;S.loc='island';S.px=(h.door.x+.5)*T;S.py=(h.door.y+.5)*T;try{return fn()}finally{W=w;S.loc=loc;S.px=px;S.py=py}}
 let mmT=0;
 function drawMinimap(dt,t){
   const c=document.getElementById('minimap');if(!c||!S||RT.title)return;
@@ -5433,7 +5466,7 @@ function openMap(){
     c.addEventListener('click',e=>{
       const r=c.getBoundingClientRect(),tx=Math.floor((e.clientX-r.left)/r.width*MW),ty=Math.floor((e.clientY-r.top)/r.height*MH);
       if(!inMap(tx,ty))return;
-      if(inHome()||inMuseum()){toast('外に出てから歩こう');return}
+      if(inHome()||inMuseum()||inVHouse()){toast('外に出てから歩こう');return}
       if(inCave()&&caveSeenStr()[ti(tx,ty)]!=='1'){toast('まだ行ったことのない場所だ');return}
       const g2=walkable(tx,ty)?{act:false,tx,ty,stands:[[tx,ty]]}:{act:false,tx,ty,stands:n4(tx,ty)};
       closePanel();startGoal(g2,[(tx+.5)*T,(ty+.5)*T]);
@@ -5711,14 +5744,26 @@ function museumMap(){
   const counter={x:ox+5,y:oy+4,w:5,h:1},owl={x:ox+7,y:oy+3};
   const cases=[['fossil','化石',1,1],['bug','虫',11,1],['fish','魚',1,6],['flower','花',11,6]].map(([kind,name,x,y])=>({kind,name,x:ox+x,y:oy+y,w:3,h:2}));
   const solid=(x0,y0,ww,hh)=>{for(let y=y0;y<y0+hh;y++)for(let x=x0;x<x0+ww;x++)block[ti(x,y)]=1};
-  solid(counter.x,counter.y,counter.w,1);solid(owl.x,owl.y,1,1);for(const c of cases)solid(c.x,c.y,c.w,c.h);
-  return MUSEUM_MAP={id:'museum',museum:true,w,h,ox,oy,tiles,block,door,counter,owl,cases,
+  const dino={x:ox+5,y:oy,w:5,h:2};
+  solid(counter.x,counter.y,counter.w,1);solid(owl.x,owl.y,1,1);for(const c of cases)solid(c.x,c.y,c.w,c.h);solid(dino.x,dino.y,dino.w,dino.h);
+  return MUSEUM_MAP={id:'museum',museum:true,w,h,ox,oy,tiles,block,door,counter,owl,cases,dino,
     trees:[],rocks:[],bld:[],treeAt:new Map(),rockAt:new Map(),nodes:[],nodeAt:new Map(),
     start:{x:(door.x+.5)*T,y:(door.y-.5)*T+4},
     room:{x0:(ox-1)*T,y0:(oy-2.6)*T,x1:(ox+w+1)*T,y1:(oy+h+4.5)*T}};   // 下は広めに：出口が下の道具バーに隠れないように
 }
+// 展示を見に来る住民（寄贈が8種類をこえると、日によって1〜2人）。ケースの横に立っている
+const MUS_SPOTS=[[4,1,'right'],[10,7,'right'],[4,6,'left'],[10,2,'left']];
+function museumGuests(){
+  if(museumDonated()<8||!museumOpen())return [];
+  const rs=residents().filter(v=>v.id!==MUS_CURATOR);if(!rs.length)return [];
+  const n=museumDonated()>=25?2:1,out=[];
+  for(let i=0;i<n&&i<rs.length;i++){const v=rs[(S.day*7+i*3)%rs.length];if(out.some(o=>o.v===v))continue;const sp=MUS_SPOTS[(S.day+i)%MUS_SPOTS.length];out.push({v,x:W.ox+sp[0],y:W.oy+sp[1],dir:sp[2]})}
+  return out;
+}
+let MUS_GUESTS=[];
 function goMuseum(at){
   W=museumMap();S.loc='museum';resetMapRT();
+  for(const g of MUS_GUESTS)W.block[ti(g.x,g.y)]=0;MUS_GUESTS=museumGuests();for(const g of MUS_GUESTS)W.block[ti(g.x,g.y)]=1;
   if(at==='door'){S.px=W.start.x;S.py=W.start.y;S.dir='up';toast(`ひだまり博物館へようこそ。受付の${curatorName()}に話しかけると、鑑定や寄贈ができるよ`)}
   RT.fade=.6;updateHud();
 }
@@ -5742,25 +5787,44 @@ const musDoorAt=(x,y)=>x===W.door.x&&y===W.door.y;
 function museumPressA(fx,fy,ptx,pty){
   if(musDoorAt(fx,fy)||musDoorAt(ptx,pty)){leaveMuseum();return}
   if(musCounterAt(fx,fy)){talkCurator();return}
+  const gu=MUS_GUESTS.find(g=>g.x===fx&&g.y===fy);if(gu){showDialog(gu.v.name,[pick(MUS_GUEST_LINES).replace('{n}',museumDonated())]);return}
+  if(musDinoAt(fx,fy)){const n=DINO_SET.filter(id=>S.dex[id]).length;toast(n>=4?'恐竜の骨格！ 4つの化石がそろって、組み上がっている':`恐竜の骨格の台（化石 ${n}/4）。恐竜の歯・ステゴサウルスの背板・ティラノサウルスの頭・トリケラトプスの角を寄贈すると組み上がる`);return}
   const c=musCaseAt(fx,fy);if(c){const L=museumList(c.kind),n=L.filter(x=>S.dex[x.id]).length;
     toast(n?`${c.name}の展示（${n} / ${L.length} 種類）。寄贈してくれた物が並んでいる`:`${c.name}の展示ケース。まだ何も入っていない`);return}
 }
+// 寄贈した数のごほうび（ホーホから）。恐竜の骨格がそろったときも
+const museumDonated=()=>[BUGS,FISH,FOSSILS,FLOWERS].reduce((a,L)=>a+L.filter(x=>S.dex[x.id]).length,0);
+const MUS_REWARDS=[{n:5,furn:'plant'},{n:10,item:'lamp_item',c:2},{n:20,furn:'shelf'},{n:30,item:'bench_item',c:2},{n:45,item:'hat_beret',c:1},{n:60,furn:'sofa'},{n:80,bells:30000},{n:100,item:'hat_crown',c:1}];
+const DINO_SET=['x5','x7','x11','x12'];
+const dinoDone=()=>DINO_SET.every(id=>S.dex[id]);
+function museumRewardLines(){
+  const L=[];
+  for(;;){const r=MUS_REWARDS[S.musRw||0];if(!r||museumDonated()<r.n)break;S.musRw=(S.musRw||0)+1;
+    let got;if(r.furn){S.furnInv[r.furn]=(S.furnInv[r.furn]||0)+1;got=`「${FURN_NAME[r.furn]}」`}else if(r.bells){S.bells+=r.bells;got=`${r.bells.toLocaleString()}円`}else{S.bag[r.item]=(S.bag[r.item]||0)+r.c;got=`${ITEMS[r.item].name}${r.c>1?' ×'+r.c:''}`}
+    L.push(`寄贈が ${r.n}種類 になったの。いつも本当にありがとう。お礼に ${got} を受け取っておくれ。`);sfx('lv')}
+  if(dinoDone()&&!S.dinoRw){S.dinoRw=true;S.bells+=10000;L.push('おお…！ 恐竜の化石が4つそろって、骨格が組み上がったぞ！ 奥の台を見ておくれ。お礼に 10,000円じゃ。');sfx('lv')}
+  if(L.length)updateHud();
+  return L;
+}
 function talkCurator(){
+  const rw=museumRewardLines();
   const n=S.bag.xq||0,d=donatable().length;
-  showDialog(curatorName(),[n?`おお、なぞの化石を ${n}個 持っておるな。鑑定してあげよう。`:d?`寄贈できそうな物を ${d}種類 持っておるな。図鑑に記録しよう。`:'ようこそ、ひだまり博物館へ。何をしようかの？'],null,[
+  showDialog(curatorName(),[...rw,n?`おお、なぞの化石を ${n}個 持っておるな。鑑定してあげよう。`:d?`寄贈できそうな物を ${d}種類 持っておるな。図鑑に記録しよう。`:'ようこそ、ひだまり博物館へ。何をしようかの？'],null,[
     ['鑑定してもらう',()=>{endTalk();openMuseum('appraise')}],['寄贈する',()=>{endTalk();openMuseum('donate')}],['展示を見る',()=>{endTalk();openMuseum('show')}],['またね',endTalk]]);
 }
 function museumHint(){
   const [fx,fy]=facingTile(),[px,py]=ptile();
   if(musDoorAt(fx,fy)||musDoorAt(px,py))return '外に出る';
-  if(musCounterAt(fx,fy))return '話す';
-  if(musCaseAt(fx,fy))return '見る';
+  if(musCounterAt(fx,fy)||MUS_GUESTS.some(g=>g.x===fx&&g.y===fy))return '話す';
+  if(musCaseAt(fx,fy)||musDinoAt(fx,fy))return '見る';
   return null;
 }
 function museumTick(){const [px,py]=ptile();if(musDoorAt(px,py))leaveMuseum()}
 function museumClick(tx,ty){
   if(musDoorAt(tx,ty))return {act:false,tx,ty,stands:[[tx,ty]]};
   if(musCounterAt(tx,ty)){const c=W.counter,sx=W.owl.x;return {act:true,tx:sx,ty:c.y,stands:[[sx,c.y+1]]}}
+  if(MUS_GUESTS.some(g=>g.x===tx&&g.y===ty))return {act:true,tx,ty,stands:n4(tx,ty).filter(([x,y])=>walkable(x,y))};
+  if(musDinoAt(tx,ty)){const d=W.dino,st=[];for(let x=d.x;x<d.x+d.w;x++)st.push([x,d.y+d.h]);return {act:true,tx,ty,stands:st.filter(([x,y])=>walkable(x,y))}}
   const c=musCaseAt(tx,ty);if(c){const st=[];for(let x=c.x;x<c.x+c.w;x++){st.push([x,c.y+c.h])}for(let y=c.y;y<c.y+c.h;y++){st.push([c.x-1,y],[c.x+c.w,y])}return {act:true,tx,ty,stands:st.filter(([x,y])=>walkable(x,y))}}
   return null;
 }
@@ -5833,7 +5897,363 @@ function museumObjects(D,ctx){
   for(const c of W.cases)D.push([(c.y+c.h)*T-4,()=>drawMuseumCase(ctx,c)]);
   const v=vById(MUS_CURATOR);if(v)D.push([(W.owl.y+1)*T-6,()=>drawAnimal(ctx,(W.owl.x+.5)*T,(W.owl.y+1)*T-2,'down',0,v)]);
   D.push([(W.counter.y+1)*T-2,()=>drawMuseumCounter(ctx)]);
+  D.push([(W.dino.y+W.dino.h)*T-4,()=>drawDino(ctx)]);
+  for(const g of MUS_GUESTS)D.push([(g.y+1)*T-2,()=>drawAnimal(ctx,(g.x+.5)*T,(g.y+1)*T-2,g.dir,0,g.v)]);
 }
+const musDinoAt=(x,y)=>{const d=W.dino;return d&&x>=d.x&&x<d.x+d.w&&y>=d.y&&y<d.y+d.h};
+const MUS_GUEST_LINES=['ここの展示、見ているだけで時間を忘れちゃう！','もう {n}種類 も集まったんだね。すごいなあ！','この化石、何万年も前のものなんだって。ふしぎだね。','虫のケース、きれいなチョウがいっぱい！','魚の展示を見てたら、釣りに行きたくなっちゃった。'];
+// 恐竜の骨格：4つの化石がそろうと組み上がる。それまでは台と、うすい形だけ
+function drawDino(g){
+  const d=W.dino,x=d.x*T,y=d.y*T,w=d.w*T,h=d.h*T,n=DINO_SET.filter(id=>S.dex[id]).length,done=n>=4;
+  g.fillStyle='rgba(30,20,10,.22)';g.fillRect(x+4,y+h-4,w-4,6);
+  rrect(g,x+2,y+h-14,w-4,14,3,'#8a7a62');rrect(g,x,y+h-18,w,6,2,'#b8a888');g.fillStyle='rgba(255,255,255,.3)';g.fillRect(x+2,y+h-18,w-4,1.5);
+  const bone=done?'#f3ead6':'rgba(120,110,95,.28)',bd=done?'#c9bb9a':'rgba(120,110,95,.2)',bx=x+w/2,by=y+h-20;
+  g.strokeStyle=bd;g.lineWidth=1;g.fillStyle=bone;
+  // 脚
+  for(const [lx,s] of [[-22,1],[-12,-1],[14,1],[24,-1]]){g.strokeStyle=bone;g.lineWidth=4;g.beginPath();g.moveTo(bx+lx,by-26);g.lineTo(bx+lx+s*4,by-12);g.lineTo(bx+lx,by);g.stroke()}
+  // 背骨としっぽ
+  g.strokeStyle=bone;g.lineWidth=5;g.beginPath();g.moveTo(bx-46,by-14);g.quadraticCurveTo(bx-30,by-40,bx,by-38);g.quadraticCurveTo(bx+26,by-36,bx+34,by-46);g.stroke();
+  // ろっ骨
+  g.lineWidth=2.4;for(let i=0;i<6;i++){const rx=bx-16+i*6;g.beginPath();g.moveTo(rx,by-38);g.quadraticCurveTo(rx-3,by-26,rx+1,by-20);g.stroke()}
+  // 頭
+  g.fillStyle=bone;g.beginPath();g.moveTo(bx+30,by-50);g.quadraticCurveTo(bx+44,by-62,bx+58,by-52);g.lineTo(bx+60,by-44);g.quadraticCurveTo(bx+46,by-40,bx+32,by-42);g.closePath();g.fill();
+  if(done){circ(g,bx+44,by-52,2.5,'#6b5a40');g.strokeStyle='#b8a888';g.lineWidth=1;for(let i=0;i<5;i++){g.beginPath();g.moveTo(bx+40+i*3.5,by-44);g.lineTo(bx+41+i*3.5,by-41);g.stroke()}}
+  rrect(g,bx-24,y+h-12,48,9,2,'#f3e2b8');g.fillStyle='#4a3218';g.font='bold 7px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.fillText(done?'恐竜の骨格':`恐竜の骨格 ${n}/4`,bx,y+h-5.5);
+}
+</script>
+<script>
+// ===================== 住民ともっと仲良く =====================
+// ・誕生日：住民ごとに決まった日（季節と日）。その日は朝に知らせ、家に風船。プレゼントで特別に喜び、お返しをくれる
+// ・家に遊びに来る：♥3つ以上の住民が、ときどき自分の家に遊びに来る（9時〜19時、家の中にいる）
+// ・住民の家に入れる：7時〜21時。中で住民が迎えてくれる。夜は寝ている
+// ・引き止め：引っ越しの3日前から、引っ越しそうな住民が打ち明ける。「引き止める」と島に残る
+const vBirthday=v=>{let h=0;for(const ch of v.id)h=h*31+ch.charCodeAt(0)>>>0;return {s:h%4,d:1+(h>>3)%DAYS_PER_SEASON}};
+const isBirthday=v=>{const b=vBirthday(v);return season()===b.s&&dayInSeason()===b.d};
+const birthdayText=v=>{const b=vBirthday(v);return `${SEASONS[b.s]}の${b.d}日`};
+const inVHouse=()=>!!S&&typeof S.loc==='string'&&S.loc.startsWith('vh:');
+
+// ---- 朝の準備（initDaily から） ----
+function dailyLife(){
+  // 遊びに来る住民（♥3つ以上の中から、ときどき1人）
+  const close=residents().filter(v=>hearts(v.id)>=3);
+  S.visitor=close.length&&rnd()<.4?pick(close).id:null;S.visitGift=false;
+  // 引っ越しの3日前：だれが引っ越しそうか決めておく（仲よし度の低い人から）
+  const left=MOVE_DAYS-((S.day-1)%MOVE_DAYS);
+  if(left<=3&&!S.moveOut){const rs=S.residents.slice();S.moveOut=rs.map(id=>({id,p:(S.friends[id]?.pts||0)+rnd()*.01})).sort((a,b)=>a.p-b.p).slice(0,MOVE_N).map(o=>o.id)}
+  for(const v of residents()){const f=S.friends[v.id];if(f){f.bdayGift=false;f.moveTalked=false}}
+}
+function lifeMorningNews(){
+  const b=residents().filter(isBirthday);
+  if(b.length)setTimeout(()=>toast(`今日は ${b.map(v=>v.name).join('と')} の誕生日！ プレゼントを持って会いに行こう`,true),1600);
+  if(S.visitor){const v=vById(S.visitor);if(v)setTimeout(()=>toast(`${v.name}が「あとで家に遊びに行くね」と言っていた`),2600)}
+}
+// 話しかけたときに足すセリフ（talkTo から）
+function lifeTalkLines(v,f,first){
+  const L=[];
+  if(isBirthday(v)&&first)L.push(`じつは今日、${v.name}の誕生日なんだ！ 覚えててくれたらうれしいな。`);
+  if(S.moveOut&&S.moveOut.includes(v.id)&&!f.moveTalked){f.moveTalked=true;L.push('…あのね。じつは、そろそろこの島を出ようかなって思ってるんだ。')}
+  return L;
+}
+// 話のあとのメニューに足す選択肢（villagerMenu から）
+function lifeMenu(v,f,ch){
+  if(S.moveOut&&S.moveOut.includes(v.id))ch.unshift(['引っ越すの？',()=>{
+    showDialog(v.name,['うん…。新しい場所も見てみたくて。でも、迷ってるんだ。'],null,[
+      ['引き止める',()=>{S.moveOut=S.moveOut.filter(id=>id!==v.id);f.pts+=3;sfx('get');
+        showDialog(v.name,[`${S.name}がそう言ってくれるなら…。うん、やっぱりこの島にいるよ！`,'これからも、よろしくね。'],endTalk)}],
+      ['応援する',()=>showDialog(v.name,['ありがとう。島のこと、ずっと忘れないよ。'],endTalk)]]);
+  }]);
+}
+// 誕生日のプレゼント（giveGift から）。特別に喜んで、お返しに家具をくれる
+function lifeBirthdayGift(v,f){
+  if(!isBirthday(v)||f.bdayGift)return null;
+  f.bdayGift=true;f.pts+=6;
+  const t=requestReward();
+  return [`誕生日プレゼント！？ うれしい…！ ずっと大事にするね！`,`お礼に「${FURN_NAME[t]}」をあげる。家に飾ってね！`];
+}
+// 誕生日の家の風船（島の描画から）
+function drawBirthdayBalloons(g,b,t){
+  const x=(b.x+b.w/2)*T,y=b.y*T+4,cols=['#f27a8a','#f6cf3a','#7cc3e8','#9be07a'];
+  for(let i=0;i<4;i++){const bx=x-30+i*20,by=y-18-Math.sin(t*2+i)*3-(i%2)*6;
+    g.strokeStyle='rgba(90,70,50,.6)';g.lineWidth=.8;g.beginPath();g.moveTo(bx,by+7);g.quadraticCurveTo(bx+3,by+16,x-20+i*13,y+14);g.stroke();
+    ell(g,bx,by,6,7.5,cols[i]);ell(g,bx-2,by-3,1.8,2.4,'rgba(255,255,255,.6)')}
+}
+
+// ---- 家に遊びに来る住民 ----
+const visitorHere=()=>inHome()&&S.visitor&&vById(S.visitor)&&hour()>=9&&hour()<19;
+let VIS_TILE=null;
+function visitorTile(){
+  if(!visitorHere())return null;
+  const [ex,ey]=[W.door.x-W.ox,W.door.y-W.oy-1];
+  for(let r=1;r<8;r++)for(let dy=-r;dy<=0;dy++)for(let dx=-r;dx<=r;dx++){const x=ex+dx,y=ey+dy;
+    if(x<0||y<0||x>=W.w||y>=W.h||(x===ex&&y===ey))continue;if(!walkable(W.ox+x,W.oy+y))continue;return [W.ox+x,W.oy+y]}
+  return null;
+}
+const _goHome=goHome;
+goHome=function(at){_goHome(at);VIS_TILE=visitorTile();if(VIS_TILE){W.block[ti(...VIS_TILE)]=1;const v=vById(S.visitor);setTimeout(()=>toast(`${v.name}が遊びに来ている！`,true),400)}};
+const _homePressA=homePressA;
+homePressA=function(fx,fy,ptx,pty){if(VIS_TILE&&visitorHere()&&fx===VIS_TILE[0]&&fy===VIS_TILE[1]){talkVisitor();return}_homePressA(fx,fy,ptx,pty)};
+const _homeHint=homeHint;
+homeHint=function(){const [fx,fy]=facingTile();if(VIS_TILE&&visitorHere()&&fx===VIS_TILE[0]&&fy===VIS_TILE[1])return '話す';return _homeHint()};
+const _homeClick=homeClick;
+homeClick=function(tx,ty){if(VIS_TILE&&visitorHere()&&tx===VIS_TILE[0]&&ty===VIS_TILE[1])return {act:true,tx,ty,stands:n4(tx,ty)};return _homeClick(tx,ty)};
+function talkVisitor(){
+  const v=vById(S.visitor),f=S.friends[v.id],n=(S.homeFurn||[]).length;
+  const L=[`えへへ、${S.name}の家に遊びに来ちゃった！`,n>=6?'家具がいっぱいで、すてきなお部屋だね！':'ゆったりしたお部屋だね。家具を置いたら、もっとすてきになりそう！'];
+  if(!S.visitGift){S.visitGift=true;f.pts+=2;const t=rnd()<.5?requestReward():null;
+    if(t)L.push(`おじゃましたお礼に、これどうぞ。（「${FURN_NAME[t]}」をもらった）`);else{const b=500+Math.floor(rnd()*6)*100;S.bells+=b;updateHud();L.push(`おじゃましたお礼に、これどうぞ。（${b}円をもらった）`)}}
+  else L.push(pick(v.lines).replace(/\{name\}/g,S.name));
+  showDialog(v.name,L);
+}
+
+// ---- 住民の家の中 ----
+let VH_MAPS={};
+function vhouseMap(vid){
+  if(VH_MAPS[vid])return VH_MAPS[vid];
+  const w=7,h=6,ox=6,oy=6,v=vById(vid);
+  const tiles=new Uint8Array(MW*MH).fill(13),block=new Uint8Array(MW*MH).fill(1);
+  for(let y=oy;y<oy+h;y++)for(let x=ox;x<ox+w;x++){tiles[ti(x,y)]=12;block[ti(x,y)]=0}
+  const door={x:ox+3,y:oy+h};tiles[ti(door.x,door.y)]=14;block[ti(door.x,door.y)]=0;
+  let hs=0;for(const ch of vid)hs=hs*31+ch.charCodeAt(0)>>>0;
+  const furn=[mkFurn('bed',0,0),mkFurn('shelf',2,0),mkFurn('plant',6,0),Object.assign(mkFurn('rug',2,2),{}),mkFurn('table',4,2),mkFurn('plant',0,5)];
+  for(const f of furn)if(!isFloor(f))for(let y=f.y;y<f.y+f.h;y++)for(let x=f.x;x<f.x+f.w;x++)block[ti(ox+x,oy+y)]=1;
+  const owner={x:ox+3,y:oy+3};block[ti(owner.x,owner.y)]=1;
+  return VH_MAPS[vid]={id:'vh_'+vid,home:true,vhouse:vid,lv:hs%4,w,h,ox,oy,tiles,block,door,furn,owner,
+    trees:[],rocks:[],bld:[],treeAt:new Map(),rockAt:new Map(),nodes:[],nodeAt:new Map(),
+    start:{x:(door.x+.5)*T,y:(door.y-.5)*T+4},
+    room:{x0:(ox-1)*T,y0:(oy-2.6)*T,x1:(ox+w+1)*T,y1:(oy+h+3)*T}};
+}
+function goVHouse(vid,at){
+  W=vhouseMap(vid);S.loc='vh:'+vid;resetMapRT();
+  if(at==='door'){S.px=W.start.x;S.py=W.start.y;S.dir='up';const v=vById(vid);toast(`${v.name}の家におじゃました`)}
+  RT.fade=.6;updateHud();
+}
+function leaveVHouse(){
+  const vid=S.loc.slice(3);W=ISL;S.loc='island';resetMapRT();
+  const b=W.bld.find(b=>b.vid===vid)||W.bld[1];S.px=(b.door.x+.5)*T;S.py=(b.door.y+1.5)*T;S.dir='down';
+  RT.fade=.6;updateHud();save();
+}
+const vhOwner=()=>{const v=vById(W.vhouse);return v&&{v,x:(W.owner.x+.5)*T,y:(W.owner.y+1)*T-2,dir:'down',frame:0}};
+const vhDoorAt=(x,y)=>x===W.door.x&&y===W.door.y;
+function vhousePressA(fx,fy,ptx,pty){
+  if(vhDoorAt(fx,fy)||vhDoorAt(ptx,pty)){leaveVHouse();return}
+  if(fx===W.owner.x&&fy===W.owner.y){const a=vhOwner();a.dir={up:'down',down:'up',left:'right',right:'left'}[S.dir];talkTo(a);return}
+  const f=W.furn.find(f=>!isFloor(f)&&fx>=W.ox+f.x&&fx<W.ox+f.x+f.w&&fy>=W.oy+f.y&&fy<W.oy+f.y+f.h);
+  if(f)toast(`${vById(W.vhouse).name}の${FURN_NAME[f.type]}だ`);
+}
+function vhouseHint(){const [fx,fy]=facingTile(),[px,py]=ptile();if(vhDoorAt(fx,fy)||vhDoorAt(px,py))return '外に出る';if(fx===W.owner.x&&fy===W.owner.y)return '話す';return null}
+function vhouseTick(){const [px,py]=ptile();if(vhDoorAt(px,py))leaveVHouse()}
+function vhouseClick(tx,ty){if(vhDoorAt(tx,ty))return {act:false,tx,ty,stands:[[tx,ty]]};if(tx===W.owner.x&&ty===W.owner.y)return {act:true,tx,ty,stands:n4(tx,ty)};return null}
+// 奥行きの順に並べる物（render の D に入れる）：住民の家の主・家に来た住民・島の誕生日の風船など
+function lifeObjects(D,ctx,t){
+  if(W.vhouse){const a=vhOwner();if(a)D.push([a.y,()=>drawAnimal(ctx,a.x,a.y,a.dir,0,a.v)])}
+  if(inHome()&&VIS_TILE&&visitorHere()){const v=vById(S.visitor),x=(VIS_TILE[0]+.5)*T,y=(VIS_TILE[1]+1)*T-2;D.push([y,()=>drawAnimal(ctx,x,y,'down',0,v)])}
+  if(onIsland())for(const b of W.bld)if(b.type==='vh'){const v=vById(b.vid);if(v&&isBirthday(v))D.push([(b.y+b.h)*T+1,()=>drawBirthdayBalloons(ctx,b,t)])}
+}
+</script>
+<script>
+// ===================== 毎日の小さな驚き =====================
+// ・ビンの手紙：ときどき浜辺に流れ着く。拾うと手紙とおくり物
+// ・旅の商人：ときどき広場に来る。めずらしい物を売っている（その日だけ）
+// ・流れ星：晴れた夜、ときどき空を流れる。流れている間に A ボタンで願いごと → 次の朝に「星のかけら」
+// ・虹：雨の次の日が晴れかくもりなら、朝（8時〜12時）に空に虹
+const LETTERS=[
+  ['遠い島より','こんにちは。このビンを拾ったあなたへ。うちの島では、今日も夕日がきれいです。いつか会えたらいいですね。'],
+  ['なまえのない旅人より','海の上で、星をかぞえながらこれを書いています。この手紙といっしょに、小さなおくり物を流します。'],
+  ['どこかの子どもより','この手紙をひろった人は、きっとやさしい人です！ ぼくの宝物をひとつあげます。'],
+  ['灯台守より','灯台から見える海は、毎日ちがう色をしています。あなたの島の海は、どんな色ですか？'],
+  ['ねむれない夜より','眠れない夜は、波の音を聞いています。あなたも、よく眠れますように。'],
+];
+const BOTTLE_GIFTS=[{id:'sapling',n:1},{id:'fence_item',n:4},{id:'lamp_item',n:1},{id:'bench_item',n:1},{id:'starbit',n:1},{id:'hat_straw',n:1},{bells:2000}];
+const MERCHANT_POOL=[{id:'sapling',price:500},{id:'lamp_item',price:2500},{id:'bench_item',price:1800},{id:'fence_item',price:200},
+  {id:'hat_beret',price:4800},{id:'hat_ribbon',price:3800},{id:'hat_crown',price:30000},{furn:'sofa',price:6000},{furn:'shelf',price:3800},{id:'starbit',price:3000}];
+
+// ---- 朝の準備（initDaily から） ----
+function dailySurprise(){
+  S.bottle=null;S.merchant=null;S.starNight=false;
+  if(rnd()<.5){const p=freeTile([1]);if(p)S.bottle=p}
+  if(rnd()<.25){const PZ=W.plaza||ISL.plaza,x=PZ.x0+8,y=PZ.y0+2;
+    if(!W.block[ti(x,y)]){const pool=MERCHANT_POOL.slice();for(let i=pool.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
+      S.merchant={x,y,stock:pool.slice(0,4).map(o=>({...o,sold:false}))};W.block[ti(x,y)]=1}}
+  S.starNight=S.weather==='晴れ'&&rnd()<.6;
+}
+function surpriseMorning(prevWeather){
+  // 願いごとの数だけ、星のかけら（3つまで）
+  const w=Math.min(3,S.wishes||0);S.wishes=0;
+  if(w&&addItem('starbit',w,true))setTimeout(()=>toast(`ゆうべの願いごとが届いたのかな… 枕もとに「星のかけら」が ${w}個！`,true),2200);
+  S.rainbow=prevWeather==='雨'&&(S.weather==='晴れ'||S.weather==='くもり');
+  if(S.rainbow)setTimeout(()=>toast('雨上がりの空に、虹がかかっている！',true),1200);
+  if(S.merchant)setTimeout(()=>toast('広場に旅の商人が来ているらしい…',true),3200);
+}
+// 島を作り直したとき（読み込み）、商人のいるマスは通れない
+function surpriseBlock(){if(S&&S.merchant&&W.block)W.block[ti(S.merchant.x,S.merchant.y)]=1}
+
+// ---- 毎フレーム（ループから） ----
+const starTime=()=>S.min>=20*60||S.min<4*60;
+function tickSurprise(dt){
+  if(RT.star){RT.star.t+=dt;if(RT.star.t>1.8)RT.star=null}
+  else if(onIsland()&&S.starNight&&starTime()&&!RT.dlg&&!RT.panel&&rnd()<dt*.05){
+    RT.star={t:0,x:.15+rnd()*.6,y:.06+rnd()*.18,wished:false};toast('流れ星だ！ 今のうちに A ボタンで願いごと！',true)}
+}
+// ---- A ボタン・ヒント・クリック ----
+const mAt=(x,y)=>S.merchant&&onIsland()&&S.merchant.x===x&&S.merchant.y===y;
+const bAt=(x,y)=>S.bottle&&onIsland()&&S.bottle[0]===x&&S.bottle[1]===y;
+function surprisePressA(fx,fy,ptx,pty){
+  if(RT.star&&!RT.star.wished&&onIsland()){RT.star.wished=true;S.wishes=(S.wishes||0)+1;sfx('dex');toast('流れ星に願いごとをした… 明日の朝、いいことがあるかも',true);return true}
+  if(mAt(fx,fy)){openMerchant();return true}
+  if(bAt(fx,fy)||bAt(ptx,pty)){openBottle();return true}
+  return false;
+}
+function surpriseHint(fx,fy,ptx,pty){
+  if(RT.star&&!RT.star.wished&&onIsland())return '願いごと';
+  if(mAt(fx,fy))return '話す';
+  if(bAt(fx,fy)||bAt(ptx,pty))return 'ビンを拾う';
+  return null;
+}
+function surpriseClick(tx,ty){if(mAt(tx,ty))return {act:true,tx,ty,stands:n4(tx,ty)};if(bAt(tx,ty))return {act:true,tx,ty,stands:[[tx,ty],...n4(tx,ty)]};return null}
+function openBottle(){
+  const g=pick(BOTTLE_GIFTS),[from,text]=pick(LETTERS);
+  if(g.id&&bagCount()+g.n>bagCap()){toast('ポケットがいっぱいで、ビンの中身を持てない');return}
+  S.bottle=null;sfx('get');
+  let got;if(g.bells){S.bells+=g.bells;updateHud();got=`${g.bells}円`}else{addItem(g.id,g.n,true);got=`${ITEMS[g.id].name}${g.n>1?' ×'+g.n:''}`}
+  showDialog('ビンの手紙',[`浜辺にビンが流れ着いていた。中に手紙が入っている…`,`「${text}」 ― ${from}`,`（手紙といっしょに ${got} が入っていた）`]);
+}
+function openMerchant(){
+  const M=S.merchant;
+  openPanel('旅の商人',null,null,body=>{
+    body.append(h('p',{class:'muted',style:'margin:0 0 10px'},'旅の商人「やあ、いらっしゃい。今日だけの、めずらしい品だよ。明日には次の島へ行っちまうからね」'));
+    const grid=h('div',{class:'grid'});
+    for(const o of M.stock){
+      const name=o.furn?FURN_NAME[o.furn]:ITEMS[o.id].name,note=o.furn?'家具（家の中に置ける）':ITEMS[o.id].note||'';
+      grid.append(h('div',{class:'cell'},o.furn?furnIcon(o.furn,44):iconCanvas(o.id),h('div',{class:'nm'},name),h('div',{class:'meta'},note),
+        o.sold?h('span',{class:'pill'},'売り切れ'):h('button',{on:()=>{if(S.bells<o.price){toast('お金が足りない');return}
+          if(o.furn){S.furnInv[o.furn]=(S.furnInv[o.furn]||0)+1}else if(!addItem(o.id,1,true))return;
+          S.bells-=o.price;o.sold=true;sfx('get');toast(`${name}を買った！`,true);updateHud();refresh()}},`${o.price.toLocaleString()}円`)));
+    }
+    body.append(grid);
+  });
+}
+// ---- 描く ----
+function drawMerchant(g,t){
+  const M=S.merchant,x=(M.x+.5)*T,y=(M.y+1)*T-2;
+  // 屋台の敷物と荷物
+  ell(g,x+14,y+2,14,4,'rgba(40,30,20,.25)');rrect(g,x+4,y-6,22,8,2,'#8a3a4a');g.fillStyle='#e6c45a';for(let i=0;i<4;i++)g.fillRect(x+6+i*5,y-6,2,8);
+  rrect(g,x+8,y-14,9,8,2,'#a8763f');circ(g,x+21,y-10,4,'#6dbb52');
+  // 商人（フードをかぶった旅人）
+  const bob=Math.sin(t*2)*.8;ell(g,x,y+1,9,3,'rgba(30,40,30,.25)');
+  g.fillStyle='#5e4a6e';g.beginPath();g.moveTo(x-10,y);g.quadraticCurveTo(x-11,y-22-bob,x,y-26-bob);g.quadraticCurveTo(x+11,y-22-bob,x+10,y);g.fill();
+  ell(g,x,y-28-bob,9,9,'#5e4a6e');ell(g,x,y-27-bob,6,6,'#f3d9b8');circ(g,x-2,y-28-bob,1,'#3a2a20');circ(g,x+2,y-28-bob,1,'#3a2a20');
+  g.fillStyle='#4a3a58';g.beginPath();g.moveTo(x-9,y-30-bob);g.quadraticCurveTo(x,y-44-bob,x+9,y-30-bob);g.fill();
+  g.fillStyle='#e6c45a';g.fillRect(x-10,y-14,20,2.5);
+}
+function drawBottle(g,t){const [bx,by]=S.bottle,x=(bx+.5)*T,y=(by+.6)*T+Math.sin(t*2)*1.2;
+  ell(g,x,y+5,8,3,'rgba(40,60,80,.25)');g.save();g.translate(x,y);g.rotate(-.5);
+  g.fillStyle='rgba(150,210,190,.85)';g.beginPath();g.roundRect(-4,-6,8,13,3);g.fill();g.fillStyle='#a8763f';g.fillRect(-1.6,-10,3.2,4);
+  g.fillStyle='#f3e8cc';g.fillRect(-2,-3,4,7);g.restore();
+  circ(g,x+6,y-6,1.4,`rgba(255,255,255,${.5+.5*Math.sin(t*5)})`)}
+function surpriseObjects(D,ctx,t){
+  if(!onIsland())return;
+  if(S.merchant)D.push([(S.merchant.y+1)*T-2,()=>drawMerchant(ctx,t)]);
+  if(S.bottle)D.push([(S.bottle[1]+.6)*T,()=>drawBottle(ctx,t)]);
+}
+// 空：虹（朝）と流れ星（夜）。画面の座標で描く
+function drawSkyExtras(ctx,t,VW,VH){
+  if(!onIsland())return;
+  const h=S.min/60;
+  if(S.rainbow&&h>=8&&h<12){const a=.32*Math.min(1,(h-8)*2,(12-h)*2),cx=VW*.72,cy=VH*.62,R=VW*.55;
+    ['255,90,90','255,170,70','255,230,90','120,210,110','100,170,240','150,110,220'].forEach((c,i)=>{ctx.strokeStyle=`rgba(${c},${a})`;ctx.lineWidth=7;ctx.beginPath();ctx.arc(cx,cy,R-i*7,Math.PI*1.1,Math.PI*1.9);ctx.stroke()})}
+  if(RT.star){const s=RT.star,p=Math.min(1,s.t/1.2),x=VW*(s.x+p*.25),y=VH*(s.y+p*.12),a=s.t<1.2?1:1-(s.t-1.2)/.6;
+    const gr=ctx.createLinearGradient(x-90,y-42,x,y);gr.addColorStop(0,'rgba(255,255,220,0)');gr.addColorStop(1,`rgba(255,255,220,${.9*a})`);
+    ctx.strokeStyle=gr;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(x-90,y-42);ctx.lineTo(x,y);ctx.stroke();
+    ctx.fillStyle=`rgba(255,255,240,${a})`;ctx.beginPath();ctx.arc(x,y,3,0,7);ctx.fill()}
+}
+</script>
+<script>
+// ===================== 島に置く物と、主人公の帽子 =====================
+// 島に置く物（S.decos の type）：切り株・柵・ベンチ・街灯。持ち物で「手に持つ」→ 地面を調べると置ける。スコップで掘り起こすと戻る
+// 柵はとなりの柵とつながって見える。街灯は夜に明かりがともる
+function drawDeco(g,d){
+  if(d.type==='stump')return drawStump(g,d);
+  const x=(d.x+.5)*T,y=(d.y+1)*T-4;
+  if(d.type==='fence'){
+    const has=(dx,dy)=>(S.decos||[]).some(o=>o.type==='fence'&&o.x===d.x+dx&&o.y===d.y+dy);
+    shadow(g,x,y,7);
+    const rail=(x0,x1)=>{rrect(g,x0,y-14,x1-x0,3,1,'#a8763f');rrect(g,x0,y-7,x1-x0,3,1,'#a8763f');g.fillStyle='rgba(255,255,255,.25)';g.fillRect(x0,y-14,x1-x0,1)};
+    if(has(-1,0))rail(x-T/2,x);if(has(1,0))rail(x,x+T/2);
+    if(has(0,-1)){rrect(g,x-1.5,y-T-4,3,T-6,1,'#8a5a34')}
+    rrect(g,x-3,y-19,6,19,1.5,'#8a5a34');g.fillStyle='#c99a6b';g.fillRect(x-3,y-19,6,2);
+    if(!has(-1,0)&&!has(1,0)){rail(x-8,x+8)}
+    return;
+  }
+  if(d.type==='bench'){
+    shadow(g,x,y,13);
+    for(const lx of [-11,9])rrect(g,x+lx,y-9,2.5,9,1,'#5e3a20');
+    rrect(g,x-14,y-11,28,5,1.5,'#b07a4a');g.fillStyle='rgba(0,0,0,.18)';g.fillRect(x-14,y-7,28,1.2);
+    rrect(g,x-14,y-21,28,4,1.5,'#9a6a3e');rrect(g,x-14,y-15,28,3,1,'#9a6a3e');
+    for(const lx of [-12,10])rrect(g,x+lx,y-22,2.5,12,1,'#6b4426');
+    return;
+  }
+  if(d.type==='lamp'){
+    const night=skyTint().night>.15;shadow(g,x,y,6);
+    rrect(g,x-4,y-4,8,4,1,'#3e464e');rrect(g,x-1.5,y-36,3,33,1,'#4a535c');
+    rrect(g,x-6,y-46,12,11,2,'#3e464e');rrect(g,x-4.5,y-44.5,9,8,1.5,night?'#ffe08a':'#e8eef2');
+    g.fillStyle='#3e464e';g.beginPath();g.moveTo(x-8,y-46);g.lineTo(x,y-52);g.lineTo(x+8,y-46);g.fill();
+    if(night){const gl=g.createRadialGradient(x,y-40,0,x,y-40,14);gl.addColorStop(0,'rgba(255,220,130,.55)');gl.addColorStop(1,'rgba(255,220,130,0)');g.fillStyle=gl;g.fillRect(x-14,y-54,28,28)}
+    return;
+  }
+}
+// 夜の明かり（render の光の所から）
+function decoLights(glow,night){for(const d of (S.decos||[]))if(d.type==='lamp')glow((d.x+.5)*T,(d.y+1)*T-42,80,.5*night*2)}
+
+// ---- 帽子 ----
+// 主人公の絵（8方向）から、頭のてっぺんと頭の幅を調べて、その上にかぶせる
+const HATS={hat_straw:'麦わら帽子',hat_cap:'キャップ',hat_knit:'ニット帽',hat_beret:'ベレー帽',hat_ribbon:'大きなリボン',hat_crown:'王冠'};
+const _headCache=new Map();
+function headOf(im){
+  let r=_headCache.get(im);if(r)return r;
+  const iw=im.naturalWidth,ih=im.naturalHeight,c=document.createElement('canvas');c.width=iw;c.height=ih;const cg=c.getContext('2d');cg.drawImage(im,0,0);
+  const d=cg.getImageData(0,0,iw,ih).data,A=(x,y)=>d[(y*iw+x)*4+3]>120;
+  let top=0;outer:for(let y=0;y<ih;y++)for(let x=0;x<iw;x++)if(A(x,y)){top=y;break outer}
+  let x0=iw,x1=0;const yh=Math.min(ih-1,top+Math.round(ih*.16));for(let y=top;y<=yh;y++)for(let x=0;x<iw;x++)if(A(x,y)){if(x<x0)x0=x;if(x>x1)x1=x}
+  r={top,cx:(x0+x1)/2,w:Math.max(1,x1-x0)};_headCache.set(im,r);return r;
+}
+function drawHat(g,id,x,y,w,back){
+  // (x,y) は頭のてっぺん、w は頭の幅（画面の大きさ）
+  const s=w/24;g.save();g.translate(x,y);g.scale(s,s);
+  if(id==='hat_straw'){ell(g,0,5,19,5,'#c99a4a');ell(g,0,4,18,4.2,'#e8c46a');ell(g,0,-1,10,7,'#e8c46a');rrect(g,-10,1,20,3,1,'#c8505a');g.strokeStyle='rgba(150,110,50,.5)';g.lineWidth=.6;for(const r of [12,15])g.beginPath(),g.ellipse(0,4.5,r,r*.25,0,0,7),g.stroke()}
+  else if(id==='hat_cap'){ell(g,0,1,11,8,'#3a7bd5');g.fillStyle='#3a7bd5';g.fillRect(-11,1,22,4);if(!back)ell(g,0,5,13,3,'#2a5aa0');circ(g,0,-6,1.8,'#2a5aa0');g.fillStyle='rgba(255,255,255,.3)';g.fillRect(-6,-4,4,5)}
+  else if(id==='hat_knit'){ell(g,0,1,11,9,'#d9576b');rrect(g,-11.5,2,23,5,2,'#f2e6da');g.strokeStyle='rgba(120,30,40,.35)';g.lineWidth=.7;for(let i=-8;i<=8;i+=4){g.beginPath();g.moveTo(i,-6);g.lineTo(i,2);g.stroke()}circ(g,0,-9,4,'#f2e6da')}
+  else if(id==='hat_beret'){ell(g,1,0,13,6,'#6b3a5a');ell(g,1,-1,11,4.5,'#86507a');rrect(g,-.5,-8,2,3,1,'#6b3a5a')}
+  else if(id==='hat_ribbon'){const c='#f27a8a';g.fillStyle=c;g.beginPath();g.moveTo(0,0);g.quadraticCurveTo(-14,-12,-15,0);g.quadraticCurveTo(-14,8,0,0);g.fill();
+    g.beginPath();g.moveTo(0,0);g.quadraticCurveTo(14,-12,15,0);g.quadraticCurveTo(14,8,0,0);g.fill();circ(g,0,0,3.5,'#d9576b');g.fillStyle='rgba(255,255,255,.35)';g.beginPath();g.ellipse(-8,-3,3,1.5,-.4,0,7);g.fill()}
+  else if(id==='hat_crown'){g.fillStyle='#e6b830';g.beginPath();g.moveTo(-10,4);g.lineTo(-11,-8);g.lineTo(-5,-2);g.lineTo(0,-11);g.lineTo(5,-2);g.lineTo(11,-8);g.lineTo(10,4);g.closePath();g.fill();
+    g.fillStyle='#f6d860';g.fillRect(-10,1,20,3);circ(g,0,-1,1.8,'#d9576b');circ(g,-6,1.5,1.3,'#3a9ad9');circ(g,6,1.5,1.3,'#5fbf6a')}
+  g.restore();
+}
+const _drawHumanBase=drawHuman;
+drawHuman=function(g,x,y,dir,frame,opt){
+  _drawHumanBase(g,x,y,dir,frame,opt);
+  if(!S||!S.hat||!HATS[S.hat])return;
+  const gd=pcGender(),dg=RT.diag,d8=dg||({up:'u',down:'d',left:'l',right:'r'})[dir],im=gi(`ch_${gd}_d8_${d8}`);if(!im)return;
+  const hd=headOf(im),k=PC_H/im.naturalHeight,walking=frame>0,sw=Math.sin(frame*1.55);
+  const bob=walking?Math.abs(sw)*2:Math.sin(performance.now()/650)*.7,tilt=walking?sw*.05:0;
+  g.save();g.translate(x,y-bob);g.rotate(tilt);
+  const hx=(hd.cx-im.naturalWidth/2)*k,hy=-PC_H+2+hd.top*k,hw=hd.w*k;
+  drawHat(g,S.hat,hx,hy+hw*(S.hat==='hat_ribbon'?.12:S.hat==='hat_crown'?.05:.2),hw*(S.hat==='hat_ribbon'?.7:S.hat==='hat_crown'?.62:.95),d8[0]==='u');
+  g.restore();
+};
+// ---- 持ち物のアイコン ----
+const _drawIconBase=drawIcon;
+drawIcon=function(c,id){
+  const it=ITEMS[id];
+  if(!it||!['fence_item','bench_item','lamp_item','starbit'].includes(id)&&it.kind!=='hat')return _drawIconBase(c,id);
+  const g=c.getContext('2d'),s=c.width;g.clearRect(0,0,s,s);g.save();g.scale(s/32,s/32);
+  if(it.kind==='hat'){drawHat(g,id,16,18,22,false)}
+  else if(id==='starbit'){g.fillStyle='#f6d860';g.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,r=i%2?5:12;g.lineTo(16+Math.cos(a)*r,17+Math.sin(a)*r)}g.closePath();g.fill();
+    g.fillStyle='#fff6c0';g.beginPath();g.arc(13,13,2.2,0,7);g.fill()}
+  else{const type={fence_item:'fence',bench_item:'bench',lamp_item:'lamp'}[id],sc={fence:1.1,bench:1,lamp:.55}[type];
+    g.translate(16,29);g.scale(sc,sc);try{drawDeco(g,{type,x:-.5,y:-1+4/T})}catch(e){}}
+  g.restore();
+};
 </script>
 <script>
 // ===================== タイトル画面 =====================
@@ -5944,6 +6364,8 @@ function clickTarget(wx,wy){
   if(S.tool==='wand'&&['orb','fire'].includes(curSpell().id))for(const e of RT.enemies)if(Math.hypot(wx-e.x,wy-(e.y-14))<26)return {act:true,cast:[e.x,e.y-14],stands:[]};
   if(inHome()){const hc=homeClick(tx,ty);if(hc)return hc;return walkable(tx,ty)?{act:false,tx,ty,stands:[[tx,ty]]}:onTile(false)}
   if(inMuseum()){const mc=museumClick(tx,ty);if(mc)return mc;return walkable(tx,ty)?{act:false,tx,ty,stands:[[tx,ty]]}:onTile(false)}
+  if(inVHouse()){const vc=vhouseClick(tx,ty);if(vc)return vc;return walkable(tx,ty)?{act:false,tx,ty,stands:[[tx,ty]]}:onTile(false)}
+  {const sc=surpriseClick(tx,ty);if(sc)return sc}
   if(inCave()){
     if(stairsAt(tx,ty))return {act:true,tx,ty,stands:[[tx,ty]]};
     const ni=inMap(tx,ty)?W.nodeAt.get(ti(tx,ty)):undefined;
@@ -6090,6 +6512,8 @@ function loop(ts){
       else if(mx||my){RT.goal=null;RT.approach=null;movePlayer(mx,my,run,dt)}else if(RT.goal)followGoal(dt);else{movePlayer(0,0,false,dt);RT.running=false}
       if(inHome())homeTick();
       if(inMuseum())museumTick();
+      if(inVHouse())vhouseTick();
+      tickSurprise(dt);
       if(onIsland()){const [tx,ty]=ptile();const z=tileAt(tx,ty)===7?W.zone[ti(tx,ty)]:0;if(z&&z!==RT.lastPier)toast(`${PIER_INFO[z][1]}：${PIER_INFO[z][2]}`);RT.lastPier=z}
       tickTime(dt);updateBugs(dt,RT.running);updateVillagers(dt);updateFishing(dt);updateEnemies(dt);updateShadows(dt);
       if((RT.mpT=(RT.mpT||0)+dt)>1){RT.mpT=0;if(S.tools.wand)updateHud()}
@@ -6134,11 +6558,11 @@ function continueGame(){
 }
 function boot(snap){
   resize();buildToolbar();
-  if(snap&&snap.v===2){S=migrate(snap);genWorld(S.seed);fitToMap();resetVillagers();if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else if(S.loc==='museum')goMuseum(null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}RT.title=false;$('title').hidden=true;updateHud();renderTasks();requestAnimationFrame(loop);return}
+  if(snap&&snap.v===2){S=migrate(snap);genWorld(S.seed);fitToMap();resetVillagers();if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else if(S.loc==='museum')goMuseum(null);else if(S.loc.startsWith('vh:'))goVHouse(S.loc.slice(3),null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}RT.title=false;$('title').hidden=true;updateHud();renderTasks();requestAnimationFrame(loop);return}
   const sv=load();
   if(sv&&(sv.v===1||sv.v===2)){
     const old=sv.v===1;S=migrate(sv);genWorld(S.seed);if(old)initDaily();fitToMap();resetVillagers();
-    if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else if(S.loc==='museum')goMuseum(null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}
+    if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else if(S.loc==='museum')goMuseum(null);else if(S.loc.startsWith('vh:'))goVHouse(S.loc.slice(3),null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}
     RT.needName=!S.name||S.name==='あなた';
     selGender=S.gender||null;setupTitle(true);
   }else{
