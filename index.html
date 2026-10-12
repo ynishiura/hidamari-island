@@ -544,7 +544,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.996";</script>
+<script>const GAME_VERSION="0.997";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -5250,10 +5250,31 @@ function placeLabels(){
 function drawMarkers(g,s,t,big){
   // 洞窟の鉱脈（見た場所だけ）
   if(inCave()&&big){const seen=caveSeenStr();for(const o of W.nodes){if(o.broken||seen[ti(o.x,o.y)]!=='1')continue;g.fillStyle=ORE[o.type].col;g.beginPath();g.arc((o.x+.5)*s,(o.y+.5)*s,s*.35,0,7);g.fill()}}
-  if(villagersOut())for(const a of RT.vill){g.fillStyle='#ffffff';g.beginPath();g.arc(a.x/T*s,a.y/T*s,Math.max(2,s*.45),0,7);g.fill();g.fillStyle=a.v.shirt;g.beginPath();g.arc(a.x/T*s,a.y/T*s,Math.max(1.4,s*.32),0,7);g.fill()}
-  const pr=Math.max(2.6,s*.6)*(1+.25*Math.sin(t*6));
-  g.fillStyle='#ffffff';g.beginPath();g.arc(S.px/T*s,S.py/T*s,pr+1.5,0,7);g.fill();
-  g.fillStyle='#e0383c';g.beginPath();g.arc(S.px/T*s,S.py/T*s,pr,0,7);g.fill();
+  // 住民：大きな地図では顔のアイコン（縁はシャツの色）、ミニマップでは小さな点
+  if(villagersOut())for(const a of RT.vill){const x=a.x/T*s,y=a.y/T*s,fc=big&&faceIcon('pt_'+a.v.id,a.v.shirt,'pt');
+    if(fc){const r=s*2.2;g.drawImage(fc,x-r,y-r*1.15,r*2,r*2)}
+    else{g.fillStyle='#ffffff';g.beginPath();g.arc(x,y,Math.max(2,s*.45),0,7);g.fill();g.fillStyle=a.v.shirt;g.beginPath();g.arc(x,y,Math.max(1.4,s*.32),0,7);g.fill()}}
+  // 自分：広がって消える輪＋白い縁の赤い印（大きな地図では主人公の顔）。ミニマップでも見つけやすい大きさに
+  const x=S.px/T*s,y=S.py/T*s,ph=(t*.9)%1,base=big?s*2.6:Math.max(6,s*1.7);
+  g.strokeStyle=`rgba(224,56,60,${.9*(1-ph)})`;g.lineWidth=big?3:2.5;g.beginPath();g.arc(x,y,base*(1+ph*1.4),0,7);g.stroke();
+  const me=big&&faceIcon(S.gender==='f'?'ch_f_d8_d':'ch_m_d8_d','#e0383c','ch');
+  if(me){g.drawImage(me,x-base,y-base*1.1,base*2,base*2)}
+  else{g.fillStyle='#ffffff';g.beginPath();g.arc(x,y,base,0,7);g.fill();g.fillStyle='#e0383c';g.beginPath();g.arc(x,y,base*.72,0,7);g.fill();
+    g.fillStyle='#ffffff';g.beginPath();g.arc(x,y,base*.25,0,7);g.fill()}
+}
+// 地図の顔のアイコン：絵の頭のところを丸く切りぬき、色の縁をつける（絵ごとに1回だけ作る）
+//   kind 'pt' … 会話の顔の絵（頭から胸）：上の正方形　'ch' … 主人公の全身の絵：上の半分
+const _faceIcons=new Map();
+function faceIcon(key,ring,kind){
+  const k=key+ring;if(_faceIcons.has(k))return _faceIcons.get(k);
+  const im=gi(key);if(!im)return null;
+  const c=document.createElement('canvas');c.width=c.height=72;const g=c.getContext('2d');
+  const w=im.naturalWidth,h=im.naturalHeight,side=kind==='ch'?Math.min(w,h*.48):Math.min(w,h*.92),sx=(w-side)/2;
+  g.fillStyle='#fffaf0';g.beginPath();g.arc(36,36,32,0,7);g.fill();
+  g.save();g.beginPath();g.arc(36,36,30,0,7);g.clip();g.drawImage(im,sx,0,side,side,6,6,60,60);g.restore();
+  g.strokeStyle=ring;g.lineWidth=5;g.beginPath();g.arc(36,36,32,0,7);g.stroke();
+  g.strokeStyle='rgba(255,255,255,.95)';g.lineWidth=1.5;g.beginPath();g.arc(36,36,34.5,0,7);g.stroke();
+  _faceIcons.set(k,c);return c;
 }
 // ---------- ミニマップ ----------
 // 家の中にいる間は、島の地図に切りかえて描く（自分の印は家の前）
@@ -5272,7 +5293,7 @@ function openMap(){
     const wrap=h('div',{style:'position:relative;width:100%;max-width:640px;margin:0 auto'});
     const c=document.createElement('canvas'),s=12;c.width=MW*s;c.height=MH*s;c.style.cssText='width:100%;height:auto;border-radius:12px;border:2px solid var(--line);display:block;background:#4a9fcd';
     wrap.append(c);body.append(wrap);
-    const legend=inCave()?'赤い点が自分。暗いところはまだ行っていない場所。色のついた点は鉱脈。':'赤い点が自分、白い縁の点が住民。地図のどこかをクリック（タップ）すると、そこへ歩いていく。';
+    const legend=inCave()?'赤い印が自分。暗いところはまだ行っていない場所。色のついた点は鉱脈。':'赤い縁の顔が自分、ほかの顔が住民（縁の色はシャツの色）。地図のどこかをクリック（タップ）すると、そこへ歩いていく。';
     body.append(h('p',{class:'muted',style:'margin:8px 0 0;text-align:center'},legend));
     const draw=()=>{
       if(!RT.panel||RT.panel.mapCanvas!==c)return;
