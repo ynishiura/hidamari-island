@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.021";</script>
+<script>const GAME_VERSION="1.022";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2010,8 +2010,8 @@ function hintText(){
 function drawNet(g,dir,s,rim){
   const side=dir==='left'||dir==='right';
   // 柄
-  const [ex,ey]=side?[s*11,-17]:[s*5,-20];
-  g.strokeStyle='#8a5a34';g.lineWidth=1.8;g.lineCap='round';g.beginPath();g.moveTo(-s*1.5,3);g.lineTo(ex,ey);g.stroke();
+  const [ex,ey]=side?[s*8,-22]:[s*5,-20];   // 横向きは、つりざお・オノと同じく胸の前の手で持つ
+  g.strokeStyle='#8a5a34';g.lineWidth=1.8;g.lineCap='round';g.beginPath();side?g.moveTo(-s*4.5,-2):g.moveTo(-s*1.5,3);g.lineTo(ex,ey);g.stroke();
   // 輪の形と、袋の先
   const cx=side?ex+s*3.5:ex,cy=side?ey-5:ey-4,rx=side?4.2:7,ry=side?6.2:3.2;
   const tipX=side?cx+s*2.5:cx+s*1.2,tipY=side?cy+15:cy+12;
