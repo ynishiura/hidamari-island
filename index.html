@@ -51,6 +51,14 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
 #lvplate b{font-family:var(--f-display);font-size:18px;font-weight:400;margin-left:2px}
 .bar{width:150px;height:10px;background:var(--panel-2);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
 .bar>i{display:block;height:100%;background:var(--sun);border-radius:6px;transition:width .3s}
+/* 体力・経験値・魔力のゲージ：ゲージの中の左はしに名前、右はしに数字（1行。横に並べる） */
+#hBars{display:flex;flex-direction:column;gap:5px}
+#hBars .bar{position:relative;height:17px;border-radius:9px}
+#hBars .bar>i{border-radius:8px}
+#hBars .bar .bl,#hBars .bar .bn{position:absolute;top:50%;transform:translateY(-50%);font-size:11px;font-weight:800;line-height:1;color:#24382c;font-variant-numeric:tabular-nums;pointer-events:none;
+  text-shadow:0 0 2px rgba(255,255,255,.95),0 0 3px rgba(255,255,255,.9)}
+#hBars .bar .bl{left:7px}
+#hBars .bar .bn{right:7px}
 .bar.sta>i{background:linear-gradient(90deg,#7fcf86,var(--leaf))}
 .barlabel{font-size:11px;color:var(--ink-soft);display:flex;justify-content:space-between;width:150px;font-variant-numeric:tabular-nums}
 
@@ -311,9 +319,9 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
   #app.talking.menuOpen #menubtns{display:none}
   #menubtns .mbtn{min-width:96px;padding:6px 10px;font-size:13px;text-align:left}
   /* 体力と経験値は、道具バーのすぐ上に横に並べる（パソコン・スマホ横向きと同じ）。そのぶんミニマップが上へ詰まる */
-  #hBars{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(66px + env(safe-area-inset-bottom,0px));display:grid;grid-auto-flow:column;grid-template-rows:auto auto;column-gap:12px;padding:3px 10px;pointer-events:none}
+  #hBars{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(66px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:row;align-items:center;column-gap:12px;padding:3px 10px;pointer-events:none}
   #hBars .barlabel[style]{margin-top:0!important}
-  #hBars #mpRow{grid-row:1/3;display:flex;flex-direction:column}
+  #hBars #mpRow{display:flex}
   #hBars #mpRow[hidden]{display:none}
   #hBars #mpRow .barlabel{margin-top:0!important}
   #app.talking #hBars{display:none}
@@ -348,12 +356,13 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
   #bells{font-size:12px}
   .bar,.barlabel{width:108px}
   .bar{height:7px}
+  #hBars .bar{height:15px}
   .barlabel{font-size:10px}
   #minimap{width:116px;height:85px;padding:0}
   /* 体力と経験値は、道具バーのすぐ上に横に2つ並べる（魔力があれば3つ目） */
-  #hBars{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(62px + env(safe-area-inset-bottom,0px));display:grid;grid-auto-flow:column;grid-template-rows:auto auto;column-gap:12px;padding:3px 10px;pointer-events:none}
+  #hBars{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(62px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:row;align-items:center;column-gap:12px;padding:3px 10px;pointer-events:none}
   #hBars .barlabel[style]{margin-top:0!important}
-  #hBars #mpRow{grid-row:1/3;display:flex;flex-direction:column}
+  #hBars #mpRow{display:flex}
   #hBars #mpRow[hidden]{display:none}
   #hBars #mpRow .barlabel{margin-top:0!important}
   #app.talking #hBars{display:none}
@@ -416,9 +425,9 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
   #hud-tr{display:grid;grid-template-columns:auto auto;align-items:start;column-gap:8px}
   #hud-tr .row{grid-column:1;grid-row:1;gap:6px}
   #minimap{grid-column:2;grid-row:1}
-  #hBars{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom,0px));display:grid;grid-auto-flow:column;grid-template-rows:auto auto;column-gap:16px;padding:4px 14px;pointer-events:none}
+  #hBars{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:row;align-items:center;column-gap:16px;padding:4px 14px;pointer-events:none}
   #hBars .barlabel[style]{margin-top:0!important}
-  #hBars #mpRow{grid-row:1/3;display:flex;flex-direction:column}
+  #hBars #mpRow{display:flex}
   #hBars #mpRow[hidden]{display:none}
   #hBars #mpRow .barlabel{margin-top:0!important}
   #app.talking #hBars{display:none}
@@ -441,9 +450,9 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
   <button class="mbtn" id="bLayout" hidden>レイアウト</button></div>
   <div id="hud-tr">
     <div class="row"><div class="plate" id="lvplate">Lv<b id="hLv">1</b></div><div class="plate"><span id="bells">0</span></div><button class="mbtn" id="bMenu" aria-expanded="false" aria-controls="menubtns">メニュー</button></div>
-    <div class="plate" id="hBars"><div class="barlabel"><span>体力</span><span id="hSta">50/50</span></div><div class="bar sta"><i id="hStaBar" style="width:100%"></i></div>
-    <div class="barlabel" style="margin-top:4px"><span>経験値</span><span id="hXp">0/50</span></div><div class="bar"><i id="hXpBar" style="width:0%"></i></div>
-    <div id="mpRow" hidden><div class="barlabel" style="margin-top:4px"><span>魔力</span><span id="hMp">0/14</span></div><div class="bar mp"><i id="hMpBar" style="width:0%"></i></div></div></div>
+    <div class="plate" id="hBars"><div class="bar sta"><i id="hStaBar" style="width:100%"></i><span class="bl">体力</span><span class="bn" id="hSta">50/50</span></div>
+    <div class="bar"><i id="hXpBar" style="width:0%"></i><span class="bl">経験値</span><span class="bn" id="hXp">0/50</span></div>
+    <div id="mpRow" hidden><div class="bar mp"><i id="hMpBar" style="width:0%"></i><span class="bl">魔力</span><span class="bn" id="hMp">0/14</span></div></div></div>
     <canvas id="minimap" class="plate" width="300" height="220" title="クリックで地図を開く" aria-label="ミニマップ（クリックで地図を開く）"></canvas>
     <div class="vtag" id="verGame"></div>
   </div>
@@ -546,7 +555,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.004";</script>
+<script>const GAME_VERSION="1.005";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
