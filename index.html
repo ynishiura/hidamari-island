@@ -544,7 +544,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.998";</script>
+<script>const GAME_VERSION="0.999";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -673,6 +673,7 @@ const SEEDS=[
 ];
 const MISC=[
   {id:'apple',name:'リンゴ',price:100,kind:'food',heal:15},
+  {id:'stump_item',name:'切り株',price:200,kind:'deco',note:'手に持って、地面を調べると置ける（砂浜には置けない）。スコップで掘り起こすと、また持てる'},
   {id:'xq',name:'なぞの化石',price:300,kind:'xq',note:'博物館で鑑定してもらうと、何の化石か分かる'},
   {id:'drink',name:'元気ドリンク',price:400,kind:'food',heal:45},
   {id:'mpwater',name:'魔力の水',price:500,kind:'potion',mp:15},
@@ -1029,6 +1030,7 @@ function genWorld(seed){
   for(let i=0;i<MW*MH;i++)if(isWater(tl[i]))W.block[i]=1;
   for(const t of W.trees)W.block[ti(t.x,t.y)]=1;
   if(typeof S!=='undefined'&&S&&S.cleared)for(const k in S.cleared){const t=W.trees[k];if(t){W.treeAt.delete(ti(t.x,t.y));W.block[ti(t.x,t.y)]=0}}   // 取りのぞいた切り株の木
+  if(typeof S!=='undefined'&&S&&S.decos)for(const d of S.decos)W.block[ti(d.x,d.y)]=1;   // 置いた切り株
   for(const k of W.rocks)W.block[ti(k.x,k.y)]=1;
   for(const b of bld)for(let y=b.y;y<b.y+b.h;y++)for(let x=b.x;x<b.x+b.w;x++)W.block[ti(x,y)]=1;
   const h=bld[1];W.start={x:(h.door.x+.5)*T,y:(h.door.y+1.5)*T};
@@ -1222,7 +1224,7 @@ function newState(name){
   const skills={};SKILL_IDS.forEach(id=>skills[id]={lv:1,xp:0});
   return {v:2,name,seed:Math.floor(Math.random()*1e9),day:1,min:360,bells:1000,lv:1,xp:0,sta:50,mp:14,
     skills,tools:{hand:1,net:1,rod:1,axe:0,shovel:0,can:0,sword:0,wand:0},tool:'hand',spell:'orb',house:0,
-    bag:{s_tulip:3,apple:2},box:{},dex:{},found:{},cleared:{},stumpHits:{},friends:{},fruit:[],rockHits:[],chopHits:[],stumps:{},flowers:[],dig:[],holes:[],shells:[],branches:[],tasks:[],
+    bag:{s_tulip:3,apple:2},box:{},dex:{},found:{},cleared:{},stumpHits:{},decos:[],friends:{},fruit:[],rockHits:[],chopHits:[],stumps:{},flowers:[],dig:[],holes:[],shells:[],branches:[],tasks:[],
     weather:'晴れ',px:0,py:0,dir:'down',held:null,loc:'island',mapW:MW,gender:null,flags:{},caveBroken:{},caveHits:{},stats:{bug:0,fish:0,fossil:0,flower:0,earned:0,defeat:0,craft:0},fresh:true,homeFurn:null,furnInv:{},weapons:{},weapon:'sword',
     residents:pickResidents()};
 }
@@ -1268,7 +1270,7 @@ function migrate(s){
   if(s.dex)for(const id of Object.keys(s.dex))if(id.startsWith('ph_')&&!vById(id.slice(3)))delete s.dex[id];
   if(!s.residents)s.residents=pickResidents(['mugi','popo','kuro']);   // 住民が3人だったころのセーブは、今の3人＋ランダムに2人
   if(!('homeFurn' in s)){s.homeFurn=null;s.furnLegacy=true}   // 家具を手に入れる仕組みより前のセーブ
-  s.furnInv=s.furnInv||{};s.weapons=s.weapons||{};s.weapon=s.weapon||'sword';s.found=s.found||{};s.cleared=s.cleared||{};s.stumpHits=s.stumpHits||{};
+  s.furnInv=s.furnInv||{};s.weapons=s.weapons||{};s.weapon=s.weapon||'sword';s.found=s.found||{};s.cleared=s.cleared||{};s.stumpHits=s.stumpHits||{};s.decos=s.decos||[];
   Object.assign(s,{loc:s.loc||'island',flags:s.flags||{},caveBroken:s.caveBroken||{},caveHits:s.caveHits||{}});
   if(s.v===2)return s;
   const old=s.skills||{};s.skills={};
@@ -1370,7 +1372,7 @@ function freeTile(types){
 const same=(x,y)=>d=>d[0]===x&&d[1]===y;
 function objAt(x,y){
   const f=same(x,y);
-  return S.flowers.some(q=>q.x===x&&q.y===y)||S.dig.some(f)||S.holes.some(f)||S.shells.some(f)||S.branches.some(f);
+  return S.flowers.some(q=>q.x===x&&q.y===y)||S.dig.some(f)||S.holes.some(f)||S.shells.some(f)||S.branches.some(f)||(S.decos||[]).some(d=>d.x===x&&d.y===y);
 }
 function makeRequest(){
   const s=season(),h=12;
@@ -1707,6 +1709,7 @@ function useHand(fx,fy){
     const tb=RT.bugs.find(b=>b.tree===t);if(tb)scare(tb);
     return;
   }
+  if(S.held&&ITEMS[S.held]?.kind==='deco'){placeDeco(fx,fy);return}
   if(S.held&&ITEMS[S.held]?.kind==='seed'){
     if(tileAt(fx,fy)!==2||W.block[ti(fx,fy)]||objAt(fx,fy)||W.bld.some(b=>b.door.x===fx&&b.door.y===fy)){toast('ここには植えられない。草の上をえらぼう');return}
     const sp=ITEMS[S.held].species;takeItem(S.held);
@@ -1794,8 +1797,22 @@ function clearStump(i){
   if(t){W.treeAt.delete(ti(t.x,t.y));W.block[ti(t.x,t.y)]=0}
   for(const k in mapBaseCache)delete mapBaseCache[k];
 }
+// 置いて飾れる物（いまは切り株）。S.decos に {type,x,y}。草の上と道に置ける（砂浜・水・建物の前には置けない）
+const DECO_ITEM={stump:'stump_item'},DECO_OF={stump_item:'stump'};
+const decoAt=(x,y)=>(S.decos||[]).findIndex(d=>d.x===x&&d.y===y);
+function decoSpotOk(x,y){const t=tileAt(x,y);return onIsland()&&(t===2||t===4)&&!W.block[ti(x,y)]&&!objAt(x,y)&&!W.bld.some(b=>b.door.x===x&&b.door.y===y)&&!(x===Math.floor(S.px/T)&&y===Math.floor((S.py-6)/T))}
+function placeDeco(x,y){
+  if(!decoSpotOk(x,y)){toast(tileAt(x,y)===1?'砂浜には置けない。草の上か道をえらぼう':'ここには置けない');return}
+  const id=S.held,type=DECO_OF[id];if(!type||!takeItem(id)){S.held=null;updateHud();return}S.decos=S.decos||[];S.decos.push({type,x,y});W.block[ti(x,y)]=1;sfx('dig');
+  toast(`${ITEMS[id].name}を置いた（スコップで掘り起こすと、また持てる）`);
+}
 function useShovel(fx,fy){
   if(inCave()){if(!mineNode(fx,fy))toast('鉱石の鉱脈に向かって使おう');return}
+  // 切り株を掘り起こす：木の切り株（その場所には、もう木は生えない）も、置いた切り株も、アイテムになる
+  const si=treeIdx(fx,fy);
+  if(si!==undefined&&S.stumps[si]){if(!addItem('stump_item',1,true))return;useSta(3);clearStump(si);sfx('dig');task('dig');toast('切り株を掘り起こした！（持ち物から地面に置ける）',true);return}
+  const di0=decoAt(fx,fy);
+  if(di0>=0){const d=S.decos[di0];if(!addItem(DECO_ITEM[d.type],1,true))return;S.decos.splice(di0,1);W.block[ti(fx,fy)]=0;useSta(2);sfx('dig');toast(`${ITEMS[DECO_ITEM[d.type]].name}を掘り起こした`);return}
   const lv=skLv('dig');
   const di=S.dig.findIndex(d=>d[0]===fx&&d[1]===fy&&(!d[2]||lv>=3));
   if(di>=0){
@@ -1879,12 +1896,13 @@ function hintText(){
     case 'hand':
       if(fl&&fl.stage>=3)return '摘む';
       if(tr!==undefined)return S.stumps[tr]?null:'木をゆする';
+      if(S.held&&ITEMS[S.held]?.kind==='deco')return decoSpotOk(fx,fy)?'置く':null;
       if(S.held&&tileAt(fx,fy)===2&&!W.block[ti(fx,fy)]&&!objAt(fx,fy))return '植える';
       break;
     case 'net':{const [px,py]=facePoint();if(RT.bugs.some(b=>!b.flee&&Math.hypot(b.x-px,b.y-6-py)<(skLv('bug')>=3?46:32)))return '捕まえる';break}
     case 'rod':{const [dx,dy]=DIRV[S.dir];for(const d of [1,2,3]){const t=tileAt(Math.floor((S.px+dx*d*T)/T),Math.floor((S.py-8+dy*d*T)/T));if(isWater(t))return '釣る'}break}
     case 'axe':if(tr!==undefined)return S.stumps[tr]?'切り株を割る':'木を切る';break;
-    case 'shovel':if(inCave()){const ni=inMap(fx,fy)?W.nodeAt.get(ti(fx,fy)):undefined;return ni!==undefined&&!W.nodes[ni].broken?'採掘する':null}if(S.dig.some(d=>d[0]===fx&&d[1]===fy&&(!d[2]||skLv('dig')>=3)))return '掘る';if(W.rockAt.has(ti(fx,fy)))return '岩をたたく';break;
+    case 'shovel':if(!inCave()&&((tr!==undefined&&S.stumps[tr])||decoAt(fx,fy)>=0))return '掘り起こす';if(inCave()){const ni=inMap(fx,fy)?W.nodeAt.get(ti(fx,fy)):undefined;return ni!==undefined&&!W.nodes[ni].broken?'採掘する':null}if(S.dig.some(d=>d[0]===fx&&d[1]===fy&&(!d[2]||skLv('dig')>=3)))return '掘る';if(W.rockAt.has(ti(fx,fy)))return '岩をたたく';break;
     case 'can':if(fl&&fl.stage<3)return fl.water?'水やり済み':'水をあげる';break;
   }
   return null;
@@ -2230,6 +2248,7 @@ function render(t){
   if(W.home)W.furn.forEach(f=>D.push([isFloor(f)?-1e9:(W.oy+f.y+f.h)*T-4,()=>drawFurn(ctx,f)]));skip();
   if(inCave())W.nodes.forEach((o,i)=>{if(inV(o.x,o.y))D.push([(o.y+1)*T-4,()=>drawNode(ctx,o,i)])});skip();
   RT.enemies.forEach(e=>D.push([e.y+(e.d.fly?20:0),()=>drawEnemy(ctx,e,t)]));take();
+  if(isl)(S.decos||[]).forEach(d=>{if(inV(d.x,d.y))D.push([(d.y+1)*T-4,()=>drawStump(ctx,d)])});take();   // 置いた切り株
   W.rocks.forEach((r,i)=>{if(inV(r.x,r.y)){const sh=RT.shake.get('r'+i);D.push([(r.y+1)*T-4,()=>{ctx.save();if(sh)ctx.translate(Math.sin(sh*60)*1.5,0);drawRock(ctx,r,S.rockHits[i]);ctx.restore()}])}});take();
   const night=skyTint().night>.2;
   W.bld.forEach(b=>D.push([(b.y+b.h)*T,()=>drawBuilding(ctx,b,S.house,night,s)]));take();
@@ -2328,6 +2347,9 @@ function drawIcon(c,id){
     g.strokeStyle='#8a6f48';g.lineWidth=1.6;g.beginPath();
     if(it.rar<=2){g.arc(16,17,6,0,5);g.moveTo(16,17);g.arc(16,17,3,0,4)}else{g.moveTo(9,20);g.lineTo(23,14);g.moveTo(12,14);g.lineTo(14,22);g.moveTo(17,13);g.lineTo(19,21)}
     g.stroke();if(id==='x4'){ell(g,16,17,8,7,'#f0a838');ell(g,13,14,3,2,'#ffd27a')}
+  }else if(id==='stump_item'){   // 切り株：切り口の年輪
+    ell(g,16,24,12,5,'rgba(0,0,0,.18)');g.fillStyle='#8a5a34';g.fillRect(6,13,20,11);ell(g,16,24,10,3.5,'#7a4e2c');ell(g,16,13,10,4.5,'#d9b07a');
+    g.strokeStyle='#a8784a';g.lineWidth=.8;for(const r of [7,4.5,2]){g.beginPath();g.ellipse(16,13,r,r*.45,0,0,7);g.stroke()}
   }else if(k==='xq'){   // なぞの化石：土のかたまりに「？」
     ell(g,16,19,12,9,'#a88a62');ell(g,15,17,9,6.5,'#c2a57a');ell(g,12,14,3,2,'rgba(255,255,255,.35)');
     g.fillStyle='#5e4528';g.font='bold 13px sans-serif';g.textAlign='center';g.fillText('？',16,23);
@@ -2423,7 +2445,7 @@ function buildToolbar(){
   if(!S)return;
   TOOLS.forEach(t=>{const b=$('tool-'+t.id);const tr=t.id==='sword'?(hasWeapon()?1:0):S.tools[t.id];b.classList.toggle('on',S.tool===t.id);b.classList.toggle('locked',!tr);
     if(t.id==='sword'){const want=curWeapon()==='sword'?'sword':'w_'+curWeapon();if(b.dataset.ic!==want){b.querySelector('canvas').replaceWith(iconCanvas(want,28));b.dataset.ic=want}}   // 持っている武器の絵
-    b.querySelector('.lbl').textContent=t.id==='hand'&&S.held?'種を持つ':t.id==='wand'&&tr?curSpell().name.slice(0,4):t.id==='sword'&&tr?weaponLabel().slice(-4):tr?toolName(t.id,tr).slice(-4):t.name});
+    b.querySelector('.lbl').textContent=t.id==='hand'&&S.held?(ITEMS[S.held]?.kind==='deco'?'切り株を持つ':'種を持つ'):t.id==='wand'&&tr?curSpell().name.slice(0,4):t.id==='sword'&&tr?weaponLabel().slice(-4):tr?toolName(t.id,tr).slice(-4):t.name});
 }
 const HOW_GET={shovel:'ひだまり商店で買えるよ（クラフトでも作れる）',can:'ひだまり商店で買えるよ',axe:'クラフトで作れるよ（木の枝×3＋石×2）',sword:'クラフトで作れるよ（木の剣は木材×4。槍・弓・ハンマーもある）',wand:'クラフトで作れるよ（木材×3＋魔石×1）'};
 function selectTool(id){
@@ -2513,7 +2535,7 @@ function bagGrid(mode){
     else if(mode==='gift')btns.push(h('button',{on:()=>{const a=RT.giftTo;closePanel();giveGift(a,id)}},'あげる'));
     else{
       if(['food','potion','use'].includes(it.kind))btns.push(h('button',{on:()=>{eat(id);if(it.kind==='use')closePanel();else refresh()}},{food:'食べる',potion:'飲む',use:'使う'}[it.kind]));
-      if(it.kind==='seed')btns.push(h('button',{on:()=>{S.held=S.held===id?null:id;if(S.held){S.tool='hand';toast('素手で草の上を調べると植えられるよ')}updateHud();refresh()}},S.held===id?'しまう':'手に持つ'));
+      if(it.kind==='seed'||it.kind==='deco')btns.push(h('button',{on:()=>{S.held=S.held===id?null:id;if(S.held){S.tool='hand';toast(it.kind==='deco'?'素手で地面（草の上か道）を調べると置けるよ':'素手で草の上を調べると植えられるよ')}updateHud();refresh()}},S.held===id?'しまう':'手に持つ'));
     }
     return h('div',{class:'cell'+(S.held===id?' sel':'')},iconCanvas(id),h('div',{class:'nm'},it.name),h('div',{class:'meta prog'},`×${n}　${mode==='sell'?sellPrice(id)+'円':it.price?it.price+'円':''}`),h('div',{class:'rowline',style:'justify-content:center;margin:0;gap:4px'},btns));
   }));
@@ -5703,11 +5725,13 @@ function clickTarget(wx,wy){
   for(const b of W.bld)if(tx>=b.x&&tx<b.x+b.w&&ty>=b.y&&ty<b.y+b.h)return {act:true,tx:b.door.x,ty:b.door.y-1,face:'up',stands:[[b.door.x,b.door.y]]};
   let tr=inMap(tx,ty)?W.treeAt.get(ti(tx,ty)):undefined;
   if(tr===undefined&&inMap(tx,ty+1))tr=W.treeAt.get(ti(tx,ty+1));
-  if(tr!==undefined){const t=W.trees[tr];return onTile(S.tool==='axe'||(!S.stumps[tr]&&S.tool==='hand'),t.x,t.y)}
+  if(tr!==undefined){const t=W.trees[tr];return onTile(S.tool==='axe'||(S.stumps[tr]&&S.tool==='shovel')||(!S.stumps[tr]&&S.tool==='hand'),t.x,t.y)}
   if(!inCave()&&(S.shells.some(s=>s[0]===tx&&s[1]===ty)||S.branches.some(s=>s[0]===tx&&s[1]===ty)))return onTile(true);
   const fl=inCave()?null:S.flowers.find(f=>f.x===tx&&f.y===ty);
   if(fl)return onTile(S.tool==='hand'||(S.tool==='can'&&fl.stage<3)||(S.tool==='wand'&&curSpell().id==='grow'&&fl.stage<3));
   if(S.tool==='shovel'&&!inCave()&&(S.dig.some(d=>d[0]===tx&&d[1]===ty&&(!d[2]||skLv('dig')>=3))||(inMap(tx,ty)&&W.rockAt.has(ti(tx,ty)))))return onTile(true);
+  if(S.tool==='hand'&&S.held&&ITEMS[S.held]?.kind==='deco'&&decoSpotOk(tx,ty))return onTile(true);
+  if(S.tool==='shovel'&&!inCave()&&decoAt(tx,ty)>=0)return onTile(true);
   if(S.tool==='hand'&&S.held&&tileAt(tx,ty)===2&&walkable(tx,ty)&&!objAt(tx,ty)&&!W.bld.some(b=>b.door.x===tx&&b.door.y===ty))return onTile(true);
   if(S.tool==='rod'&&isWater(tileAt(tx,ty))){
     // 水辺の陸地（水から1〜2マス）を探して、そこから水の方を向く
