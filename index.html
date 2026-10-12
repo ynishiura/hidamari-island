@@ -544,7 +544,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="0.997";</script>
+<script>const GAME_VERSION="0.998";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -1028,6 +1028,7 @@ function genWorld(seed){
   W.block=new Uint8Array(MW*MH);
   for(let i=0;i<MW*MH;i++)if(isWater(tl[i]))W.block[i]=1;
   for(const t of W.trees)W.block[ti(t.x,t.y)]=1;
+  if(typeof S!=='undefined'&&S&&S.cleared)for(const k in S.cleared){const t=W.trees[k];if(t){W.treeAt.delete(ti(t.x,t.y));W.block[ti(t.x,t.y)]=0}}   // 取りのぞいた切り株の木
   for(const k of W.rocks)W.block[ti(k.x,k.y)]=1;
   for(const b of bld)for(let y=b.y;y<b.y+b.h;y++)for(let x=b.x;x<b.x+b.w;x++)W.block[ti(x,y)]=1;
   const h=bld[1];W.start={x:(h.door.x+.5)*T,y:(h.door.y+1.5)*T};
@@ -1221,7 +1222,7 @@ function newState(name){
   const skills={};SKILL_IDS.forEach(id=>skills[id]={lv:1,xp:0});
   return {v:2,name,seed:Math.floor(Math.random()*1e9),day:1,min:360,bells:1000,lv:1,xp:0,sta:50,mp:14,
     skills,tools:{hand:1,net:1,rod:1,axe:0,shovel:0,can:0,sword:0,wand:0},tool:'hand',spell:'orb',house:0,
-    bag:{s_tulip:3,apple:2},box:{},dex:{},found:{},friends:{},fruit:[],rockHits:[],chopHits:[],stumps:{},flowers:[],dig:[],holes:[],shells:[],branches:[],tasks:[],
+    bag:{s_tulip:3,apple:2},box:{},dex:{},found:{},cleared:{},stumpHits:{},friends:{},fruit:[],rockHits:[],chopHits:[],stumps:{},flowers:[],dig:[],holes:[],shells:[],branches:[],tasks:[],
     weather:'晴れ',px:0,py:0,dir:'down',held:null,loc:'island',mapW:MW,gender:null,flags:{},caveBroken:{},caveHits:{},stats:{bug:0,fish:0,fossil:0,flower:0,earned:0,defeat:0,craft:0},fresh:true,homeFurn:null,furnInv:{},weapons:{},weapon:'sword',
     residents:pickResidents()};
 }
@@ -1267,7 +1268,7 @@ function migrate(s){
   if(s.dex)for(const id of Object.keys(s.dex))if(id.startsWith('ph_')&&!vById(id.slice(3)))delete s.dex[id];
   if(!s.residents)s.residents=pickResidents(['mugi','popo','kuro']);   // 住民が3人だったころのセーブは、今の3人＋ランダムに2人
   if(!('homeFurn' in s)){s.homeFurn=null;s.furnLegacy=true}   // 家具を手に入れる仕組みより前のセーブ
-  s.furnInv=s.furnInv||{};s.weapons=s.weapons||{};s.weapon=s.weapon||'sword';s.found=s.found||{};
+  s.furnInv=s.furnInv||{};s.weapons=s.weapons||{};s.weapon=s.weapon||'sword';s.found=s.found||{};s.cleared=s.cleared||{};s.stumpHits=s.stumpHits||{};
   Object.assign(s,{loc:s.loc||'island',flags:s.flags||{},caveBroken:s.caveBroken||{},caveHits:s.caveHits||{}});
   if(s.v===2)return s;
   const old=s.skills||{};s.skills={};
@@ -1382,7 +1383,7 @@ function makeRequest(){
   return pick(pool).id;
 }
 function initDaily(){
-  S.fruit=W.trees.map((t,i)=>t.fruit&&!S.stumps[i]);
+  S.fruit=W.trees.map((t,i)=>t.fruit&&!S.stumps[i]&&!(S.cleared&&S.cleared[i]));
   S.rockHits=W.rocks.map(()=>0);S.chopHits=W.trees.map(()=>0);
   S.holes=[];S.dig=[];S.shells=[];S.branches=[];S.caveBroken={};S.caveHits={};
   const n=6+Math.floor(skLv('dig')/2);
@@ -1401,7 +1402,7 @@ function newDay(slept){
     if(f.stage<3&&f.water){f.stage+=1;if(f.stage<3&&rnd()<ml*.06)f.stage+=1;if(f.stage>=3)bloom(f)}
     f.water=false;
   }
-  for(const k in S.stumps){if(--S.stumps[k]<=0)delete S.stumps[k]}
+  for(const k in S.stumps){if(--S.stumps[k]<=0){delete S.stumps[k];if(S.stumpHits)delete S.stumpHits[k]}}   // 3日で木に戻る（たたいた回数も消す）
   const wakeHome=inHome()&&slept;
   if(!onIsland()){W=ISL;S.loc='island'}
   const prevSeason=season();
@@ -1446,7 +1447,7 @@ function spawnBug(force){
   const ptx=Math.floor(S.px/T),pty=Math.floor(S.py/T);
   let x,y;
   if(d.where==='tree'){
-    const near=W.trees.filter((t,i)=>!S.stumps[i]&&Math.abs(t.x-ptx)<14&&Math.abs(t.y-pty)<11&&!RT.bugs.some(b=>b.tree===t));
+    const near=W.trees.filter((t,i)=>!S.stumps[i]&&!S.cleared?.[i]&&Math.abs(t.x-ptx)<14&&Math.abs(t.y-pty)<11&&!RT.bugs.some(b=>b.tree===t));
     if(!near.length)return;const t=pick(near);
     RT.bugs.push({d,x:(t.x+.5)*T,y:(t.y+1)*T-2,tree:t,ph:rnd()*6,life:90+rnd()*60,vx:0,vy:0});return;
   }
@@ -1762,23 +1763,36 @@ function reel(){
 function useAxe(fx,fy){
   const i=treeIdx(fx,fy);
   if(i===undefined){toast('木に向かって使おう');return}
-  if(S.stumps[i]){toast(`切り株だ。あと${S.stumps[i]}日で元にもどりそう`);return}
   const lv=skLv('chop'),tr=tier('axe');
-  if(lv<3&&S.chopHits[i]>=3){toast('この木からは、今日はもう木材が取れなさそう');return}
+  // 切り株：斧で STUMP_HITS 回たたくと取りのぞける（その場所には、もう木が生えない）。放っておけば3日で木に戻る
+  if(S.stumps[i]){
+    S.stumpHits=S.stumpHits||{};S.stumpHits[i]=(S.stumpHits[i]||0)+1;
+    useSta(Math.max(1,Math.round(3*(1-Math.min(.6,lv*.06))*[1,.7,.4][tr-1])));RT.shake.set(i,.3);sfx('chop');task('chop');gainSkill('chop',2);
+    const left=STUMP_HITS-S.stumpHits[i];
+    if(left>0){toast(`切り株をたたいた（あと${left}回で取りのぞける）`);return}
+    clearStump(i);const w=2+(tr-1);addItem('wood',w,true);gainSkill('chop',6);sfx('dig');
+    toast(`切り株を取りのぞいた！ 木材 ×${w}（ここには、もう木は生えてこない）`,true);return;
+  }
   useSta(Math.max(1,Math.round(3*(1-Math.min(.6,lv*.06))*[1,.7,.4][tr-1])));
   S.chopHits[i]++;RT.shake.set(i,.3);sfx('chop');task('chop');
   const n=1+Math.floor(lv/4)+(tr-1);
   addItem('wood',n,true);gainSkill('chop',3);
   const t=W.trees[i];const tb=RT.bugs.find(b=>b.tree===t);if(tb)scare(tb);
-  const fellAt=lv>=7?2:3;
-  if(lv>=3&&S.chopHits[i]>=fellAt){
+  if(S.chopHits[i]>=FELL_HITS){   // 続けて FELL_HITS 回たたくと、切り倒して切り株になる
     S.stumps[i]=3;S.fruit[i]=false;
     const bonus=3+Math.floor(lv/2);addItem('wood',bonus,true);
     let msg=`木を切り倒した！ 木材 ×${n+bonus}`;
     if(lv>=5){const h=1+(rnd()<.4?1:0);if(addItem('hardwood',h,true))msg+=`、硬い木材 ×${h}`}
     if(lv>=10&&rnd()<.2){const m=rnd()<.5?'mstone':'gold';if(addItem(m,1,true))msg+=`、${ITEMS[m].name}！`}
     gainSkill('chop',8);toast(msg,true);sfx('dig');
-  }else toast(`木材 ×${n}`);
+  }else toast(`木材 ×${n}（あと${FELL_HITS-S.chopHits[i]}回で切り倒せる）`);
+}
+const FELL_HITS=5,STUMP_HITS=5;
+// 切り株を取りのぞく：その木はもう生えない（S.cleared）。通れるようにし、地図も描き直す
+function clearStump(i){
+  const t=W.trees[i];delete S.stumps[i];if(S.stumpHits)delete S.stumpHits[i];S.cleared=S.cleared||{};S.cleared[i]=S.day;S.fruit[i]=false;
+  if(t){W.treeAt.delete(ti(t.x,t.y));W.block[ti(t.x,t.y)]=0}
+  for(const k in mapBaseCache)delete mapBaseCache[k];
 }
 function useShovel(fx,fy){
   if(inCave()){if(!mineNode(fx,fy))toast('鉱石の鉱脈に向かって使おう');return}
@@ -1869,7 +1883,7 @@ function hintText(){
       break;
     case 'net':{const [px,py]=facePoint();if(RT.bugs.some(b=>!b.flee&&Math.hypot(b.x-px,b.y-6-py)<(skLv('bug')>=3?46:32)))return '捕まえる';break}
     case 'rod':{const [dx,dy]=DIRV[S.dir];for(const d of [1,2,3]){const t=tileAt(Math.floor((S.px+dx*d*T)/T),Math.floor((S.py-8+dy*d*T)/T));if(isWater(t))return '釣る'}break}
-    case 'axe':if(tr!==undefined&&!S.stumps[tr])return '木を切る';break;
+    case 'axe':if(tr!==undefined)return S.stumps[tr]?'切り株を割る':'木を切る';break;
     case 'shovel':if(inCave()){const ni=inMap(fx,fy)?W.nodeAt.get(ti(fx,fy)):undefined;return ni!==undefined&&!W.nodes[ni].broken?'採掘する':null}if(S.dig.some(d=>d[0]===fx&&d[1]===fy&&(!d[2]||skLv('dig')>=3)))return '掘る';if(W.rockAt.has(ti(fx,fy)))return '岩をたたく';break;
     case 'can':if(fl&&fl.stage<3)return fl.water?'水やり済み':'水をあげる';break;
   }
@@ -2212,7 +2226,7 @@ function render(t){
   if(!RT.fishing&&!RT.dlg){ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.strokeRect(fx*T+2,fy*T+2,T-4,T-4);ctx.setLineDash([])}
   // 奥行き順
   const D=[];const inV=(x,y,m=3)=>x>=x0-m&&x<=x1+m&&y>=y0-m&&y<=y1+m;;let mk=0;const casts=[],take=()=>{for(;mk<D.length;mk++)casts.push(D[mk])},skip=()=>{mk=D.length};   // casts＝影を落とす物
-  W.trees.forEach((tr,i)=>{if(inV(tr.x,tr.y))D.push([(tr.y+1)*T-4,()=>S.stumps[i]?drawStump(ctx,tr):drawTree(ctx,tr,s,S.fruit[i],RT.shake.get(i))])});take();
+  W.trees.forEach((tr,i)=>{if(inV(tr.x,tr.y)&&!S.cleared?.[i])D.push([(tr.y+1)*T-4,()=>S.stumps[i]?drawStump(ctx,tr):drawTree(ctx,tr,s,S.fruit[i],RT.shake.get(i))])});take();
   if(W.home)W.furn.forEach(f=>D.push([isFloor(f)?-1e9:(W.oy+f.y+f.h)*T-4,()=>drawFurn(ctx,f)]));skip();
   if(inCave())W.nodes.forEach((o,i)=>{if(inV(o.x,o.y))D.push([(o.y+1)*T-4,()=>drawNode(ctx,o,i)])});skip();
   RT.enemies.forEach(e=>D.push([e.y+(e.d.fly?20:0),()=>drawEnemy(ctx,e,t)]));take();
@@ -4802,7 +4816,7 @@ function updateEProj(dt){
 // 木のそば（草地）に敵を出す（キノコン）
 function spawnNearTree(type){
   const ptx=Math.floor(S.px/T),pty=Math.floor(S.py/T);
-  const near=W.trees.map((t,i)=>[t,i]).filter(([t,i])=>!S.stumps[i]&&Math.abs(t.x-ptx)<14&&Math.abs(t.y-pty)<11&&Math.hypot(t.x-ptx,t.y-pty)>6);
+  const near=W.trees.map((t,i)=>[t,i]).filter(([t,i])=>!S.stumps[i]&&!S.cleared?.[i]&&Math.abs(t.x-ptx)<14&&Math.abs(t.y-pty)<11&&Math.hypot(t.x-ptx,t.y-pty)>6);
   if(!near.length)return;
   const [t]=near[Math.floor(rnd()*near.length)];
   for(const [dx,dy] of [[0,1],[1,1],[-1,1],[1,0],[-1,0]]){const x=t.x+dx,y=t.y+dy;if(inMap(x,y)&&tileAt(x,y)===2&&!W.block[ti(x,y)]){spawnEnemy(type,(x+.5)*T,(y+.5)*T);return}}
@@ -5214,13 +5228,13 @@ function tileColor(t,season){
 // 地図の土台（1マス=s ピクセル）を地図と季節ごとに作っておく
 const mapBaseCache={};
 function mapBase(s){
-  const key=S.seed+':'+W.id+':'+(inCave()?0:season())+':'+s;
+  const key=S.seed+':'+W.id+':'+(inCave()?0:season())+':'+s+':'+Object.keys(S.cleared||{}).length;
   if(mapBaseCache[key])return mapBaseCache[key];
   const c=document.createElement('canvas');c.width=MW*s;c.height=MH*s;const g=c.getContext('2d');
   const se=season();
   for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){g.fillStyle=tileColor(tileAt(x,y),se);g.fillRect(x*s,y*s,s,s)}
   if(!inCave()){
-    for(const t of W.trees){g.fillStyle=se===2?'#c9772e':se===3?'#3d6b52':'#3f8a3f';g.beginPath();g.arc((t.x+.5)*s,(t.y+.5)*s,s*.42,0,7);g.fill()}
+    for(const [i,t] of W.trees.entries()){if(S.cleared?.[i])continue;g.fillStyle=se===2?'#c9772e':se===3?'#3d6b52':'#3f8a3f';g.beginPath();g.arc((t.x+.5)*s,(t.y+.5)*s,s*.42,0,7);g.fill()}
     for(const r of W.rocks){g.fillStyle='#8f969c';g.fillRect((r.x+.2)*s,(r.y+.2)*s,s*.6,s*.6)}
     for(const b of W.bld){g.fillStyle=b.type==='shop'?'#4f9a68':b.type==='museum'?'#8a6f9e':b.type==='cave'?'#6f685e':b.type==='house'?'#d0654f':(b.roof||'#888');g.fillRect(b.x*s,b.y*s,b.w*s,b.h*s)}
   }
@@ -5689,7 +5703,7 @@ function clickTarget(wx,wy){
   for(const b of W.bld)if(tx>=b.x&&tx<b.x+b.w&&ty>=b.y&&ty<b.y+b.h)return {act:true,tx:b.door.x,ty:b.door.y-1,face:'up',stands:[[b.door.x,b.door.y]]};
   let tr=inMap(tx,ty)?W.treeAt.get(ti(tx,ty)):undefined;
   if(tr===undefined&&inMap(tx,ty+1))tr=W.treeAt.get(ti(tx,ty+1));
-  if(tr!==undefined){const t=W.trees[tr];return onTile(!S.stumps[tr]&&(S.tool==='hand'||S.tool==='axe'),t.x,t.y)}
+  if(tr!==undefined){const t=W.trees[tr];return onTile(S.tool==='axe'||(!S.stumps[tr]&&S.tool==='hand'),t.x,t.y)}
   if(!inCave()&&(S.shells.some(s=>s[0]===tx&&s[1]===ty)||S.branches.some(s=>s[0]===tx&&s[1]===ty)))return onTile(true);
   const fl=inCave()?null:S.flowers.find(f=>f.x===tx&&f.y===ty);
   if(fl)return onTile(S.tool==='hand'||(S.tool==='can'&&fl.stage<3)||(S.tool==='wand'&&curSpell().id==='grow'&&fl.stage<3));
