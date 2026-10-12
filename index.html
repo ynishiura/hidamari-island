@@ -555,7 +555,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.011";</script>
+<script>const GAME_VERSION="1.012";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -1037,7 +1037,7 @@ function genWorld(seed){
     if(tl[ti(x,y)]!==2||near(x,y,2)||pathNear(x,y)||!free(x,y))continue;
     W.rockAt.set(ti(x,y),W.rocks.length);W.rocks.push({x,y});
   }
-  if(typeof S!=='undefined'&&S&&S.house>=1){const m={type:'museum',x:PZ.x0,y:PZ.y0,w:4,h:3};m.door={x:m.x+Math.floor(m.w/2),y:m.y+m.h};bld.push(m)}   // 博物館（家がテントから家になってから）
+  if(typeof S!=='undefined'&&S&&S.house>=1){const m={type:'museum',x:PZ.x0,y:PZ.y0,w:5,h:3};m.door={x:m.x+Math.floor(m.w/2),y:m.y+m.h};bld.push(m)}   // 博物館（家がテントから家になってから）
   W.block=new Uint8Array(MW*MH);
   if(typeof S!=='undefined'&&S&&S.planted)for(const p of S.planted){W.treeAt.set(ti(p.x,p.y),W.trees.length);W.trees.push({x:p.x,y:p.y,fruit:!!p.fruit,sakura:!!p.sakura,planted:true})}   // 植えて育った木（岩を決めた後に足すので、もとの木と岩の並びは変わらない）
   for(let i=0;i<MW*MH;i++)if(isWater(tl[i]))W.block[i]=1;
@@ -4413,14 +4413,14 @@ function buildingSprite(b,stage,night,season){
       for(let y=top+7,r=0;y<base;y+=7,r++){g.beginPath();g.moveTo(2,y);g.lineTo(Wd-2,y);g.stroke();
         for(let x=2+(r%2?9:0);x<Wd-2;x+=18){g.beginPath();g.moveTo(x,y-7);g.lineTo(x,y);g.stroke()}}
       // 入口（両開きの木の扉と、上のアーチ）と左右の窓
-      const cx=dx+16;
+      const cx=dx+16;   // 扉は出入りするマスの真ん中（建物の幅は5マスなので、建物のまん中と同じ）
       g.fillStyle='#4a3a2a';g.beginPath();g.moveTo(cx-12,base);g.lineTo(cx-12,base-26);g.quadraticCurveTo(cx,base-38,cx+12,base-26);g.lineTo(cx+12,base);g.fill();
       rrect(g,cx-10,base-26,9.5,26,1,'#8a5a34');rrect(g,cx+.5,base-26,9.5,26,1,'#8a5a34');circ(g,cx-2.5,base-12,1.2,'#e6c45a');circ(g,cx+2.5,base-12,1.2,'#e6c45a');
       for(const wx of [16,Wd-28]){g.fillStyle='#8a7a62';g.beginPath();g.moveTo(wx-1,base-12);g.lineTo(wx-1,base-30);g.quadraticCurveTo(wx+6,base-38,wx+13,base-30);g.lineTo(wx+13,base-12);g.fill();
         g.fillStyle=night?'#ffd76a':'#a9d8ef';g.beginPath();g.moveTo(wx+1,base-13);g.lineTo(wx+1,base-29);g.quadraticCurveTo(wx+6,base-35,wx+11,base-29);g.lineTo(wx+11,base-13);g.fill();
         g.fillStyle='#8a7a62';g.fillRect(wx+5.4,base-34,1.2,22)}
       // 白い石の柱（4本）：上下の飾りと、たての溝
-      for(const px of [6,Wd*.30,Wd*.70-8,Wd-14]){const pw=8;
+      for(const px of [6,Wd*.30-4,Wd*.70-4,Wd-14]){const pw=8;   // 柱は扉の左右に2本ずつ（扉の前には立てない）
         const cg=g.createLinearGradient(px,0,px+pw,0);cg.addColorStop(0,'#d8d2c4');cg.addColorStop(.4,'#fbf9f4');cg.addColorStop(1,'#cfc7b5');g.fillStyle=cg;g.fillRect(px,top+4,pw,base-top-6);
         g.strokeStyle='rgba(150,140,120,.45)';g.lineWidth=.6;for(const k of [2.5,5.5]){g.beginPath();g.moveTo(px+k,top+6);g.lineTo(px+k,base-4);g.stroke()}
         rrect(g,px-2,top+1,pw+4,4,1,stoneL);rrect(g,px-2,base-4,pw+4,4,1,stoneD)}
@@ -4436,7 +4436,7 @@ function buildingSprite(b,stage,night,season){
       // 看板「博物館」
       rrect(g,Wd/2-27,top-5.5,54,9,2,'#5e4a6e');g.fillStyle='#f3e2b8';g.font='bold 6.5px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.fillText('ひだまり博物館',Wd/2,top+1);
       // 入口の左右の旗
-      for(const fx of [Wd*.30-5,Wd*.70+5]){rrect(g,fx-.6,top+8,1.2,14,.5,'#6b4a2a');poly(g,[[fx,top+9],[fx+7,top+9],[fx+7,top+19],[fx+3.5,top+16],[fx,top+19]],'#8a6f9e')}
+      for(const fx of [Wd*.30,Wd*.70]){rrect(g,fx-.6,top+8,1.2,14,.5,'#6b4a2a');poly(g,[[fx,top+9],[fx+7,top+9],[fx+7,top+19],[fx+3.5,top+16],[fx,top+19]],'#8a6f9e')}
       return;
     }
     if(b.type==='vh'){
@@ -5730,7 +5730,7 @@ function leaveMuseum(){
 // 島に博物館を建てる（家がテントから家になったとき）。木や岩と重ならない広場の左
 function ensureMuseum(){
   if(!S||S.house<1||!ISL||ISL.bld.some(b=>b.type==='museum'))return false;
-  const PZ=ISL.plaza,m={type:'museum',x:PZ.x0,y:PZ.y0,w:4,h:3};m.door={x:m.x+Math.floor(m.w/2),y:m.y+m.h};ISL.bld.push(m);
+  const PZ=ISL.plaza,m={type:'museum',x:PZ.x0,y:PZ.y0,w:5,h:3};m.door={x:m.x+Math.floor(m.w/2),y:m.y+m.h};ISL.bld.push(m);
   for(let y=m.y;y<m.y+m.h;y++)for(let x=m.x;x<m.x+m.w;x++)ISL.block[ti(x,y)]=1;
   for(const k in mapBaseCache)delete mapBaseCache[k];
   return true;
