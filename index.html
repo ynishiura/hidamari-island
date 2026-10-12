@@ -555,7 +555,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.010";</script>
+<script>const GAME_VERSION="1.011";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -4403,12 +4403,40 @@ function buildingSprite(b,stage,night,season){
       for(const x of [2,Wd-16]){rrect(g,x,Hd-14,14,9,1,'#a8763f');g.fillStyle='#8a5a34';g.fillRect(x,Hd-10,14,1);for(let k=0;k<3;k++)circ(g,x+3+k*4,Hd-15,2.4,x<10?'#d8343a':'#f3a83a')}
       return;
     }
-    if(b.type==='museum'){   // 博物館：紫の屋根、石の柱と看板（bld_museum の絵が無いときの絵）
-      cottage(g,Wd,Hd,dx,Object.assign(base,{wall:'#f3eee4',roof:'#8a6f9e',trim:'#efe6f4',flowers:['#ffffff','#c7a6e0']}));
-      const top=Hd*.42;
-      for(const x of [6,Wd-12]){rrect(g,x,top+2,6,Hd-top-9,1,'#e4dccd');g.fillStyle='#c9bfae';g.fillRect(x+4,top+2,1.4,Hd-top-9)}
-      rrect(g,Wd/2-24,top-22,48,15,3,'#5e4a6e');rrect(g,Wd/2-22,top-20.5,44,12,2,'#d8c8e6');
-      g.fillStyle='#3a2a48';g.font='bold 9px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.fillText('博物館',Wd/2,top-11.5);
+    if(b.type==='museum'){   // 博物館：石造りの神殿のような建物（白い石の柱・三角の屋根飾り・石の階段）
+      const stone='#e6e0d2',stoneD='#c9c0ad',stoneL='#f5f1e8',roof='#5d6b7f',top=Hd*.30,base=Hd-12;
+      // 土台と石の階段（3段）
+      for(let k=0;k<3;k++){const y=Hd-12+k*4,ins=10-k*5;rrect(g,ins-4,y,Wd-ins*2+8,5,1.5,k%2?stoneD:'#d8d1c0');g.fillStyle='rgba(255,255,255,.45)';g.fillRect(ins-3,y,Wd-ins*2+6,1)}
+      // 壁：石のブロック（段ごとにずらす）
+      const wg=g.createLinearGradient(0,top,0,base);wg.addColorStop(0,stoneL);wg.addColorStop(1,stone);g.fillStyle=wg;g.fillRect(2,top,Wd-4,base-top);
+      g.strokeStyle='rgba(140,128,108,.45)';g.lineWidth=.7;
+      for(let y=top+7,r=0;y<base;y+=7,r++){g.beginPath();g.moveTo(2,y);g.lineTo(Wd-2,y);g.stroke();
+        for(let x=2+(r%2?9:0);x<Wd-2;x+=18){g.beginPath();g.moveTo(x,y-7);g.lineTo(x,y);g.stroke()}}
+      // 入口（両開きの木の扉と、上のアーチ）と左右の窓
+      const cx=dx+16;
+      g.fillStyle='#4a3a2a';g.beginPath();g.moveTo(cx-12,base);g.lineTo(cx-12,base-26);g.quadraticCurveTo(cx,base-38,cx+12,base-26);g.lineTo(cx+12,base);g.fill();
+      rrect(g,cx-10,base-26,9.5,26,1,'#8a5a34');rrect(g,cx+.5,base-26,9.5,26,1,'#8a5a34');circ(g,cx-2.5,base-12,1.2,'#e6c45a');circ(g,cx+2.5,base-12,1.2,'#e6c45a');
+      for(const wx of [16,Wd-28]){g.fillStyle='#8a7a62';g.beginPath();g.moveTo(wx-1,base-12);g.lineTo(wx-1,base-30);g.quadraticCurveTo(wx+6,base-38,wx+13,base-30);g.lineTo(wx+13,base-12);g.fill();
+        g.fillStyle=night?'#ffd76a':'#a9d8ef';g.beginPath();g.moveTo(wx+1,base-13);g.lineTo(wx+1,base-29);g.quadraticCurveTo(wx+6,base-35,wx+11,base-29);g.lineTo(wx+11,base-13);g.fill();
+        g.fillStyle='#8a7a62';g.fillRect(wx+5.4,base-34,1.2,22)}
+      // 白い石の柱（4本）：上下の飾りと、たての溝
+      for(const px of [6,Wd*.30,Wd*.70-8,Wd-14]){const pw=8;
+        const cg=g.createLinearGradient(px,0,px+pw,0);cg.addColorStop(0,'#d8d2c4');cg.addColorStop(.4,'#fbf9f4');cg.addColorStop(1,'#cfc7b5');g.fillStyle=cg;g.fillRect(px,top+4,pw,base-top-6);
+        g.strokeStyle='rgba(150,140,120,.45)';g.lineWidth=.6;for(const k of [2.5,5.5]){g.beginPath();g.moveTo(px+k,top+6);g.lineTo(px+k,base-4);g.stroke()}
+        rrect(g,px-2,top+1,pw+4,4,1,stoneL);rrect(g,px-2,base-4,pw+4,4,1,stoneD)}
+      // 柱の上の横板（看板）と、三角の屋根飾り
+      rrect(g,-4,top-6,Wd+8,9,1.5,stoneL);g.fillStyle='rgba(140,128,108,.5)';g.fillRect(-4,top+2,Wd+8,1.2);
+      poly(g,[[-8,top-6],[Wd/2,-34],[Wd+8,top-6]],roof);
+      poly(g,[[-2,top-8],[Wd/2,-27],[Wd+2,top-8]],stoneL);
+      poly(g,[[6,top-10],[Wd/2,-20],[Wd-6,top-10]],'#ece6d8');
+      g.strokeStyle='rgba(140,128,108,.6)';g.lineWidth=.8;g.beginPath();g.moveTo(6,top-10);g.lineTo(Wd/2,-20);g.lineTo(Wd-6,top-10);g.closePath();g.stroke();
+      // 屋根飾りの中の紋章（丸い化石の模様）
+      circ(g,Wd/2,top-15,5.5,'#d9b45a');g.strokeStyle='#8a6a2c';g.lineWidth=1;g.beginPath();g.arc(Wd/2,top-15,3.5,0,4.6);g.moveTo(Wd/2,top-15);g.arc(Wd/2,top-15,1.6,0,4);g.stroke();
+      if(snow){poly(g,[[-8,top-6],[Wd/2,-34],[Wd+8,top-6],[Wd/2,-29]],'#ffffff')}
+      // 看板「博物館」
+      rrect(g,Wd/2-27,top-5.5,54,9,2,'#5e4a6e');g.fillStyle='#f3e2b8';g.font='bold 6.5px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.fillText('ひだまり博物館',Wd/2,top+1);
+      // 入口の左右の旗
+      for(const fx of [Wd*.30-5,Wd*.70+5]){rrect(g,fx-.6,top+8,1.2,14,.5,'#6b4a2a');poly(g,[[fx,top+9],[fx+7,top+9],[fx+7,top+19],[fx+3.5,top+16],[fx,top+19]],'#8a6f9e')}
       return;
     }
     if(b.type==='vh'){
@@ -5316,7 +5344,7 @@ function mapBase(s){
   if(!inCave()){
     for(const [i,t] of W.trees.entries()){if(S.cleared?.[i])continue;g.fillStyle=se===2?'#c9772e':se===3?'#3d6b52':'#3f8a3f';g.beginPath();g.arc((t.x+.5)*s,(t.y+.5)*s,s*.42,0,7);g.fill()}
     for(const r of W.rocks){g.fillStyle='#8f969c';g.fillRect((r.x+.2)*s,(r.y+.2)*s,s*.6,s*.6)}
-    for(const b of W.bld){g.fillStyle=b.type==='shop'?'#4f9a68':b.type==='museum'?'#8a6f9e':b.type==='cave'?'#6f685e':b.type==='house'?'#d0654f':(b.roof||'#888');g.fillRect(b.x*s,b.y*s,b.w*s,b.h*s)}
+    for(const b of W.bld){g.fillStyle=b.type==='shop'?'#4f9a68':b.type==='museum'?'#d8d1c0':b.type==='cave'?'#6f685e':b.type==='house'?'#d0654f':(b.roof||'#888');g.fillRect(b.x*s,b.y*s,b.w*s,b.h*s)}
   }
   return mapBaseCache[key]=c;
 }
