@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.022";</script>
+<script>const GAME_VERSION="1.023";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2211,7 +2211,8 @@ function drawToolInHand(g,x,y){
   g.save();g.translate(hx,hy);
   if(RT.swing>0&&tool==='net'){g.rotate((dx||1)*(1-RT.swing/.35)*2.2-1)}
   g.strokeStyle='#8a5a34';g.lineWidth=2;
-  if(tool==='net')drawNet(g,S.dir,dx||1,metal);
+  if(tool==='net'){const sd=dx||1;if((S.dir==='left'||S.dir==='right')&&!(RT.swing>0)){g.translate(-3.5*sd,-3.5);g.rotate(-sd*Math.PI/2);g.translate(3.5*sd,3.5)}   // 横向きは、手で握った所を中心に90度後ろへ回して、肩に担ぐ
+    drawNet(g,S.dir,sd,metal)}
   if(tool==='rod'){const tp=drawRod(g,S.dir,dx||1,metal);RT.rodTip=[hx+tp[0],hy+tp[1]]}   // 竿先の位置（釣り糸はここから）
   if(tool==='shovel')drawShovel(g,S.dir,dx||1,metal);
   if(tool==='can'){g.fillStyle=tr===3?'#e8b830':tr===2?'#6aa0d8':'#5fae7a';g.fillRect(-5,-6,10,8);g.fillRect(4,-6,5,2)}
