@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.016";</script>
+<script>const GAME_VERSION="1.017";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -733,6 +733,11 @@ const MISC=[
   {id:'gold',name:'金鉱石',price:1500,kind:'mat'},
   {id:'silver',name:'銀鉱石',price:800,kind:'mat'},
   {id:'mstone',name:'魔石',price:800,kind:'mat'},
+  {id:'copper_bar',name:'銅インゴット',price:600,kind:'bar',note:'溶鉱炉で銅鉱石3つから作る'},
+  {id:'iron_bar',name:'鉄インゴット',price:1400,kind:'bar',note:'溶鉱炉で鉄鉱石3つから作る'},
+  {id:'silver_bar',name:'銀インゴット',price:3000,kind:'bar',note:'溶鉱炉で銀鉱石3つから作る'},
+  {id:'gold_bar',name:'金インゴット',price:5500,kind:'bar',note:'溶鉱炉で金鉱石3つから作る'},
+  {id:'mstone_bar',name:'魔石の結晶',price:3000,kind:'bar',note:'溶鉱炉で魔石3つから作る'},
   {id:'gel',name:'スライムゼリー',price:150,kind:'mat'},
   {id:'honey',name:'ハチミツ',price:300,kind:'mat'},
   {id:'shell',name:'貝がら',price:60,kind:'mat'},
@@ -943,6 +948,7 @@ const RECIPES=[
   {id:'r_bow',name:'弓',lv:4,mats:{wood:4,silk:2},weapon:'bow',note:'武器。矢を放って、離れた敵をねらう'},
   {id:'r_hammer',name:'ハンマー',lv:5,mats:{iron:4,fang:2},weapon:'hammer',note:'武器。まわり全体を強くたたく（少し遅い）'},
   {id:'r_bait',name:'釣りエサ ×3',lv:1,mats:{shell:1},out:['bait',3],note:'釣りの腕が上がると、役に立つらしい'},
+  {id:'r_f_furnace',name:'溶鉱炉',lv:3,mats:{stone:10,copper:3,wood:4},furn:'furnace',note:'家具。鉱石3つをインゴット1つにする（家の中に置いて使う）'},
   {id:'r_f_box',name:'収納箱',lv:1,mats:{wood:6},furn:'box',note:'家具。1つに50個までしまえる（箱ごとに別々）。置ける数は家の大きさで決まる'},
   {id:'r_f_plant',name:'植木鉢',lv:1,mats:{stone:3,branch:2},furn:'plant',note:'家具。部屋に緑をそえる'},
   {id:'r_f_table',name:'テーブル',lv:2,mats:{wood:5},furn:'table',note:'家具。木のテーブル'},
@@ -2633,7 +2639,7 @@ function refresh(){if(RT.panel){RT.panel.keepScroll=true;drawPanel()}}
 
 // 持ち物
 function bagGrid(mode){
-  const ids=Object.keys(S.bag).sort((a,b)=>{const o=['food','potion','use','seed','sapling','deco','wall','floor','hat','top','acc','mat','bug','fish','fossil','flower'];return o.indexOf(ITEMS[a].kind)-o.indexOf(ITEMS[b].kind)||ITEMS[b].price-ITEMS[a].price});
+  const ids=Object.keys(S.bag).sort((a,b)=>{const o=['food','potion','use','seed','sapling','deco','wall','floor','hat','top','acc','bar','mat','bug','fish','fossil','flower'];return o.indexOf(ITEMS[a].kind)-o.indexOf(ITEMS[b].kind)||ITEMS[b].price-ITEMS[a].price});
   if(!ids.length)return h('p',{class:'muted'},'ポケットは空っぽ。虫や魚をつかまえたり、木をゆすってみよう。');
   return h('div',{class:'grid'},ids.map(id=>{
     const it=ITEMS[id],n=S.bag[id];
@@ -3446,7 +3452,7 @@ function genHome(lv){
   const M={id:'home'+lv,home:true,lv,w,h,ox,oy,tiles,block,door,furn:S.homeFurn,
     trees:[],rocks:[],bld:[],treeAt:new Map(),rockAt:new Map(),nodes:[],nodeAt:new Map(),
     start:{x:(door.x+.5)*T,y:(door.y-.5)*T+4},
-    room:{x0:(ox-1)*T,y0:(oy-2.6)*T,x1:(ox+w+1)*T,y1:(oy+h+1.4)*T}};
+    room:{x0:(ox-1)*T,y0:(oy-2.6)*T,x1:(ox+w+1)*T,y1:(oy+h+4.5)*T}};   // 下は広めに：出口が下の道具バーに隠れないように
   homeBlock(M);return M;
 }
 function homeMap(){return genHome(S.house)}
@@ -3543,6 +3549,7 @@ function homeGround(){
   const lg=g.createLinearGradient(0,dy,0,dy+T);lg.addColorStop(0,'rgba(255,240,190,.55)');lg.addColorStop(1,'rgba(255,240,190,0)');g.fillStyle=lg;g.fillRect(dx,dy,T,T);
   g.fillStyle='#b0563f';g.beginPath();g.roundRect(dx+3,dy-T+8,T-6,16,4);g.fill();g.fillStyle='rgba(255,255,255,.25)';for(let i=0;i<3;i++)g.fillRect(dx+7+i*7,dy-T+11,3,10);
   g.fillStyle='#7a5234';g.fillRect(dx-3,Y1,3,12);g.fillRect(dx+T,Y1,3,12);
+  g.fillStyle='#f3e2b8';g.beginPath();g.roundRect(dx-8,Y1+14,T+16,16,4);g.fill();g.fillStyle='#4a3218';g.font='bold 11px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.fillText('出口 ▼',dx+T/2,Y1+26);   // 出口の札
   return c;
 }
 // 家具（奥行き順に描く）
@@ -6074,7 +6081,7 @@ function vhouseMap(vid){
   return VH_MAPS[vid]={id:'vh_'+vid,home:true,vhouse:vid,lv:hs%4,w,h,ox,oy,tiles,block,door,furn,owner,
     trees:[],rocks:[],bld:[],treeAt:new Map(),rockAt:new Map(),nodes:[],nodeAt:new Map(),
     start:{x:(door.x+.5)*T,y:(door.y-.5)*T+4},
-    room:{x0:(ox-1)*T,y0:(oy-2.6)*T,x1:(ox+w+1)*T,y1:(oy+h+3)*T}};
+    room:{x0:(ox-1)*T,y0:(oy-2.6)*T,x1:(ox+w+1)*T,y1:(oy+h+4.5)*T}};
 }
 function goVHouse(vid,at){
   W=vhouseMap(vid);S.loc='vh:'+vid;resetMapRT();
@@ -6599,6 +6606,47 @@ drawIcon=function(c,id){
 function paintWallIcon(g,id){const s=S.wall;S.wall=id;const f=myHomeLookOverride(true);try{paintWall(g,0,0,96,54)}finally{myHomeLookOverride(f);S.wall=s}}
 function paintFloorIcon(g,id){const s=S.floor;S.floor=id;const f=myHomeLookOverride(true);try{for(let y=0;y<1;y++)for(let x=0;x<2;x++)paintFloor(g,x,y,x*T,y*T)}finally{myHomeLookOverride(f);S.floor=s}}
 let _lookForce=false;function myHomeLookOverride(v){const o=_lookForce;_lookForce=v;return o}
+</script>
+<script>
+// ===================== 溶鉱炉 =====================
+// 家の中に置く家具。使うと、鉱石3つを溶かしてインゴット1つにできる（銅・鉄・銀・金・魔石）。
+// インゴットは売ると、もとの鉱石3つより高く売れる
+const SMELT=[['copper','copper_bar'],['iron','iron_bar'],['silver','silver_bar'],['gold','gold_bar'],['mstone','mstone_bar']];
+const SMELT_N=3;
+FURN_DEF.furnace={name:'溶鉱炉',w:1,h:1,price:12000,tall:true,note:'鉱石3つを、インゴット1つにする'};FURN_NAME.furnace='溶鉱炉';
+USE_FURN.push('furnace');   // ベッドや作業台と同じく、前まで歩いて行けないと置けない
+FURN2_PAINT.furnace=(g,W,H)=>{const top=-T+6;fShadow(g,3,H-8,W-6,8,3,.3);
+  for(let y=top+4;y<H-2;y+=6)for(let x=3+(((y-top)/6|0)%2?4:0);x<W-3;x+=8)rrect(g,x,y,7.5,5,1,((x+y)%3)?'#8a8278':'#766e64');   // 石のブロック
+  g.fillStyle='#5e5850';g.beginPath();g.moveTo(5,top+4);g.lineTo(W/2-4,top-6);g.lineTo(W/2+4,top-6);g.lineTo(W-5,top+4);g.fill();rrect(g,W/2-4,top-12,8,8,1,'#4a453f');   // 煙突
+  rrect(g,W/2-9,H-18,18,15,6,'#2a1a14');const f=(c,s)=>{g.fillStyle=c;g.beginPath();g.moveTo(W/2-7*s,H-4);g.quadraticCurveTo(W/2-5*s,H-12*s,W/2,H-16*s);g.quadraticCurveTo(W/2+5*s,H-12*s,W/2+7*s,H-4);g.fill()};
+  f('#f08a3c',1);f('#ffe08a',.55);const gl=g.createRadialGradient(W/2,H-10,0,W/2,H-10,14);gl.addColorStop(0,'rgba(255,170,80,.4)');gl.addColorStop(1,'rgba(255,170,80,0)');g.fillStyle=gl;g.fillRect(W/2-14,H-24,28,24)};
+const _useFurnF=useFurn;
+useFurn=function(f){if(f.type==='furnace')return openFurnace();return _useFurnF(f)};
+const _homeHintF=homeHint;
+homeHint=function(){const [fx,fy]=facingTile(),f=furnAt(fx,fy);if(f&&f.type==='furnace')return '溶鉱炉を使う';return _homeHintF()};
+function openFurnace(){
+  openPanel('溶鉱炉',null,null,body=>{
+    body.append(h('p',{class:'muted',style:'margin:0 0 10px'},`鉱石を${SMELT_N}つ入れると、とけてインゴットが1つできる。インゴットは、鉱石${SMELT_N}つより高く売れるよ。`));
+    const grid=h('div',{class:'grid'});
+    for(const [ore,bar] of SMELT){const have=S.bag[ore]||0,can=Math.floor(have/SMELT_N);
+      const smelt=n=>{if(!n)return;if(bagCount()-n*SMELT_N+n>bagCap()){toast('ポケットに入りきらない');return}takeItem(ore,n*SMELT_N);addItem(bar,n,true);sfx('get');gainPlayerXp(2*n);toast(`${ITEMS[bar].name} ×${n} ができた！`,true);refresh()};
+      grid.append(h('div',{class:'cell'},iconCanvas(bar),h('div',{class:'nm'},ITEMS[bar].name),h('div',{class:'meta'},`${ITEMS[ore].name}×${SMELT_N} → 1つ（持っている：${have}）`),
+        h('div',{class:'rowline',style:'justify-content:center;margin:0;gap:4px'},h('button',{...(can?{}:{disabled:''}),on:()=>smelt(1)},'溶かす'),can>1?h('button',{class:'btn sub',on:()=>smelt(can)},`全部（${can}つ）`):null)))}
+    body.append(grid);
+  });
+}
+// インゴットの絵（持ち物・お店）
+const _drawIconBar=drawIcon;
+drawIcon=function(c,id){
+  const it=ITEMS[id];if(!it||it.kind!=='bar')return _drawIconBar(c,id);
+  const g=c.getContext('2d'),s=c.width;g.clearRect(0,0,s,s);g.save();g.scale(s/32,s/32);
+  const col={copper_bar:['#e8955a','#b8622e','#ffd0a8'],iron_bar:['#b8c0c8','#7e8790','#eef2f5'],silver_bar:['#dfe8ef','#a8b6c2','#ffffff'],gold_bar:['#f6d050','#c99a28','#fff3b8'],mstone_bar:['#a68af0','#6f52c0','#e6dcff']}[id];
+  ell(g,16,26,12,3,'rgba(0,0,0,.2)');
+  g.fillStyle=col[1];g.beginPath();g.moveTo(4,22);g.lineTo(28,22);g.lineTo(24,14);g.lineTo(8,14);g.closePath();g.fill();
+  g.fillStyle=col[0];g.beginPath();g.moveTo(8,14);g.lineTo(24,14);g.lineTo(21,9);g.lineTo(11,9);g.closePath();g.fill();
+  g.fillStyle=col[2];g.fillRect(11,10,5,1.4);g.fillStyle='rgba(255,255,255,.35)';g.fillRect(6,19,20,1);
+  g.restore();
+};
 </script>
 <script>
 // ===================== タイトル画面 =====================
