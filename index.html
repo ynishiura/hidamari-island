@@ -251,6 +251,10 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
 .xfer .xmsg{min-height:1.2em;font-weight:700;color:var(--leaf-deep)}
 .xfer .xmsg.bad{color:var(--berry)}
 #titleXfer{max-height:calc(100% - 8px);overflow:auto}
+.htable{width:100%;border-collapse:collapse;margin-top:6px;font-size:13px;font-variant-numeric:tabular-nums}
+.htable th,.htable td{padding:4px 6px;border-bottom:1px solid var(--line);text-align:center}
+.htable th{color:var(--ink-soft);font-weight:700;font-size:12px}
+.htable tr.now td{background:#fff6dc;font-weight:800}
 .tback{background:none;border:none;color:var(--ink-soft);font-weight:700;font-size:14px;text-decoration:underline;padding:4px}
 #title .keys{font-size:12px;color:var(--ink-soft);line-height:1.8;text-align:left;background:var(--panel-2);border-radius:12px;padding:10px 14px}
 @keyframes logoIn{from{opacity:0;transform:translateY(-24px) scale(.9)}to{opacity:1;transform:none}}
@@ -555,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.015";</script>
+<script>const GAME_VERSION="1.016";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -966,7 +970,7 @@ const HOUSE=[
   {name:'大きな家',cap:70,bells:60000,mat:'gold',n:3},
 ];
 const BOX_CAP=50;   // 収納箱1つに入る数（箱ごとに別々にしまう）
-const BOX_MAX=[2,3,4,6];   // 家に置ける収納箱の数（テント／小さな家／木の家／大きな家）
+const BOX_MAX=[1,3,5,7];   // 家に置ける収納家具の数（テント／小さな家／木の家／大きな家）。収納箱・タンス・引き出し・クローゼット・食器棚を合わせて数える
 const TITLES=[[1,'島の新入り'],[3,'見習い島民'],[5,'ひだまりの住人'],[8,'島の物知り'],[12,'自然の友'],[16,'島のたつじん'],[20,'ひだまりの名人'],[25,'島の伝説']];
 function titleFor(lv){let t=TITLES[0][1];for(const [l,n] of TITLES)if(lv>=l)t=n;return t}
 const MAX_LV=30, MAX_SK=10;
@@ -2683,7 +2687,7 @@ function openShop(tab){
       body.append(grid);
     }
     if(t==='furn'){
-      body.append(h('p',{class:'muted',style:'margin:0 0 10px'},'買った家具は、家の中の「レイアウト」から好きな所に置けるよ。収納箱・植木鉢・テーブル・本だなはクラフトでも作れる。収納箱は箱ごとに別々にしまえて、置ける数は家の大きさで決まる（テント2・小さな家3・木の家4・大きな家6）。'));
+      body.append(h('p',{class:'muted',style:'margin:0 0 10px'},'買った家具は、家の中の「レイアウト」から好きな所に置けるよ。収納箱・植木鉢・テーブル・本だなはクラフトでも作れる。収納箱は箱ごとに別々にしまえて、置ける数は家の大きさで決まる（テント1・小さな家3・木の家5・大きな家7）。'));
       const grid=h('div',{class:'grid'});
       // 壁紙と床紙（持ち物で「はる」「しく」）
       {const gw=h('div',{class:'grid',style:'margin-bottom:12px'});
@@ -2718,14 +2722,20 @@ function openShop(tab){
     }
     if(t==='house'){
       const nx=HOUSE[S.house+1];
-      const card=h('div',{class:'card'},h('div',{},h('span',{class:'muted'},'いまの家　'),h('b',{class:'big'},HOUSE[S.house].name)),h('div',{class:'muted'},`ポケットの容量：${HOUSE[S.house].cap}個`));
+      const card=h('div',{class:'card'},h('div',{},h('span',{class:'muted'},'いまの家　'),h('b',{class:'big'},HOUSE[S.house].name)),h('div',{class:'muted'},`ポケットの容量：${HOUSE[S.house].cap}個　置ける収納家具：${BOX_MAX[S.house]}個`));
       if(nx){
         const okB=S.bells>=nx.bells,okM=(S.bag[nx.mat]||0)>=nx.n;
-        card.append(h('div',{},`→ ${nx.name}（容量 ${nx.cap}個）`),h('div',{},h('span',{class:'pill '+(okB?'ok':'ng')},`${nx.bells.toLocaleString()}円`),' ',h('span',{class:'pill '+(okM?'ok':'ng')},`${ITEMS[nx.mat].name}×${nx.n}（${S.bag[nx.mat]||0}）`)));
+        card.append(h('div',{},`→ ${nx.name}（ポケット ${nx.cap}個・収納家具 ${BOX_MAX[S.house+1]}個）`),h('div',{},h('span',{class:'pill '+(okB?'ok':'ng')},`${nx.bells.toLocaleString()}円`),' ',h('span',{class:'pill '+(okM?'ok':'ng')},`${ITEMS[nx.mat].name}×${nx.n}（${S.bag[nx.mat]||0}）`)));
         const b=h('button',{class:'btn',disabled:'',on:()=>{S.bells-=nx.bells;takeItem(nx.mat,nx.n);S.house++;toast(`家が「${HOUSE[S.house].name}」になった！ ポケットが${HOUSE[S.house].cap}個に`,true);if(ensureMuseum())setTimeout(()=>toast('広場に「ひだまり博物館」ができた！ 化石の鑑定や、図鑑への登録ができるよ',true),1200);sfx('lv');gainPlayerXp(40);updateHud();refresh()}},'増築をたのむ');
         if(okB&&okM)b.removeAttribute('disabled');card.append(b);
       }else card.append(h('span',{class:'pill ok'},'島でいちばん立派な家！'));
       body.append(card);
+      // 家ごとの広さ・ポケット・収納家具の数（いまの家に印）
+      const tb=h('table',{class:'htable'},h('tr',{},h('th',{},'家'),h('th',{},'部屋の広さ'),h('th',{},'ポケット'),h('th',{},'置ける収納家具'),h('th',{},'しまえる数')));
+      HOUSE.forEach((hs,i)=>{const [w,hh]=HOME_SIZE[i],now=i===S.house;
+        tb.append(h('tr',{class:now?'now':''},h('td',{},(now?'▶ ':'')+hs.name),h('td',{},`${w}×${hh}マス`),h('td',{},`${hs.cap}個`),h('td',{},`${BOX_MAX[i]}個`),h('td',{},`${BOX_MAX[i]*BOX_CAP}個`)))});
+      body.append(h('div',{class:'card',style:'margin-top:10px'},h('b',{},'家ごとの違い'),tb,
+        h('p',{class:'muted',style:'margin:6px 0 0;font-size:12px'},`収納家具＝収納箱・タンス・引き出し・クローゼット・食器棚（合わせて数える）。1つに${BOX_CAP}個しまえる。`)));
     }
   });
 }
