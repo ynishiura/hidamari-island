@@ -5,7 +5,7 @@
 //   取りに行った分は裏で受け取りつづけ、届いたら保存しておく（次の起動から新しい版になる）
 // ・版が上がるとキャッシュ名が変わり、古い版の保存分は消える。文字のフォントは版に関係なく残す
 // キャッシュ名の版の番号は build.sh が埋める
-const CACHE = 'hidamari-1.001';
+const CACHE = 'hidamari-1.002';
 const FONTS = 'hidamari-fonts';
 const ASSETS = 'hidamari-assets';   // 絵と音楽（版が上がっても残す）
 const PAGE = './index.html';
