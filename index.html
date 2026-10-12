@@ -555,7 +555,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.007";</script>
+<script>const GAME_VERSION="1.008";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -1037,7 +1037,7 @@ function genWorld(seed){
     if(tl[ti(x,y)]!==2||near(x,y,2)||pathNear(x,y)||!free(x,y))continue;
     W.rockAt.set(ti(x,y),W.rocks.length);W.rocks.push({x,y});
   }
-  {const m={type:'museum',x:PZ.x0,y:PZ.y0,w:4,h:3};m.door={x:m.x+Math.floor(m.w/2),y:m.y+m.h};bld.push(m)}   // 博物館
+  if(typeof S!=='undefined'&&S&&S.house>=1){const m={type:'museum',x:PZ.x0,y:PZ.y0,w:4,h:3};m.door={x:m.x+Math.floor(m.w/2),y:m.y+m.h};bld.push(m)}   // 博物館（家がテントから家になってから）
   W.block=new Uint8Array(MW*MH);
   if(typeof S!=='undefined'&&S&&S.planted)for(const p of S.planted){W.treeAt.set(ti(p.x,p.y),W.trees.length);W.trees.push({x:p.x,y:p.y,fruit:!!p.fruit,sakura:!!p.sakura,planted:true})}   // 植えて育った木（岩を決めた後に足すので、もとの木と岩の並びは変わらない）
   for(let i=0;i<MW*MH;i++)if(isWater(tl[i]))W.block[i]=1;
@@ -1060,6 +1060,7 @@ function groundFor(season){
   const key=W.id+':'+(W.id==='island'?season:0);
   if(groundCache[key])return groundCache[key];
   if(W.home)return groundCache[key]=homeGround();
+  if(W.museum)return groundCache[key]=museumGround();
   if(W.id!=='island')return groundCache[key]=caveGround();
   const c=document.createElement('canvas');c.width=MW*T;c.height=MH*T;
   const g=c.getContext('2d');
@@ -1680,6 +1681,7 @@ function pressA(){
   const [fx,fy]=facingTile();
   const ptx=Math.floor(S.px/T),pty=Math.floor((S.py-6)/T);
   if(inHome()){homePressA(fx,fy,ptx,pty);return}
+  if(inMuseum()){museumPressA(fx,fy,ptx,pty);return}
   const st=stairsAt(ptx,pty)||(S.tool!=='sword'&&S.tool!=='wand'?stairsAt(fx,fy):null);if(st){useStairs(st);return}
   for(const b of W.bld){
     if((fx===b.door.x&&fy===b.y+b.h-1&&S.dir==='up')||(ptx===b.door.x&&pty===b.door.y&&S.dir==='up')){enterBuilding(b);return}
@@ -1920,6 +1922,7 @@ function hintText(){
   if(RT.fishing)return RT.fishing.state==='bite'?'今だ！':'じっと待つ…';
   if(RT.layout)return null;
   if(inHome())return homeHint();
+  if(inMuseum())return museumHint();
   if(inCave()){
     const [fx,fy]=facingTile(),ptx=Math.floor(S.px/T),pty=Math.floor((S.py-6)/T);
     const st=stairsAt(ptx,pty)||(S.tool!=='sword'&&S.tool!=='wand'?stairsAt(fx,fy):null);
@@ -2255,7 +2258,7 @@ function torchCheck(){if(S&&S.torchUntil&&!torchOn()){S.torchUntil=0;toast('松�
 function render(t){
   torchCheck();
   const s=season();
-  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=W.home?'#1f1712':'#4a9fcd';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=W.home?'#1f1712':W.museum?'#1d1a24':'#4a9fcd';ctx.fillRect(0,0,cv.width,cv.height);
   // レイアウト中は部屋全体が入るように引いて映す（下の帯のぶん、上に寄せる）
   let ZZ=Z;if(RT.layout&&W.room)ZZ=Math.min(Z,VW/(W.room.x1-W.room.x0),(VH-120)/(W.room.y1-W.room.y0));
   RT.camZ=ZZ;
@@ -2289,6 +2292,7 @@ function render(t){
   const D=[];const inV=(x,y,m=3)=>x>=x0-m&&x<=x1+m&&y>=y0-m&&y<=y1+m;;let mk=0;const casts=[],take=()=>{for(;mk<D.length;mk++)casts.push(D[mk])},skip=()=>{mk=D.length};   // casts＝影を落とす物
   W.trees.forEach((tr,i)=>{if(inV(tr.x,tr.y)&&!S.cleared?.[i])D.push([(tr.y+1)*T-4,()=>S.stumps[i]?drawStump(ctx,tr):drawTree(ctx,tr,s,S.fruit[i],RT.shake.get(i))])});take();
   if(W.home)W.furn.forEach(f=>D.push([isFloor(f)?-1e9:(W.oy+f.y+f.h)*T-4,()=>drawFurn(ctx,f)]));skip();
+  if(W.museum)museumObjects(D,ctx);skip();   // 博物館の中：展示ケース・受付・ホーホ
   if(inCave())W.nodes.forEach((o,i)=>{if(inV(o.x,o.y))D.push([(o.y+1)*T-4,()=>drawNode(ctx,o,i)])});skip();
   RT.enemies.forEach(e=>D.push([e.y+(e.d.fly?20:0),()=>drawEnemy(ctx,e,t)]));take();
   if(isl)(S.decos||[]).forEach(d=>{if(inV(d.x,d.y))D.push([(d.y+1)*T-4,()=>drawStump(ctx,d)])});take();   // 置いた切り株
@@ -2480,7 +2484,7 @@ function updateHud(){
   if(!S)return;
   $('hDay').textContent=`${SEASONS[season()]} ${dayInSeason()}日目`;
   $('bLayout').hidden=!inHome()||!!RT.layout;
-  $('hWx').textContent=`${inCave()?`洞窟 地下${caveFloor()}階`:inHome()?`わが家 ${W.w}×${W.h}マス`:S.weather}・${titleFor(S.lv)}`;
+  $('hWx').textContent=`${inCave()?`洞窟 地下${caveFloor()}階`:inHome()?`わが家 ${W.w}×${W.h}マス`:inMuseum()?'ひだまり博物館':S.weather}・${titleFor(S.lv)}`;
   $('bells').textContent=S.bells.toLocaleString()+'円';
   $('hLv').textContent=S.lv;
   $('hSta').textContent=`${Math.ceil(S.sta)}/${maxSta()}`;$('hStaBar').style.width=(S.sta/maxSta()*100)+'%';
@@ -2549,8 +2553,9 @@ function enterBuilding(b){
     goHome('door');   // 家の中を歩ける（寝る・クラフト・収納箱は家具から）
   }else if(b.type==='cave'){
     showDialog('洞窟の入り口',['ひんやりした風が吹いてくる… 奥には鉱石が眠っているらしい。','中は暗くて、敵も出るみたいだ。'],null,[['入る',()=>{closeDialog();goCave(1,'up');save()}],['やめる',closeDialog]]);
-  }else if(b.type==='museum'){
-    openMuseum();   // 博物館（museum.js）
+  }else if(b.type==='museum'){   // 博物館の中へ（museum.js）
+    if(!museumOpen()){showDialog('博物館',[`「本日の開館時間は終了しました」と書いてある。（開館 ${MUSEUM_HOURS[0]}:00〜${MUSEUM_HOURS[1]}:00）`]);return}
+    goMuseum('door');save();
   }else if(b.type==='shop'){
     if(S.min<8*60||S.min>=22*60){showDialog('ひだまり商店',['「本日の営業は終了しました」と書いてある。（営業時間 8:00〜22:00）']);return}
     openShop('sell');
@@ -2657,7 +2662,7 @@ function openShop(tab){
       if(nx){
         const okB=S.bells>=nx.bells,okM=(S.bag[nx.mat]||0)>=nx.n;
         card.append(h('div',{},`→ ${nx.name}（容量 ${nx.cap}個）`),h('div',{},h('span',{class:'pill '+(okB?'ok':'ng')},`${nx.bells.toLocaleString()}円`),' ',h('span',{class:'pill '+(okM?'ok':'ng')},`${ITEMS[nx.mat].name}×${nx.n}（${S.bag[nx.mat]||0}）`)));
-        const b=h('button',{class:'btn',disabled:'',on:()=>{S.bells-=nx.bells;takeItem(nx.mat,nx.n);S.house++;toast(`家が「${HOUSE[S.house].name}」になった！ ポケットが${HOUSE[S.house].cap}個に`,true);sfx('lv');gainPlayerXp(40);updateHud();refresh()}},'増築をたのむ');
+        const b=h('button',{class:'btn',disabled:'',on:()=>{S.bells-=nx.bells;takeItem(nx.mat,nx.n);S.house++;toast(`家が「${HOUSE[S.house].name}」になった！ ポケットが${HOUSE[S.house].cap}個に`,true);if(ensureMuseum())setTimeout(()=>toast('広場に「ひだまり博物館」ができた！ 化石の鑑定や、図鑑への登録ができるよ',true),1200);sfx('lv');gainPlayerXp(40);updateHud();refresh()}},'増築をたのむ');
         if(okB&&okM)b.removeAttribute('disabled');card.append(b);
       }else card.append(h('span',{class:'pill ok'},'島でいちばん立派な家！'));
       body.append(card);
@@ -3812,6 +3817,7 @@ function groundFor(season){
   if(groundCache[key])return groundCache[key];
   for(const k in groundCache)delete groundCache[k];   // 地面の絵は大きいので、いま使う1枚だけ持つ
   if(W.home)return groundCache[key]=homeGround();
+  if(W.museum)return groundCache[key]=museumGround();   // 博物館の中（museum.js）
   if(W.id!=='island')return groundCache[key]=caveGround();
   const P=GPAL[season];
   const c=document.createElement('canvas');c.width=MW*T;c.height=MH*T;const g=c.getContext('2d');
@@ -5366,7 +5372,7 @@ function faceIcon(key,ring,kind){
 }
 // ---------- ミニマップ ----------
 // 家の中にいる間は、島の地図に切りかえて描く（自分の印は家の前）
-function withIsland(fn){if(!inHome())return fn();const w=W,px=S.px,py=S.py,h=ISL.bld[1];W=ISL;S.loc='island';S.px=(h.door.x+.5)*T;S.py=(h.door.y+.5)*T;try{return fn()}finally{W=w;S.loc='home';S.px=px;S.py=py}}
+function withIsland(fn){if(!inHome()&&!inMuseum())return fn();const w=W,loc=S.loc,px=S.px,py=S.py,h=inMuseum()?(ISL.bld.find(b=>b.type==='museum')||ISL.bld[1]):ISL.bld[1];W=ISL;S.loc='island';S.px=(h.door.x+.5)*T;S.py=(h.door.y+.5)*T;try{return fn()}finally{W=w;S.loc=loc;S.px=px;S.py=py}}
 let mmT=0;
 function drawMinimap(dt,t){
   const c=document.getElementById('minimap');if(!c||!S||RT.title)return;
@@ -5399,7 +5405,7 @@ function openMap(){
     c.addEventListener('click',e=>{
       const r=c.getBoundingClientRect(),tx=Math.floor((e.clientX-r.left)/r.width*MW),ty=Math.floor((e.clientY-r.top)/r.height*MH);
       if(!inMap(tx,ty))return;
-      if(inHome()){toast('家の外に出てから歩こう');return}
+      if(inHome()||inMuseum()){toast('外に出てから歩こう');return}
       if(inCave()&&caveSeenStr()[ti(tx,ty)]!=='1'){toast('まだ行ったことのない場所だ');return}
       const g2=walkable(tx,ty)?{act:false,tx,ty,stands:[[tx,ty]]}:{act:false,tx,ty,stands:n4(tx,ty)};
       closePanel();startGoal(g2,[(tx+.5)*T,(ty+.5)*T]);
@@ -5601,7 +5607,7 @@ try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}ca
 </script>
 <script>
 // ===================== 博物館 =====================
-// 広場の左にある建物。館長がいて、次のことができる（営業時間 9:00〜21:00）
+// 広場の左にある建物（家がテントから家になるとできる）。中の受付にいる住民のフクロウ（ホーホ）に話しかけると、次のことができる（開館 9:00〜21:00）
 //   鑑定 … 掘りだした「なぞの化石」（xq）を見てもらうと、何の化石か分かる
 //   寄贈 … 虫・魚・化石・花を1つ渡すと、図鑑に登録される（はじめて手に入れただけでは「見つけた」のまま）
 //   展示 … 寄贈した物の数を、種類ごとに見る（図鑑を開ける）
@@ -5626,20 +5632,20 @@ function donate(id){
 }
 const donatable=()=>Object.keys(S.bag).filter(id=>{const it=ITEMS[id];return it&&DEX_KINDS.includes(it.kind)&&!S.dex[id]&&S.bag[id]>0});
 function openMuseum(tab){
-  if(!museumOpen()){showDialog('博物館',[`「本日の開館時間は終了しました」と書いてある。（開館 ${MUSEUM_HOURS[0]}:00〜${MUSEUM_HOURS[1]}:00）`]);return}
+  if(!museumOpen()&&!inMuseum()){showDialog('博物館',[`「本日の開館時間は終了しました」と書いてある。（開館 ${MUSEUM_HOURS[0]}:00〜${MUSEUM_HOURS[1]}:00）`]);return}
   S.flags.museum=true;
   openPanel('ひだまり博物館',[['appraise','鑑定'],['donate','寄贈'],['show','展示']],tab||((S.bag.xq||0)>0?'appraise':'donate'),(body,t)=>{
     const say=s=>body.append(h('p',{class:'muted',style:'margin:0 0 10px'},s));
     if(t==='appraise'){
       const n=S.bag.xq||0;
-      say('館長「掘りだした なぞの化石は、わしが見てあげよう。何の化石か分かるぞ。鑑定はただじゃよ。」');
+      say(`${curatorName()}「掘りだした なぞの化石は、わしが見てあげよう。何の化石か分かるぞ。鑑定はただじゃよ。」`);
       if(!n){body.append(h('p',{},'なぞの化石を持っていない。スコップで地面の×マークを掘ってみよう。'));return}
       body.append(h('div',{class:'rowline'},iconCanvas('xq',36),h('b',{class:'grow'},`なぞの化石 ×${n}`),
         h('button',{class:'btn',on:()=>{const got=appraiseAll();const L=got.map(f=>`${f.name}${f.rar>=4?'（めずらしい！）':''}`);
           toast(`鑑定の結果：${L.join('・')}`,true);if(got.some(f=>f.rar>=4))sfx('lv');RT.panel.tab='donate';refresh()}},'ぜんぶ鑑定してもらう')));
     }else if(t==='donate'){
       const L=donatable();
-      say('館長「虫・魚・化石・花を寄贈してくれたら、図鑑に記録して、ここに大切に展示しよう。1種類につき1つでよいぞ。」');
+      say(`${curatorName()}「虫・魚・化石・花を寄贈してくれたら、図鑑に記録して、ここに大切に展示しよう。1種類につき1つでよいぞ。」`);
       if(!L.length){body.append(h('p',{},'寄贈できる物を持っていない（まだ寄贈していない種類の、虫・魚・化石・花）。'+((S.bag.xq||0)>0?' なぞの化石は先に鑑定してもらおう。':'')));return}
       body.append(h('div',{class:'rowline',style:'margin:0 0 8px'},h('span',{class:'grow muted'},`寄贈できる物 ${L.length}種類`),
         h('button',{class:'btn',on:()=>{let n=0;for(const id of donatable())if(donate(id))n++;toast(`${n}種類を寄贈した。図鑑に登録された！`,true);refresh()}},'ぜんぶ寄贈する')));
@@ -5649,7 +5655,7 @@ function openMuseum(tab){
           h('button',{on:()=>{if(donate(id)){toast(`${it.name}を寄贈した。図鑑に登録された！`,true);refresh()}}},'寄贈する')))}
       body.append(grid);
     }else{
-      say('館長「みんなが寄贈してくれた物が、ここに並んでおる。ゆっくり見ていくとよい。」');
+      say(`${curatorName()}「みんなが寄贈してくれた物が、ここに並んでおる。ゆっくり見ていくとよい。」`);
       const lists={bug:BUGS,fish:FISH,fossil:FOSSILS,flower:FLOWERS};
       const wrap=h('div',{class:'two'});
       for(const [k,lb] of MUSEUM_KINDS){const all=lists[k],n=all.filter(x=>S.dex[x.id]).length,f=all.filter(x=>!S.dex[x.id]&&S.found[x.id]).length;
@@ -5658,6 +5664,144 @@ function openMuseum(tab){
       body.append(wrap,h('div',{style:'margin-top:10px'},h('button',{class:'btn',on:()=>{closePanel();openDex('bug')}},'図鑑を開く')));
     }
   });
+}
+
+// ===================== 博物館の中 =====================
+// 広さは 15×10 マス（テント 6×5 の約5倍）。まん中に受付カウンター、その奥に住民のフクロウ（ホーホ）。
+// 四すみに展示ケース（化石・虫・魚・花）。寄贈した物がケースの中に並ぶ。下のまん中が出入口。
+// 地図の配列は家の中と同じ（MW×MH の一部屋だけを床にする。床 12・壁 13・出入口 14）
+const MUS_W=15,MUS_H=10,MUS_OX=6,MUS_OY=6,MUS_CURATOR='hoho';
+const inMuseum=()=>!!S&&S.loc==='museum';
+const curatorName=()=>vById(MUS_CURATOR)?.name||'館長';
+let MUSEUM_MAP=null;
+function museumMap(){
+  if(MUSEUM_MAP)return MUSEUM_MAP;
+  const w=MUS_W,h=MUS_H,ox=MUS_OX,oy=MUS_OY;
+  const tiles=new Uint8Array(MW*MH).fill(13),block=new Uint8Array(MW*MH).fill(1);
+  for(let y=oy;y<oy+h;y++)for(let x=ox;x<ox+w;x++){tiles[ti(x,y)]=12;block[ti(x,y)]=0}
+  const door={x:ox+Math.floor(w/2),y:oy+h};tiles[ti(door.x,door.y)]=14;block[ti(door.x,door.y)]=0;
+  const counter={x:ox+5,y:oy+4,w:5,h:1},owl={x:ox+7,y:oy+3};
+  const cases=[['fossil','化石',1,1],['bug','虫',11,1],['fish','魚',1,6],['flower','花',11,6]].map(([kind,name,x,y])=>({kind,name,x:ox+x,y:oy+y,w:3,h:2}));
+  const solid=(x0,y0,ww,hh)=>{for(let y=y0;y<y0+hh;y++)for(let x=x0;x<x0+ww;x++)block[ti(x,y)]=1};
+  solid(counter.x,counter.y,counter.w,1);solid(owl.x,owl.y,1,1);for(const c of cases)solid(c.x,c.y,c.w,c.h);
+  return MUSEUM_MAP={id:'museum',museum:true,w,h,ox,oy,tiles,block,door,counter,owl,cases,
+    trees:[],rocks:[],bld:[],treeAt:new Map(),rockAt:new Map(),nodes:[],nodeAt:new Map(),
+    start:{x:(door.x+.5)*T,y:(door.y-.5)*T+4},
+    room:{x0:(ox-1)*T,y0:(oy-2.6)*T,x1:(ox+w+1)*T,y1:(oy+h+1.4)*T}};
+}
+function goMuseum(at){
+  W=museumMap();S.loc='museum';resetMapRT();
+  if(at==='door'){S.px=W.start.x;S.py=W.start.y;S.dir='up';toast(`ひだまり博物館へようこそ。受付の${curatorName()}に話しかけると、鑑定や寄贈ができるよ`)}
+  RT.fade=.6;updateHud();
+}
+function leaveMuseum(){
+  W=ISL;S.loc='island';resetMapRT();
+  const b=W.bld.find(b=>b.type==='museum')||W.bld[1];S.px=(b.door.x+.5)*T;S.py=(b.door.y+1.5)*T;S.dir='down';
+  RT.fade=.6;updateHud();save();
+}
+// 島に博物館を建てる（家がテントから家になったとき）。木や岩と重ならない広場の左
+function ensureMuseum(){
+  if(!S||S.house<1||!ISL||ISL.bld.some(b=>b.type==='museum'))return false;
+  const PZ=ISL.plaza,m={type:'museum',x:PZ.x0,y:PZ.y0,w:4,h:3};m.door={x:m.x+Math.floor(m.w/2),y:m.y+m.h};ISL.bld.push(m);
+  for(let y=m.y;y<m.y+m.h;y++)for(let x=m.x;x<m.x+m.w;x++)ISL.block[ti(x,y)]=1;
+  for(const k in mapBaseCache)delete mapBaseCache[k];
+  return true;
+}
+// どのマスが何か（博物館の中）
+const musCounterAt=(x,y)=>{const c=W.counter;return (x>=c.x&&x<c.x+c.w&&y===c.y)||(x===W.owl.x&&y===W.owl.y)};
+const musCaseAt=(x,y)=>W.cases.find(c=>x>=c.x&&x<c.x+c.w&&y>=c.y&&y<c.y+c.h)||null;
+const musDoorAt=(x,y)=>x===W.door.x&&y===W.door.y;
+function museumPressA(fx,fy,ptx,pty){
+  if(musDoorAt(fx,fy)||musDoorAt(ptx,pty)){leaveMuseum();return}
+  if(musCounterAt(fx,fy)){talkCurator();return}
+  const c=musCaseAt(fx,fy);if(c){const L=museumList(c.kind),n=L.filter(x=>S.dex[x.id]).length;
+    toast(n?`${c.name}の展示（${n} / ${L.length} 種類）。寄贈してくれた物が並んでいる`:`${c.name}の展示ケース。まだ何も入っていない`);return}
+}
+function talkCurator(){
+  const n=S.bag.xq||0,d=donatable().length;
+  showDialog(curatorName(),[n?`おお、なぞの化石を ${n}個 持っておるな。鑑定してあげよう。`:d?`寄贈できそうな物を ${d}種類 持っておるな。図鑑に記録しよう。`:'ようこそ、ひだまり博物館へ。何をしようかの？'],null,[
+    ['鑑定してもらう',()=>{endTalk();openMuseum('appraise')}],['寄贈する',()=>{endTalk();openMuseum('donate')}],['展示を見る',()=>{endTalk();openMuseum('show')}],['またね',endTalk]]);
+}
+function museumHint(){
+  const [fx,fy]=facingTile(),[px,py]=ptile();
+  if(musDoorAt(fx,fy)||musDoorAt(px,py))return '外に出る';
+  if(musCounterAt(fx,fy))return '話す';
+  if(musCaseAt(fx,fy))return '見る';
+  return null;
+}
+function museumTick(){const [px,py]=ptile();if(musDoorAt(px,py))leaveMuseum()}
+function museumClick(tx,ty){
+  if(musDoorAt(tx,ty))return {act:false,tx,ty,stands:[[tx,ty]]};
+  if(musCounterAt(tx,ty)){const c=W.counter,sx=W.owl.x;return {act:true,tx:sx,ty:c.y,stands:[[sx,c.y+1]]}}
+  const c=musCaseAt(tx,ty);if(c){const st=[];for(let x=c.x;x<c.x+c.w;x++){st.push([x,c.y+c.h])}for(let y=c.y;y<c.y+c.h;y++){st.push([c.x-1,y],[c.x+c.w,y])}return {act:true,tx,ty,stands:st.filter(([x,y])=>walkable(x,y))}}
+  return null;
+}
+const museumList=k=>({bug:BUGS,fish:FISH,fossil:FOSSILS,flower:FLOWERS})[k];
+// ---- 見た目 ----
+// 床と壁（部屋が変わらないので1回だけ描く）：大理石の床・入口から受付まで赤いじゅうたん・奥の壁に窓と看板
+function museumGround(){
+  const c=document.createElement('canvas');c.width=MW*T;c.height=MH*T;const g=c.getContext('2d');
+  const {ox,oy,w,h,door}=W,X0=ox*T,Y0=oy*T,X1=(ox+w)*T,Y1=(oy+h)*T,WY=Y0-2*T;
+  g.fillStyle='#1d1a24';g.fillRect(0,0,c.width,c.height);
+  // 奥の壁：深い緑の壁紙、腰板、窓、まん中に看板
+  const wg=g.createLinearGradient(0,WY,0,Y0);wg.addColorStop(0,'#3f6b5a');wg.addColorStop(1,'#2f5547');g.fillStyle=wg;g.fillRect(X0,WY,X1-X0,2*T);
+  g.fillStyle='rgba(255,255,255,.06)';for(let x=X0+10;x<X1;x+=20)g.fillRect(x,WY,2,2*T-14);
+  g.fillStyle='#c9a46a';g.fillRect(X0,Y0-14,X1-X0,14);g.fillStyle='#8a6a3c';g.fillRect(X0,Y0-4,X1-X0,4);g.fillStyle='#e8cf9a';g.fillRect(X0,WY,X1-X0,4);
+  for(const wx of [X0+2*T,X0+4.5*T,X1-5.5*T,X1-3*T]){
+    g.fillStyle='#8a6a3c';g.fillRect(wx-3,WY+9,36,40);const sky=g.createLinearGradient(0,WY+12,0,WY+46);sky.addColorStop(0,'#9fd6ee');sky.addColorStop(1,'#e8f6fb');g.fillStyle=sky;g.fillRect(wx,WY+12,30,34);
+    g.fillStyle='#8a6a3c';g.fillRect(wx+13.5,WY+12,3,34);g.fillRect(wx,WY+27,30,3);g.fillStyle='rgba(255,255,255,.5)';g.fillRect(wx+3,WY+15,5,3)}
+  const sx=(ox+w/2)*T;g.fillStyle='#6b4a2a';g.beginPath();g.roundRect(sx-58,WY+14,116,30,6);g.fill();g.fillStyle='#f3e2b8';g.beginPath();g.roundRect(sx-54,WY+18,108,22,4);g.fill();
+  g.fillStyle='#4a3218';g.font='bold 14px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.fillText('ひだまり博物館',sx,WY+34);
+  // 床：大理石の市松模様
+  for(let y=oy;y<oy+h;y++)for(let x=ox;x<ox+w;x++){const px=x*T,py=y*T,a=(x+y)&1,hh=hash(x*5,y*3);
+    g.fillStyle=a?'#efe9dc':'#ddd4c2';g.fillRect(px,py,T,T);g.strokeStyle='rgba(150,130,100,.18)';g.lineWidth=1;g.strokeRect(px+.5,py+.5,T-1,T-1);
+    g.strokeStyle=`rgba(160,150,140,${.15+hh*.15})`;g.beginPath();g.moveTo(px+hh*20,py+4);g.quadraticCurveTo(px+16,py+12+hh*8,px+28-hh*10,py+T-3);g.stroke()}
+  // 入口から受付までの赤いじゅうたん（金のふち）
+  const cx=(W.owl.x)*T,cy=(W.counter.y+1)*T;
+  g.fillStyle='#a8322e';g.fillRect(cx+2,cy,T-4,Y1-cy);g.fillStyle='#d9b45a';g.fillRect(cx+2,cy,2,Y1-cy);g.fillRect(cx+T-4,cy,2,Y1-cy);
+  // 左右の壁と手前の壁、出入口
+  g.fillStyle='#4a3a2a';g.fillRect(X0-10,WY,10,Y1-WY+12);g.fillRect(X1,WY,10,Y1-WY+12);g.fillStyle='#6b5640';g.fillRect(X0-10,Y1,X1-X0+20,12);
+  const dx=door.x*T;g.fillStyle='#1d1a24';g.fillRect(dx,Y1,T,12);
+  const lg=g.createLinearGradient(0,Y1-T,0,Y1);lg.addColorStop(0,'rgba(255,240,190,0)');lg.addColorStop(1,'rgba(255,240,190,.5)');g.fillStyle=lg;g.fillRect(dx,Y1-T,T,T);
+  return c;
+}
+// 受付カウンター（木の天板と、前の板）
+function drawMuseumCounter(g){
+  const c=W.counter,x=c.x*T,y=c.y*T,w=c.w*T;
+  g.fillStyle='rgba(30,20,10,.25)';g.fillRect(x+3,y+T-2,w-2,6);
+  const fg=g.createLinearGradient(0,y+6,0,y+T);fg.addColorStop(0,'#8a5a34');fg.addColorStop(1,'#6b4426');g.fillStyle=fg;g.fillRect(x,y+6,w,T-4);
+  g.fillStyle='rgba(0,0,0,.15)';for(let i=1;i<c.w*2;i++)g.fillRect(x+i*T/2,y+10,1.5,T-10);
+  g.fillStyle='#d9b07a';g.beginPath();g.roundRect(x-3,y-2,w+6,10,3);g.fill();g.fillStyle='rgba(255,255,255,.35)';g.fillRect(x,y-1,w,2);
+  // 呼び鈴と、鑑定用のルーペ
+  ell(g,x+w-22,y+1,5,2,'#9aa3ab');circ(g,x+w-22,y-2,4,'#e6c45a');circ(g,x+w-23,y-3,1.2,'#fff7d0');
+  g.strokeStyle='#6b4a2a';g.lineWidth=2;g.beginPath();g.moveTo(x+20,y+2);g.lineTo(x+27,y-3);g.stroke();g.strokeStyle='#c9d4dc';g.lineWidth=1.6;g.beginPath();g.arc(x+30,y-5,4,0,7);g.stroke();
+  g.fillStyle='#f3e2b8';g.beginPath();g.roundRect(x+w/2-22,y+12,44,13,3);g.fill();g.fillStyle='#4a3218';g.font='bold 9px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.fillText('受付',x+w/2,y+22);
+}
+// 展示ケース：寄贈した物のアイコンを並べる（寄贈の数が変わったときだけ描き直す）
+const _caseArt=new Map();
+function drawMuseumCase(g,c){
+  const L=museumList(c.kind).filter(x=>S.dex[x.id]),key=c.kind+':'+L.length;
+  let im=_caseArt.get(c.kind);
+  if(!im||im.key!==key){
+    const W2=c.w*T,H2=c.h*T+14,cv=document.createElement('canvas');cv.width=W2*2;cv.height=H2*2;const cg=cv.getContext('2d');cg.scale(2,2);
+    cg.fillStyle='#6b4a2a';cg.beginPath();cg.roundRect(1,8,W2-2,H2-9,4);cg.fill();                     // 台
+    cg.fillStyle='rgba(205,232,245,.55)';cg.beginPath();cg.roundRect(4,2,W2-8,H2-18,4);cg.fill();       // ガラス
+    cg.strokeStyle='rgba(255,255,255,.8)';cg.lineWidth=1.2;cg.beginPath();cg.roundRect(4,2,W2-8,H2-18,4);cg.stroke();
+    const cols=4,cw=(W2-12)/cols,show=L.slice(-8);
+    show.forEach((it,i)=>{const ic=iconCanvas(it.id,18);cg.drawImage(ic,6+(i%cols)*cw+(cw-16)/2,5+Math.floor(i/cols)*20,16,16)});
+    cg.fillStyle='rgba(255,255,255,.35)';cg.beginPath();cg.moveTo(8,4);cg.lineTo(18,4);cg.lineTo(8,H2-22);cg.fill();
+    cg.fillStyle='#f3e2b8';cg.beginPath();cg.roundRect(W2/2-26,H2-15,52,12,3);cg.fill();
+    cg.fillStyle='#4a3218';cg.font='bold 8px "Zen Maru Gothic",sans-serif';cg.textAlign='center';cg.fillText(`${c.name} ${L.length}/${museumList(c.kind).length}`,W2/2,H2-6);
+    im={cv,key};_caseArt.set(c.kind,im);
+  }
+  g.fillStyle='rgba(30,20,10,.22)';g.fillRect(c.x*T+3,(c.y+c.h)*T-2,c.w*T-2,6);
+  g.drawImage(im.cv,c.x*T,c.y*T-12,c.w*T,c.h*T+14);
+}
+// 奥行きの順に並べる物（render の D に入れる）
+function museumObjects(D,ctx){
+  for(const c of W.cases)D.push([(c.y+c.h)*T-4,()=>drawMuseumCase(ctx,c)]);
+  const v=vById(MUS_CURATOR);if(v)D.push([(W.owl.y+1)*T-6,()=>drawAnimal(ctx,(W.owl.x+.5)*T,(W.owl.y+1)*T-2,'down',0,v)]);
+  D.push([(W.counter.y+1)*T-2,()=>drawMuseumCounter(ctx)]);
 }
 </script>
 <script>
@@ -5768,6 +5912,7 @@ function clickTarget(wx,wy){
   if(S.tool==='sword')for(const e of RT.enemies)if(Math.hypot(wx-e.x,wy-(e.y-14))<22){const x=Math.floor(e.x/T),y=Math.floor((e.y-4)/T);return {act:true,enemy:e,tx:x,ty:y,stands:[[x,y],...n4(x,y)]}}
   if(S.tool==='wand'&&['orb','fire'].includes(curSpell().id))for(const e of RT.enemies)if(Math.hypot(wx-e.x,wy-(e.y-14))<26)return {act:true,cast:[e.x,e.y-14],stands:[]};
   if(inHome()){const hc=homeClick(tx,ty);if(hc)return hc;return walkable(tx,ty)?{act:false,tx,ty,stands:[[tx,ty]]}:onTile(false)}
+  if(inMuseum()){const mc=museumClick(tx,ty);if(mc)return mc;return walkable(tx,ty)?{act:false,tx,ty,stands:[[tx,ty]]}:onTile(false)}
   if(inCave()){
     if(stairsAt(tx,ty))return {act:true,tx,ty,stands:[[tx,ty]]};
     const ni=inMap(tx,ty)?W.nodeAt.get(ti(tx,ty)):undefined;
@@ -5913,6 +6058,7 @@ function loop(ts){
       if(RT.jump)updateJump(dt);
       else if(mx||my){RT.goal=null;RT.approach=null;movePlayer(mx,my,run,dt)}else if(RT.goal)followGoal(dt);else{movePlayer(0,0,false,dt);RT.running=false}
       if(inHome())homeTick();
+      if(inMuseum())museumTick();
       if(onIsland()){const [tx,ty]=ptile();const z=tileAt(tx,ty)===7?W.zone[ti(tx,ty)]:0;if(z&&z!==RT.lastPier)toast(`${PIER_INFO[z][1]}：${PIER_INFO[z][2]}`);RT.lastPier=z}
       tickTime(dt);updateBugs(dt,RT.running);updateVillagers(dt);updateFishing(dt);updateEnemies(dt);updateShadows(dt);
       if((RT.mpT=(RT.mpT||0)+dt)>1){RT.mpT=0;if(S.tools.wand)updateHud()}
@@ -5957,11 +6103,11 @@ function continueGame(){
 }
 function boot(snap){
   resize();buildToolbar();
-  if(snap&&snap.v===2){S=migrate(snap);genWorld(S.seed);fitToMap();resetVillagers();if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}RT.title=false;$('title').hidden=true;updateHud();renderTasks();requestAnimationFrame(loop);return}
+  if(snap&&snap.v===2){S=migrate(snap);genWorld(S.seed);fitToMap();resetVillagers();if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else if(S.loc==='museum')goMuseum(null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}RT.title=false;$('title').hidden=true;updateHud();renderTasks();requestAnimationFrame(loop);return}
   const sv=load();
   if(sv&&(sv.v===1||sv.v===2)){
     const old=sv.v===1;S=migrate(sv);genWorld(S.seed);if(old)initDaily();fitToMap();resetVillagers();
-    if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}
+    if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else if(S.loc==='museum')goMuseum(null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}
     RT.needName=!S.name||S.name==='あなた';
     selGender=S.gender||null;setupTitle(true);
   }else{
