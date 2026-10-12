@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.017";</script>
+<script>const GAME_VERSION="1.018";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -733,11 +733,11 @@ const MISC=[
   {id:'gold',name:'金鉱石',price:1500,kind:'mat'},
   {id:'silver',name:'銀鉱石',price:800,kind:'mat'},
   {id:'mstone',name:'魔石',price:800,kind:'mat'},
-  {id:'copper_bar',name:'銅インゴット',price:600,kind:'bar',note:'溶鉱炉で銅鉱石3つから作る'},
-  {id:'iron_bar',name:'鉄インゴット',price:1400,kind:'bar',note:'溶鉱炉で鉄鉱石3つから作る'},
-  {id:'silver_bar',name:'銀インゴット',price:3000,kind:'bar',note:'溶鉱炉で銀鉱石3つから作る'},
-  {id:'gold_bar',name:'金インゴット',price:5500,kind:'bar',note:'溶鉱炉で金鉱石3つから作る'},
-  {id:'mstone_bar',name:'魔石の結晶',price:3000,kind:'bar',note:'溶鉱炉で魔石3つから作る'},
+  {id:'copper_bar',name:'銅インゴット',price:600,kind:'bar',note:'溶鉱炉で銅鉱石3つから作る。道具の強化に使う'},
+  {id:'iron_bar',name:'鉄インゴット',price:1400,kind:'bar',note:'溶鉱炉で鉄鉱石3つから作る。道具の強化に使う'},
+  {id:'silver_bar',name:'銀インゴット',price:3000,kind:'bar',note:'溶鉱炉で銀鉱石3つから作る。道具の強化に使う'},
+  {id:'gold_bar',name:'金インゴット',price:5500,kind:'bar',note:'溶鉱炉で金鉱石3つから作る。道具の強化に使う'},
+  {id:'mstone_bar',name:'魔石の結晶',price:3000,kind:'bar',note:'溶鉱炉で魔石3つから作る。杖の強化に使う'},
   {id:'gel',name:'スライムゼリー',price:150,kind:'mat'},
   {id:'honey',name:'ハチミツ',price:300,kind:'mat'},
   {id:'shell',name:'貝がら',price:60,kind:'mat'},
@@ -928,25 +928,22 @@ const TOOLS=[
   {id:'wand',name:'杖',key:'8',skill:'magic'},
 ];
 const TIER_LABEL=['ふつうの','丈夫な','金の'];
-// 剣・スコップ・つりざお・あみは、作る材料で質が決まる（木→石→鉄の順に良い）。ランク 1〜3 が 木・石・鉄
-const TIER_OF={axe:['石のオノ','鉄のオノ','金のオノ'],sword:['木の剣','石の剣','鉄の剣'],wand:['魔法の杖','星の杖','伝説の杖'],
-  net:['木のあみ','石のあみ','鉄のあみ'],rod:['木のつりざお','石のつりざお','鉄のつりざお'],shovel:['木のスコップ','石のスコップ','鉄のスコップ']};
+// 剣・スコップ・つりざお・あみ・オノは、強化に使うインゴットで質が決まる（銅→鉄→銀→金の順に良い）。ランク 1〜5
+const TIER_OF={axe:['石のオノ','銅のオノ','鉄のオノ','銀のオノ','金のオノ'],sword:['木の剣','銅の剣','鉄の剣','銀の剣','金の剣'],wand:['魔法の杖','星の杖','伝説の杖'],
+  net:['木のあみ','銅のあみ','鉄のあみ','銀のあみ','金のあみ'],rod:['木のつりざお','銅のつりざお','鉄のつりざお','銀のつりざお','金のつりざお'],shovel:['木のスコップ','銅のスコップ','鉄のスコップ','銀のスコップ','金のスコップ']};
+const TOOL_MAX=id=>TIER_OF[id]?TIER_OF[id].length:3;
 const MAT_TOOLS=['sword','shovel','rod','net'];
-const MAT_COL=[null,'#b07a4a','#8f8a80','#c4ccd4'];   // 木・石・鉄の色（手に持った絵とアイコン）
+const MAT_COL=[null,'#b07a4a','#e0783a','#959fa9','#eef3f8','#f0c840'];   // 木・銅・鉄・銀・金の色（手に持った絵とアイコン）
 const toolName=(id,tr)=>TIER_OF[id]?TIER_OF[id][tr-1]:(tr>1?TIER_LABEL[tr-1]:'')+TOOLS.find(t=>t.id===id).name;
-const TOOL_UP=[null,{bells:2000,mat:'copper',n:5,lv:3},{bells:8000,mat:'silver',n:3,lv:6}];
+const TOOL_UP=[null,{bells:2000,mat:'copper_bar',n:2,lv:3},{bells:8000,mat:'gold_bar',n:2,lv:6}];   // じょうろの強化（インゴットを使う）
 // クラフトのレシピ
 const RECIPES=[
   {id:'r_axe1',name:'石のオノ',lv:1,mats:{branch:3,stone:2},tool:['axe',1],note:'木を切って木材を集める'},
   {id:'r_sword1',name:'木の剣',lv:1,mats:{wood:4},tool:['sword',1],note:'夜のスライムやハチと戦える'},
   {id:'r_shovel1',name:'木のスコップ',lv:1,mats:{wood:3,branch:1},tool:['shovel',1],note:'化石を掘ったり、岩をたたける（商店でも買える）'},
-  {id:'r_sword2',name:'石の剣',lv:3,mats:{stone:5,wood:2},tool:['sword',2],need:['sword',1],note:'攻撃力 +1'},
-  {id:'r_shovel2',name:'石のスコップ',lv:3,mats:{stone:4,wood:1},tool:['shovel',2],need:['shovel',1],note:'レアな化石と鉱石が出やすく、岩を広くたたける'},
-  {id:'r_rod2',name:'石のつりざお',lv:3,mats:{stone:3,wood:2},tool:['rod',2],need:['rod',1],note:'アタリの猶予が長くなり、大物がかかりやすい'},
-  {id:'r_net2',name:'石のあみ',lv:3,mats:{stone:3,wood:2},tool:['net',2],need:['net',1],note:'虫を捕まえる成功率 +10%'},
-  {id:'r_spear',name:'槍',lv:3,mats:{wood:2,iron:2},weapon:'spear',note:'武器。まっすぐ遠くまで届き、並んだ敵をまとめて突く'},
+  {id:'r_spear',name:'槍',lv:3,mats:{wood:2,iron_bar:1},weapon:'spear',note:'武器。まっすぐ遠くまで届き、並んだ敵をまとめて突く'},
   {id:'r_bow',name:'弓',lv:4,mats:{wood:4,silk:2},weapon:'bow',note:'武器。矢を放って、離れた敵をねらう'},
-  {id:'r_hammer',name:'ハンマー',lv:5,mats:{iron:4,fang:2},weapon:'hammer',note:'武器。まわり全体を強くたたく（少し遅い）'},
+  {id:'r_hammer',name:'ハンマー',lv:5,mats:{iron_bar:2,fang:2},weapon:'hammer',note:'武器。まわり全体を強くたたく（少し遅い）'},
   {id:'r_bait',name:'釣りエサ ×3',lv:1,mats:{shell:1},out:['bait',3],note:'釣りの腕が上がると、役に立つらしい'},
   {id:'r_f_furnace',name:'溶鉱炉',lv:3,mats:{stone:10,copper:3,wood:4},furn:'furnace',note:'家具。鉱石3つをインゴット1つにする（家の中に置いて使う）'},
   {id:'r_f_box',name:'収納箱',lv:1,mats:{wood:6},furn:'box',note:'家具。1つに50個までしまえる（箱ごとに別々）。置ける数は家の大きさで決まる'},
@@ -960,15 +957,17 @@ const RECIPES=[
   {id:'r_lure',name:'虫寄せの蜜',lv:3,mats:{honey:1,branch:2},out:['lure',1],note:'使うと珍しい虫が集まる'},
   {id:'r_fence',name:'木の柵 ×4',lv:1,mats:{wood:2},out:['fence_item',4],note:'島に置ける柵。となりの柵とつながる'},
   {id:'r_torch',name:'松明 ×2',lv:1,mats:{branch:2,wood:1},out:['torch',2],note:'使うと、しばらく自分のまわりが明るくなる（夜や洞窟で）'},
-  {id:'r_axe2',name:'鉄のオノ',lv:4,mats:{iron:2,hardwood:2},tool:['axe',2],need:['axe',1],note:'1回で取れる木材が増え、疲れにくい'},
-  {id:'r_sword3',name:'鉄の剣',lv:6,mats:{iron:4,wood:2},tool:['sword',3],need:['sword',2],note:'攻撃力 +2'},
-  {id:'r_shovel3',name:'鉄のスコップ',lv:6,mats:{iron:3,wood:1},tool:['shovel',3],need:['shovel',2],note:'さらにレアな物が出やすく、岩をもっと広くたたける'},
-  {id:'r_rod3',name:'鉄のつりざお',lv:6,mats:{iron:3,wood:2},tool:['rod',3],need:['rod',2],note:'さらに大物がかかりやすい'},
-  {id:'r_net3',name:'鉄のあみ',lv:6,mats:{iron:3,wood:2},tool:['net',3],need:['net',2],note:'虫を捕まえる成功率 さらに +10%'},
-  {id:'r_wand2',name:'星の杖',lv:6,mats:{silver:2,mstone:3,hardwood:2},tool:['wand',2],need:['wand',1],note:'魔法の消費 -25%、光の玉が強くなる'},
-  {id:'r_axe3',name:'金のオノ',lv:7,mats:{gold:2,hardwood:1},tool:['axe',3],need:['axe',2],note:'さらに木材が増え、ほとんど疲れない'},
-  {id:'r_wand3',name:'伝説の杖',lv:9,mats:{gold:2,mstone:5},tool:['wand',3],need:['wand',2],note:'魔法の消費 -50%'},
+  {id:'r_wand2',name:'星の杖',lv:6,mats:{silver_bar:1,mstone_bar:2,hardwood:2},tool:['wand',2],need:['wand',1],note:'魔法の消費 -25%、光の玉が強くなる'},
+  {id:'r_wand3',name:'伝説の杖',lv:9,mats:{gold_bar:2,mstone_bar:3},tool:['wand',3],need:['wand',2],note:'魔法の消費 -50%'},
 ];
+// 道具の強化は、溶鉱炉で作ったインゴットを使う。いいインゴットほど高性能（銅→鉄→銀→金）
+const UP_BARS=[null,null,['copper_bar',3],['iron_bar',5],['silver_bar',7],['gold_bar',9]];   // [インゴット, クラフトLv]
+const UP_NOTE={sword:k=>`攻撃力 +${k-1}（木の剣より）`,shovel:k=>`鉱脈が${k-1}回少なくたたいて割れ、レアな化石や鉱石が出やすい`,rod:k=>`アタリの猶予が長く、大物がかかりやすい（ランク${k}）`,
+  net:k=>`虫を捕まえる成功率 +${(k-1)*10}%`,axe:k=>`1回で取れる木材が増え、疲れにくい（ランク${k}）`};
+for(let k=2;k<=5;k++)for(const id of ['sword','shovel','rod','net','axe']){
+  const [bar,lv]=UP_BARS[k],sub=id==='axe'?(k>=4?['hardwood',2]:['wood',3]):['wood',id==='shovel'?1:2];
+  RECIPES.push({id:`r_${id}${k}`,name:TIER_OF[id][k-1],lv,mats:{[bar]:id==='sword'?3:2,[sub[0]]:sub[1]},tool:[id,k],need:[id,k-1],note:UP_NOTE[id](k)});
+}
 const HOUSE=[
   {name:'テント',cap:30},
   {name:'小さな家',cap:40,bells:5000,mat:'stone',n:8},
@@ -1278,7 +1277,7 @@ const SKILL_IDS=SKILLS.map(s=>s.id);
 function newState(name){
   const skills={};SKILL_IDS.forEach(id=>skills[id]={lv:1,xp:0});
   return {v:2,name,seed:Math.floor(Math.random()*1e9),day:1,min:360,bells:1000,lv:1,xp:0,sta:50,mp:14,
-    skills,tools:{hand:1,net:1,rod:1,axe:0,shovel:0,can:0,sword:0,wand:0},tool:'hand',spell:'orb',house:0,
+    skills,tools:{hand:1,net:1,rod:1,axe:0,shovel:0,can:0,sword:0,wand:0},toolV:1,tool:'hand',spell:'orb',house:0,
     bag:{s_tulip:3,apple:2},box:{},dex:{},found:{},cleared:{},stumpHits:{},decos:[],saplings:[],planted:[],friends:{},fruit:[],rockHits:[],chopHits:[],stumps:{},flowers:[],dig:[],holes:[],shells:[],branches:[],tasks:[],
     weather:'晴れ',px:0,py:0,dir:'down',held:null,loc:'island',mapW:MW,gender:null,flags:{},caveBroken:{},caveHits:{},stats:{bug:0,fish:0,fossil:0,flower:0,earned:0,defeat:0,craft:0},fresh:true,homeFurn:null,furnInv:{},weapons:{},weapon:'sword',
     residents:pickResidents()};
@@ -1329,6 +1328,7 @@ function migrate(s){
   if(!('homeFurn' in s)){s.homeFurn=null;s.furnLegacy=true}   // 家具を手に入れる仕組みより前のセーブ
   s.furnInv=s.furnInv||{};s.weapons=s.weapons||{};s.weapon=s.weapon||'sword';s.found=s.found||{};s.cleared=s.cleared||{};s.stumpHits=s.stumpHits||{};s.decos=s.decos||[];s.saplings=s.saplings||[];s.planted=s.planted||[];
   Object.assign(s,{loc:s.loc||'island',flags:s.flags||{},caveBroken:s.caveBroken||{},caveHits:s.caveHits||{}});
+  if(!s.toolV){if(s.tools&&s.tools.axe>=2)s.tools.axe=s.tools.axe===2?3:5;s.toolV=1}   // オノは 石・鉄・金 の3段階だった
   if(s.v===2)return s;
   const old=s.skills||{};s.skills={};
   SKILL_IDS.forEach(id=>s.skills[id]=old[id]&&['bug','fish','dig'].includes(id)?old[id]:{lv:1,xp:0});
@@ -1838,15 +1838,15 @@ function useAxe(fx,fy){
   // 切り株：斧で STUMP_HITS 回たたくと取りのぞける（その場所には、もう木が生えない）。放っておけば3日で木に戻る
   if(S.stumps[i]){
     S.stumpHits=S.stumpHits||{};S.stumpHits[i]=(S.stumpHits[i]||0)+1;
-    useSta(Math.max(1,Math.round(3*(1-Math.min(.6,lv*.06))*[1,.7,.4][tr-1])));RT.shake.set(i,.3);sfx('chop');task('chop');gainSkill('chop',2);
+    useSta(Math.max(1,Math.round(3*(1-Math.min(.6,lv*.06))*[1,.8,.62,.48,.35][tr-1])));RT.shake.set(i,.3);sfx('chop');task('chop');gainSkill('chop',2);
     const left=STUMP_HITS-S.stumpHits[i];
     if(left>0){toast(`切り株をたたいた（あと${left}回で取りのぞける）`);return}
     clearStump(i);const w=2+(tr-1);addItem('wood',w,true);gainSkill('chop',6);sfx('dig');
     toast(`切り株を取りのぞいた！ 木材 ×${w}（ここには、もう木は生えてこない）`,true);return;
   }
-  useSta(Math.max(1,Math.round(3*(1-Math.min(.6,lv*.06))*[1,.7,.4][tr-1])));
+  useSta(Math.max(1,Math.round(3*(1-Math.min(.6,lv*.06))*[1,.8,.62,.48,.35][tr-1])));
   S.chopHits[i]++;RT.shake.set(i,.3);sfx('chop');task('chop');
-  const n=1+Math.floor(lv/4)+(tr-1);
+  const n=1+Math.floor(lv/4)+[0,1,1,2,3][tr-1];
   addItem('wood',n,true);gainSkill('chop',3);
   const t=W.trees[i];const tb=RT.bugs.find(b=>b.tree===t);if(tb)scare(tb);
   if(S.chopHits[i]>=FELL_HITS){   // 続けて FELL_HITS 回たたくと、切り倒して切り株になる
@@ -2096,7 +2096,7 @@ function drawWeapon(g,kind,dir,s,tr,anim){
   g.save();g.rotate(rot);g.lineCap='round';g.lineJoin='round';
   const shine=back?.12:.45;
   if(kind==='sword'){
-    const blade=tr===3?'#dfe6ec':tr===2?'#9a958c':'#c9a06b',wood=tr===1;   // 木・石・鉄の剣
+    const blade=['#c9a06b','#e2834a','#a7b0b9','#f6f9fc','#f3cc4a'][tr-1]||'#c9a06b',wood=tr===1;   // 木・銅・鉄・銀・金の剣
     const bw=side?2.6:3.2;
     const gr=g.createLinearGradient(-bw,0,bw,0);gr.addColorStop(0,shade(blade,.35));gr.addColorStop(.5,blade);gr.addColorStop(1,shade(blade,-.3));
     g.beginPath();g.moveTo(-bw/2,-4);g.lineTo(-bw/2,-19);g.lineTo(0,-23);g.lineTo(bw/2,-19);g.lineTo(bw/2,-4);g.closePath();
@@ -2104,7 +2104,7 @@ function drawWeapon(g,kind,dir,s,tr,anim){
     if(!wood){g.strokeStyle='rgba(255,255,255,'+shine+')';g.lineWidth=.5;g.beginPath();g.moveTo(-.3,-5);g.lineTo(-.3,-19);g.stroke()}   // 刃のみぞ
     else{g.strokeStyle='rgba(110,70,35,.5)';g.lineWidth=.4;for(const y of [-8,-12,-16]){g.beginPath();g.moveTo(-bw/2+.3,y);g.lineTo(bw/2-.3,y-1);g.stroke()}}  // 木目
     // つば（両はしに丸）
-    const gc=tr===3?'#7d8a96':tr===2?'#6f6458':'#b08a3e';
+    const gc=['#b08a3e','#8a5a30','#7d8a96','#a8b6c2','#c99a28'][tr-1]||'#b08a3e';
     g.fillStyle=gc;g.fillRect(-4.5,-4.6,9,1.8);circ(g,-4.6,-3.7,1.1,gc);circ(g,4.6,-3.7,1.1,gc);
     // 持ち手（巻いた革）と柄頭
     g.fillStyle='#6b4423';g.fillRect(-1.1,-2.8,2.2,5.6);
@@ -2175,7 +2175,7 @@ function drawWeapon(g,kind,dir,s,tr,anim){
 function drawToolInHand(g,x,y){
   const tool=S.tool;if(tool==='hand')return;
   const [dx]=DIRV[S.dir];const hx=x+(dx||1)*9,hy=y-14;
-  const tr=tier(tool);const metal=MAT_COL[tr]||MAT_COL[1];   // 木・石・鉄
+  const tr=tier(tool);const metal=MAT_COL[tr]||MAT_COL[1];   // 木・銅・鉄・銀・金
   g.save();g.translate(hx,hy);
   if(RT.swing>0&&tool==='net'){g.rotate((dx||1)*(1-RT.swing/.35)*2.2-1)}
   g.strokeStyle='#8a5a34';g.lineWidth=2;
@@ -2183,7 +2183,7 @@ function drawToolInHand(g,x,y){
   if(tool==='rod'){const tp=drawRod(g,S.dir,dx||1,metal);RT.rodTip=[hx+tp[0],hy+tp[1]]}   // 竿先の位置（釣り糸はここから）
   if(tool==='shovel')drawShovel(g,S.dir,dx||1,metal);
   if(tool==='can'){g.fillStyle=tr===3?'#e8b830':tr===2?'#6aa0d8':'#5fae7a';g.fillRect(-5,-6,10,8);g.fillRect(4,-6,5,2)}
-  if(tool==='axe'){if(RT.shakeAxe)g.rotate((dx||1)*.8);g.beginPath();g.moveTo(0,2);g.lineTo(0,-14);g.stroke();g.fillStyle=tr===3?'#e8b830':tr===2?'#9aa6b2':'#8f979e';g.beginPath();g.moveTo(0,-14);g.lineTo((dx||1)*7,-16);g.lineTo((dx||1)*7,-8);g.lineTo(0,-10);g.fill()}
+  if(tool==='axe'){if(RT.shakeAxe)g.rotate((dx||1)*.8);g.beginPath();g.moveTo(0,2);g.lineTo(0,-14);g.stroke();g.fillStyle=['#8f979e','#e0783a','#a7b0b9','#eef3f8','#e8b830'][tr-1]||'#8f979e';g.beginPath();g.moveTo(0,-14);g.lineTo((dx||1)*7,-16);g.lineTo((dx||1)*7,-8);g.lineTo(0,-10);g.fill()}
   // 武器と杖（drawWeapon）。攻撃の動きはこれまでと同じ（剣を振る・槍を突く・弓を引く・ハンマーを振り下ろす）
   if(tool==='sword'||tool==='wand'){const w=tool==='wand'?'wand':curWeapon(),s=dx||1,dir=S.dir,side=dir==='left'||dir==='right';
     if(w==='spear'){const th=(RT.thrust||0)>0?Math.sin((1-RT.thrust/.25)*Math.PI)*12:0,b=WEAPON_TILT.spear;g.rotate(side?b[0]*s:dir==='up'?b[2]:b[1]);g.translate(0,-th);drawWeapon(g,'spear',dir,s,tr,{rot:0})}
@@ -2711,7 +2711,7 @@ function openShop(tab){
     }
     if(t==='tool'){
       const wrap=h('div',{class:'two'});
-      for(const tl of TOOLS.filter(t=>['can'].includes(t.id))){   // あみ・つりざお・スコップ・剣は、クラフトで石や鉄を使って作る
+      for(const tl of TOOLS.filter(t=>['can'].includes(t.id))){   // あみ・つりざお・スコップ・剣・オノは、クラフトでインゴットを使って強化する
         const tr=S.tools[tl.id];
         const card=h('div',{class:'card'},h('div',{class:'rowline',style:'margin:0'},iconCanvas(tl.id),h('div',{class:'grow'},h('b',{},tr?TIER_LABEL[tr-1]+tl.name:tl.name),h('div',{class:'muted'},tr?`ランク ${tr}/3`:'まだ持っていない'))));
         if(tr&&tr<3){
@@ -2813,7 +2813,7 @@ function openGrowth(tab){
     }
     if(t==='tools'){
       const tl=h('div',{class:'grid'});
-      for(const tt of TOOLS.filter(t=>t.id!=='hand')){const tr=S.tools[tt.id];tl.append(h('div',{class:'cell'+(tr?'':' unk')},iconCanvas(tt.id),h('div',{class:'nm'},tr?toolName(tt.id,tr):tt.name),h('div',{class:'meta'},tr?`ランク ${tr}/3`:(tt.buy?'商店で買える':'クラフトで作る'))))}
+      for(const tt of TOOLS.filter(t=>t.id!=='hand')){const tr=S.tools[tt.id];tl.append(h('div',{class:'cell'+(tr?'':' unk')},iconCanvas(tt.id),h('div',{class:'nm'},tr?toolName(tt.id,tr):tt.name),h('div',{class:'meta'},tr?`ランク ${tr}/${TOOL_MAX(tt.id)}`:(tt.buy?'商店で買える':'クラフトで作る'))))}
       if(S.flags.lantern)tl.append(h('div',{class:'cell'},iconCanvas('lantern'),h('div',{class:'nm'},'銅のランタン'),h('div',{class:'meta'},'洞窟が明るく見える')));
       tl.append(h('div',{class:'cell'},iconCanvas('stone'),h('div',{class:'nm'},HOUSE[S.house].name),h('div',{class:'meta'},`家のランク ${S.house+1}/4`)));
       body.append(tl);
@@ -2988,18 +2988,21 @@ function craft(r){
   else{addItem(r.out[0],n,true);toast(`${ITEMS[r.out[0]].name} ×${n} ができた！${n>r.out[1]?'（大成功）':''}`,n>r.out[1]);sfx('get')}
   S.stats.craft++;gainSkill('craft',6+Object.values(r.mats).reduce((a,b)=>a+b,0)*2);task('craft');updateHud();refresh();
 }
+// 作る段階（ランク）の色で道具の絵を描く
+function tierIcon(id,k){const o=S.tools[id];S.tools[id]=k;try{return iconCanvas(id)}finally{S.tools[id]=o}}
 function openCraft(){
   if(!canCraftHere()){toast('クラフトは家の作業台でできる（家の入口で「家に入る」）');return}
   openPanel('クラフト',null,null,body=>{
     body.append(h('p',{class:'muted',style:'margin:0 0 10px'},`クラフト Lv${skLv('craft')}`));
     const grid=h('div',{class:'two'});
     for(const r of RECIPES){
+      if(r.tool&&r.need){const t=tier(r.tool[0]);if(!(t===r.tool[1]-1||(t===r.tool[1]&&t===TOOL_MAX(r.tool[0]))))continue}   // 道具の強化は、次の段階だけ（最高ランクは作成ずみで残す）
       const st=recipeState(r);
       const mats=Object.entries(r.mats).map(([id,n])=>h('span',{class:'pill '+((S.bag[id]||0)>=n?'ok':'ng')},`${ITEMS[id].name}×${n}（${S.bag[id]||0}）`));
       if(!st.lvOk){grid.append(h('div',{class:'card unk'},h('b',{},'？？？'),h('div',{class:'muted'},'クラフトの腕が上がると、作り方がひらめくかも')));continue}
       const btn=h('button',{class:'btn',disabled:'',on:()=>craft(r)},st.owned?'作成ずみ':!st.needOk?'前の段階の道具が必要':'作る');
       if(st.ok)btn.removeAttribute('disabled');
-      const icon=r.weapon?iconCanvas('w_'+r.weapon):r.furn?furnIcon(r.furn):r.flag?iconCanvas(r.flag):r.tool?iconCanvas(r.tool[0]):iconCanvas(r.out[0]);
+      const icon=r.weapon?iconCanvas('w_'+r.weapon):r.furn?furnIcon(r.furn):r.flag?iconCanvas(r.flag):r.tool?tierIcon(r.tool[0],r.tool[1]):iconCanvas(r.out[0]);
       grid.append(h('div',{class:'card'},h('div',{class:'rowline',style:'margin:0'},icon,h('div',{class:'grow'},h('b',{},r.name),h('div',{class:'muted'},r.note))),h('div',{style:'display:flex;flex-wrap:wrap;gap:4px'},mats),btn));
     }
     body.append(grid);
@@ -3104,10 +3107,10 @@ function drawShadows(g,t){
 // ===================== 洞窟 =====================
 let CAVES={};
 const CAVE_FLOORS=[null,
-  {name:'入り口の間',ore:{copper:70,iron:25,silver:5},enemy:{slime:40,bat:35,spider:15,boar:10},cap:6},
-  {name:'鉄の回廊',ore:{copper:40,iron:45,silver:13,gold:2,crystal:2},enemy:{bat:30,rslime:35,slime:5,spider:15,boar:15},cap:9},
-  {name:'地底湖',ore:{copper:15,iron:40,silver:35,gold:10,crystal:5},enemy:{rslime:30,bat:20,ghost:20,golem:10,spider:10,fslime:10},cap:12},
-  {name:'黄金の最深部',ore:{iron:25,silver:45,gold:30,crystal:8},enemy:{golem:30,rslime:15,ghost:15,bat:10,fslime:25,drake:4},cap:15},
+  {name:'入り口の間',ore:{copper:80,iron:18,silver:2},enemy:{slime:40,bat:35,spider:15,boar:10},cap:6},
+  {name:'鉄の回廊',ore:{copper:25,iron:55,silver:15,crystal:5},enemy:{bat:30,rslime:35,slime:5,spider:15,boar:15},cap:9},
+  {name:'地底湖',ore:{iron:25,silver:50,gold:15,crystal:10},enemy:{rslime:30,bat:20,ghost:20,golem:10,spider:10,fslime:10},cap:12},
+  {name:'黄金の最深部',ore:{silver:30,gold:55,crystal:15},enemy:{golem:30,rslime:15,ghost:15,bat:10,fslime:25,drake:4},cap:15},
 ];
 const ORE={
   copper:{item:'copper',hp:2,xp:3,col:'#d07a3a',name:'銅'},
@@ -3230,7 +3233,7 @@ function goCave(f,at){
   if(at){const p=at==='down'?W.down:W.up;const [sx,sy]=standNear(p.x,p.y);S.px=(sx+.5)*T;S.py=(sy+.5)*T+4;S.dir='down'}
   for(let i=0;i<CAVE_FLOORS[f].cap;i++)spawnCaveEnemy(true);
   RT.fade=.9;updateHud();
-  toast(`洞窟 地下${f}階「${CAVE_FLOORS[f].name}」`,true);
+  {const o=CAVE_FLOORS[f].ore,top=Object.keys(o).sort((a,b)=>o[b]-o[a]).slice(0,2).map(k=>ORE[k].name);toast(`洞窟 地下${f}階「${CAVE_FLOORS[f].name}」（よく出る：${top.join('・')}）`,true)}
   if(f===1&&!S.flags.caveVisited){S.flags.caveVisited=true;setTimeout(()=>toast('奥へ進むほど貴重な鉱石が取れるけど、敵も多くなる。鉱石はスコップで掘ろう'),700)}
   if(f===3&&!S.flags.lakeSeen){S.flags.lakeSeen=true;setTimeout(()=>toast('どこかから水の音がする… 地底湖があるみたい'),700)}
 }
@@ -5224,7 +5227,7 @@ drawIcon=function(c,id){
   const WK={sword:'sword',wand:'wand',w_spear:'spear',w_bow:'bow',w_hammer:'hammer'}[id];   // 武器と杖も手に持ったときと同じ絵
   if(!['net','rod','shovel'].includes(id)&&!WK)return _drawIconTool(c,id);
   const tr=(typeof S!=='undefined'&&S&&S.tools&&S.tools[WK&&WK!=='wand'?'sword':id])||1;
-  const metal=MAT_COL[tr]||MAT_COL[1];   // 木・石・鉄
+  const metal=MAT_COL[tr]||MAT_COL[1];   // 木・銅・鉄・銀・金
   // いったん大きなキャンバスに描いて、絵のある範囲だけをアイコンの枠いっぱいに入れる
   const Z=6,tmp=document.createElement('canvas');tmp.width=tmp.height=60*Z;const tg=tmp.getContext('2d');
   tg.scale(Z,Z);tg.translate(26,38);
@@ -6626,7 +6629,7 @@ const _homeHintF=homeHint;
 homeHint=function(){const [fx,fy]=facingTile(),f=furnAt(fx,fy);if(f&&f.type==='furnace')return '溶鉱炉を使う';return _homeHintF()};
 function openFurnace(){
   openPanel('溶鉱炉',null,null,body=>{
-    body.append(h('p',{class:'muted',style:'margin:0 0 10px'},`鉱石を${SMELT_N}つ入れると、とけてインゴットが1つできる。インゴットは、鉱石${SMELT_N}つより高く売れるよ。`));
+    body.append(h('p',{class:'muted',style:'margin:0 0 10px'},`鉱石を${SMELT_N}つ入れると、とけてインゴットが1つできる。インゴットは、クラフトで道具や武器を強くするのに使う（銅→鉄→銀→金の順に高性能）。売っても、鉱石${SMELT_N}つより高いよ。`));
     const grid=h('div',{class:'grid'});
     for(const [ore,bar] of SMELT){const have=S.bag[ore]||0,can=Math.floor(have/SMELT_N);
       const smelt=n=>{if(!n)return;if(bagCount()-n*SMELT_N+n>bagCap()){toast('ポケットに入りきらない');return}takeItem(ore,n*SMELT_N);addItem(bar,n,true);sfx('get');gainPlayerXp(2*n);toast(`${ITEMS[bar].name} ×${n} ができた！`,true);refresh()};
