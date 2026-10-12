@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.019";</script>
+<script>const GAME_VERSION="1.020";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2054,6 +2054,38 @@ function drawShovel(g,dir,s,metal){
   g.fillStyle='rgba(120,90,60,.35)';g.beginPath();g.ellipse(0,1.6+L*.85,w*.45,1.1,0,0,Math.PI*2);g.fill();   // 先についた土
   g.restore();
 }
+// オノ：少し反った木の柄（木目・すべり止めの革巻き）、柄にはめた金具、三日月形の刃（刃先は明るく研いだ色）、背の峰。
+// 石のオノ（ランク1）は、石の刃を縄でしばりつけてある。s＝向き（1 右、-1 左）
+const AXE_COL=['#837a6c','#e0783a','#a7b0b9','#eef3f8','#e8b830'];   // 石・銅・鉄・銀・金
+function drawAxe(g,dir,s,metal,stone){
+  g.save();g.scale(s,1);g.lineCap='round';g.lineJoin='round';
+  // 柄
+  const handle=()=>{g.beginPath();g.moveTo(.6,4.5);g.quadraticCurveTo(1.4,-5,-.2,-17.5)};
+  g.strokeStyle='#5a3619';g.lineWidth=2.6;handle();g.stroke();
+  g.strokeStyle='#8a5a30';g.lineWidth=1.8;handle();g.stroke();
+  g.strokeStyle='rgba(225,180,120,.75)';g.lineWidth=.55;g.beginPath();g.moveTo(.1,3.5);g.quadraticCurveTo(.8,-5,-.6,-15);g.stroke();   // 木目の光
+  g.strokeStyle='#3d2614';g.lineWidth=.5;for(let y=.3;y<4.5;y+=1.1){g.beginPath();g.moveTo(-.4,y+.5);g.lineTo(1.7,y-.1);g.stroke()}   // 革巻き
+  ell(g,.6,4.6,1.4,.9,'#4a2c14');
+  // 刃（三日月形）
+  const blade=()=>{g.beginPath();g.moveTo(.8,-17.2);g.lineTo(4.2,-18.6);g.quadraticCurveTo(7.6,-19.6,9.2,-21);
+    g.quadraticCurveTo(11.6,-15.2,9.4,-8.6);g.quadraticCurveTo(7.4,-10,4.2,-11.2);g.lineTo(.8,-12.4);g.closePath()};
+  const gr=g.createLinearGradient(0,-20,0,-9);gr.addColorStop(0,shade(metal,.4));gr.addColorStop(.45,metal);gr.addColorStop(1,shade(metal,-.35));
+  blade();g.fillStyle=gr;g.fill();g.strokeStyle='rgba(30,30,36,.8)';g.lineWidth=.6;g.stroke();
+  // 研いだ刃先（明るい帯）
+  g.save();blade();g.clip();g.strokeStyle=stone?'rgba(255,255,255,.28)':'rgba(255,255,255,.8)';g.lineWidth=1.6;
+  g.beginPath();g.moveTo(9.2,-21);g.quadraticCurveTo(11.6,-15.2,9.4,-8.6);g.stroke();
+  if(stone){g.fillStyle='rgba(60,50,40,.25)';for(const [x,y] of [[5,-16],[7,-13],[6.5,-18]])circ(g,x,y,.7,'rgba(60,50,40,.3)')}   // 石の粒
+  else{g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=.5;g.beginPath();g.moveTo(2.2,-17.4);g.lineTo(7.4,-18.8);g.stroke()}   // 上のふちの光
+  g.restore();
+  // 柄にはめた金具と、背の峰
+  const sock=shade(metal,-.25);
+  rrect(g,-1.9,-19,3.8,7.4,1,sock);g.fillStyle='rgba(255,255,255,.3)';g.fillRect(-1.3,-18.5,.8,6.4);
+  g.fillStyle=shade(metal,-.4);g.beginPath();g.moveTo(-1.9,-18.2);g.lineTo(-3.6,-17.6);g.lineTo(-3.6,-13.4);g.lineTo(-1.9,-12.8);g.closePath();g.fill();
+  g.strokeStyle='rgba(30,30,36,.7)';g.lineWidth=.5;g.strokeRect(-1.9,-19,3.8,7.4);
+  if(stone){g.strokeStyle='#c9a46a';g.lineWidth=.8;for(const y of [-17.6,-16,-14.4,-12.9]){g.beginPath();g.moveTo(-2.2,y);g.lineTo(2.2,y-.7);g.stroke()}   // しばった縄
+    g.strokeStyle='rgba(90,60,30,.6)';g.lineWidth=.3;for(const y of [-17.6,-16,-14.4,-12.9]){g.beginPath();g.moveTo(-2.2,y+.4);g.lineTo(2.2,y-.3);g.stroke()}}
+  g.restore();
+}
 // 釣り竿：竿尻のキャップ、コルクの持ち手、リール、先へ細くなる竿、糸を通す輪（ガイド）。
 // 釣っていないときは竿先から糸とウキが垂れる。向きで持ち方を変える（左右＝前へ突き出す、上下＝体の横で外へ傾ける）
 // 戻り値＝竿先の位置（手からの相対）
@@ -2183,7 +2215,8 @@ function drawToolInHand(g,x,y){
   if(tool==='rod'){const tp=drawRod(g,S.dir,dx||1,metal);RT.rodTip=[hx+tp[0],hy+tp[1]]}   // 竿先の位置（釣り糸はここから）
   if(tool==='shovel')drawShovel(g,S.dir,dx||1,metal);
   if(tool==='can'){g.fillStyle=tr===3?'#e8b830':tr===2?'#6aa0d8':'#5fae7a';g.fillRect(-5,-6,10,8);g.fillRect(4,-6,5,2)}
-  if(tool==='axe'){if(RT.shakeAxe)g.rotate((dx||1)*.8);g.beginPath();g.moveTo(0,2);g.lineTo(0,-14);g.stroke();g.fillStyle=['#837a6c','#e0783a','#a7b0b9','#eef3f8','#e8b830'][tr-1]||'#8f979e';g.beginPath();g.moveTo(0,-14);g.lineTo((dx||1)*7,-16);g.lineTo((dx||1)*7,-8);g.lineTo(0,-10);g.fill()}
+  if(tool==='axe'){if(RT.shakeAxe)g.rotate((dx||1)*.8);{const sd=dx||1;if(S.dir==='left'||S.dir==='right'){g.translate(sd*2,7);g.rotate(sd*.45)}else g.translate(0,3);g.scale(.9,.9);   // 刃が顔にかからないよう、低めに持って前へ傾ける
+    drawAxe(g,S.dir,sd,AXE_COL[tr-1]||AXE_COL[0],tr===1)}}
   // 武器と杖（drawWeapon）。攻撃の動きはこれまでと同じ（剣を振る・槍を突く・弓を引く・ハンマーを振り下ろす）
   if(tool==='sword'||tool==='wand'){const w=tool==='wand'?'wand':curWeapon(),s=dx||1,dir=S.dir,side=dir==='left'||dir==='right';
     if(w==='spear'){const th=(RT.thrust||0)>0?Math.sin((1-RT.thrust/.25)*Math.PI)*12:0,b=WEAPON_TILT.spear;g.rotate(side?b[0]*s:dir==='up'?b[2]:b[1]);g.translate(0,-th);drawWeapon(g,'spear',dir,s,tr,{rot:0})}
@@ -5226,7 +5259,7 @@ drawHuman=function(g,x,y,dir,frame,opt){
 const _drawIconTool=drawIcon;
 drawIcon=function(c,id){
   const WK={sword:'sword',wand:'wand',w_spear:'spear',w_bow:'bow',w_hammer:'hammer'}[id];   // 武器と杖も手に持ったときと同じ絵
-  if(!['net','rod','shovel'].includes(id)&&!WK)return _drawIconTool(c,id);
+  if(!['net','rod','shovel','axe'].includes(id)&&!WK)return _drawIconTool(c,id);
   const tr=(typeof S!=='undefined'&&S&&S.tools&&S.tools[WK&&WK!=='wand'?'sword':id])||1;
   const metal=MAT_COL[tr]||MAT_COL[1];   // 木・銅・鉄・銀・金
   // いったん大きなキャンバスに描いて、絵のある範囲だけをアイコンの枠いっぱいに入れる
@@ -5236,6 +5269,7 @@ drawIcon=function(c,id){
   if(id==='net')drawNet(tg,'right',1,metal);
   if(id==='shovel')drawShovel(tg,'right',1,metal);
   if(id==='rod')drawRod(tg,'right',1,metal);
+  if(id==='axe'){tg.save();tg.rotate(.55);drawAxe(tg,'right',1,AXE_COL[tr-1]||AXE_COL[0],tr===1);tg.restore()}   // 釣り竿と同じく斜めに
   if(WK)drawWeapon(tg,WK,'right',1,WK==='sword'||WK==='wand'?tr:2,WK==='bow'?{pull:3}:{rot:WK==='sword'?.75:.6});
   RT.fishing=keepF;
   const d=tg.getImageData(0,0,tmp.width,tmp.height).data,W=tmp.width;let x0=W,y0=W,x1=0,y1=0;
