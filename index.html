@@ -555,7 +555,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.006";</script>
+<script>const GAME_VERSION="1.007";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -857,7 +857,7 @@ const SKILLS=[
    unlocks:[[3,'魚影を見る','水の中の魚影が見える。影の近くに投げるとその魚がかかる'],[5,'エサ釣り','釣りエサを持っていると、すぐにかかって大物も増える'],[7,'大物の手ごたえ','とても珍しい魚がかかりやすくなる'],[10,'ヌシ釣り','島の川の主「ヒダマリノヌシ」が現れる']]},
   {id:'chop',name:'伐採',eff:l=>`1回で取れる木材 +${Math.floor(l/4)}、疲れ -${Math.min(60,l*6)}%`,
    unlocks:[[3,'切り倒す','木を切り倒して木材をまとめて手に入れる（切り株は3日で元にもどる）'],[5,'硬い木材','切り倒すと「硬い木材」が手に入る'],[7,'一刀両断','2回で木を切り倒せる'],[10,'森の恵み','切り倒すと、たまに魔石や金鉱石が見つかる']]},
-  {id:'dig',name:'発掘',eff:l=>`毎朝の掘り場所 ${6+Math.floor(l/2)}か所（ほかに隠れた場所3か所）、レアな化石・鉱石が出やすい`,
+  {id:'dig',name:'発掘',eff:l=>`毎朝の掘り場所 ${6+Math.floor(l/2)}か所（ほかに隠れた場所3か所）、レアな化石が出やすい`,
    unlocks:[[3,'地面の声','ふつうは見えない「隠れた掘り場所」が見える'],[5,'石くだき','岩から石が2個出ることがある'],[7,'宝さがし','たまに宝箱を掘り当てる'],[10,'古代の眠り','伝説の化石「古代竜のたまご」が埋まるようになる']]},
   {id:'bug',name:'虫取り',eff:l=>`捕まえる成功率 +${l*4}%、珍しい虫に出会いやすい`,
    unlocks:[[3,'広い網','あみの届く範囲が広がる'],[5,'虫の気配','珍しい虫がきらきら光って見える'],[7,'名人の網さばき','失敗しても虫が逃げない'],[10,'幻の虫','伝説のチョウ「ヒダマリアゲハ」が現れる']]},
@@ -1860,16 +1860,14 @@ function useShovel(fx,fy){
   const lv=skLv('dig');
   const di=S.dig.findIndex(d=>d[0]===fx&&d[1]===fy&&(!d[2]||lv>=3));
   if(di>=0){
+    // 地面の×マーク：掘ると必ず「なぞの化石」が出る（何の化石かは博物館で鑑定したときに決まる。隠れた場所の分は S.xqHidden に数えておく）
+    if(bagCount()>=bagCap()){toast(`ポケットがいっぱいで、化石を持てない（${bagCap()}個まで）。家の収納箱に預けよう`);return}
     useSta(4);
     const hidden=!!S.dig[di][2];
     S.dig.splice(di,1);S.holes.push([fx,fy]);sfx('dig');task('dig');
-    if(lv>=7&&rnd()<.06){const b=(30+Math.floor(rnd()*50))*100;S.bells+=b;const m=rnd()<.5?'gold':'mstone';addItem(m,1,true);gainSkill('dig',15);toast(`宝箱を掘り当てた！ ${b}円と${ITEMS[m].name}`,true);sfx('lv');updateHud();return}
-    const r=rnd();
-    if(r<.7||hidden){
-      // 化石は「なぞの化石」。何の化石かは博物館で鑑定したときに決まる（隠れた場所の分は S.xqHidden に数えておく）
-      if(addItem('xq',1,true)){S.stats.fossil++;if(hidden)S.xqHidden=(S.xqHidden||0)+1;gainSkill('dig',10);showXq()}
-    }else if(r<.85){const b=(5+Math.floor(rnd()*10))*100;S.bells+=b;gainSkill('dig',4);toast(`${b}円が埋まっていた！`);updateHud()}
-    else{const m=rnd()<.25?'mstone':rnd()<.15+lv*.02?'gold':rnd()<.5?'iron':'stone';if(addItem(m))gainSkill('dig',4)}
+    if(addItem('xq',1,true)){S.stats.fossil++;if(hidden)S.xqHidden=(S.xqHidden||0)+1;gainSkill('dig',10);showXq()}
+    // 宝さがし（発掘Lv7）：ときどき、化石といっしょに宝箱も出る
+    if(lv>=7&&rnd()<.06){const b=(30+Math.floor(rnd()*50))*100;S.bells+=b;const m=rnd()<.5?'gold':'mstone';addItem(m,1,true);gainSkill('dig',15);toast(`宝箱も掘り当てた！ ${b}円と${ITEMS[m].name}`,true);sfx('lv');updateHud()}
     return;
   }
   const ri=inMap(fx,fy)?W.rockAt.get(ti(fx,fy)):undefined;
@@ -1882,7 +1880,7 @@ function useShovel(fx,fy){
     return;
   }
   if(S.flowers.some(f=>f.x===fx&&f.y===fy)){toast('花を掘りかえすのはやめておこう');return}
-  if(tileAt(fx,fy)===2||tileAt(fx,fy)===1)toast(lv<3&&S.dig.some(d=>d[2])?'ここには何も埋まっていなさそう。':'ここには何も埋まっていなさそう。地面のひび割れをさがそう');
+  if(tileAt(fx,fy)===2||tileAt(fx,fy)===1)toast(lv<3&&S.dig.some(d=>d[2])?'ここには何も埋まっていなさそう。':'ここには何も埋まっていなさそう。地面の×マークをさがそう');
 }
 function useCan(fx,fy){
   if(inCave()){toast('ここに花はない');return}
@@ -5635,7 +5633,7 @@ function openMuseum(tab){
     if(t==='appraise'){
       const n=S.bag.xq||0;
       say('館長「掘りだした なぞの化石は、わしが見てあげよう。何の化石か分かるぞ。鑑定はただじゃよ。」');
-      if(!n){body.append(h('p',{},'なぞの化石を持っていない。スコップで地面のひび割れを掘ってみよう。'));return}
+      if(!n){body.append(h('p',{},'なぞの化石を持っていない。スコップで地面の×マークを掘ってみよう。'));return}
       body.append(h('div',{class:'rowline'},iconCanvas('xq',36),h('b',{class:'grow'},`なぞの化石 ×${n}`),
         h('button',{class:'btn',on:()=>{const got=appraiseAll();const L=got.map(f=>`${f.name}${f.rar>=4?'（めずらしい！）':''}`);
           toast(`鑑定の結果：${L.join('・')}`,true);if(got.some(f=>f.rar>=4))sfx('lv');RT.panel.tab='donate';refresh()}},'ぜんぶ鑑定してもらう')));
