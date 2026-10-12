@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.020";</script>
+<script>const GAME_VERSION="1.021";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2091,7 +2091,7 @@ function drawAxe(g,dir,s,metal,stone){
 // 戻り値＝竿先の位置（手からの相対）
 function drawRod(g,dir,s,col){
   const side=dir==='left'||dir==='right';
-  const [bx,by,px,py]=side?[-s*3,4,s*15,-20]:[-1,5,11,-18];
+  const [bx,by,px,py]=side?[-s*5,0,s*13,-24]:[-1,5,11,-18];   // 横向きは、持ち手を胸の前の手の位置に
   const L=Math.hypot(px-bx,py-by),ux=(px-bx)/L,uy=(py-by)/L;let nx=-uy,ny=ux;if(ny<0){nx=-nx;ny=-ny}   // n＝竿の下側
   const at=f=>[bx+ux*L*f,by+uy*L*f];
   // 竿（先へ細くなる）とつや
@@ -2215,7 +2215,7 @@ function drawToolInHand(g,x,y){
   if(tool==='rod'){const tp=drawRod(g,S.dir,dx||1,metal);RT.rodTip=[hx+tp[0],hy+tp[1]]}   // 竿先の位置（釣り糸はここから）
   if(tool==='shovel')drawShovel(g,S.dir,dx||1,metal);
   if(tool==='can'){g.fillStyle=tr===3?'#e8b830':tr===2?'#6aa0d8':'#5fae7a';g.fillRect(-5,-6,10,8);g.fillRect(4,-6,5,2)}
-  if(tool==='axe'){if(RT.shakeAxe)g.rotate((dx||1)*.8);{const sd=dx||1;if(S.dir==='left'||S.dir==='right'){g.translate(sd*2,7);g.rotate(sd*.45)}else g.translate(0,3);g.scale(.9,.9);   // 刃が顔にかからないよう、低めに持って前へ傾ける
+  if(tool==='axe'){if(RT.shakeAxe)g.rotate((dx||1)*.8);{const sd=dx||1;if(S.dir==='left'||S.dir==='right'){g.translate(-2.5*sd,-3);g.rotate(sd*.3);g.scale(.9,.9);g.translate(-.6*sd,-2.4)}else{g.translate(0,3);g.scale(.9,.9)}   // 横向きは、革巻きの所を胸の前の手で握る（刃は頭にかかってもよい）
     drawAxe(g,S.dir,sd,AXE_COL[tr-1]||AXE_COL[0],tr===1)}}
   // 武器と杖（drawWeapon）。攻撃の動きはこれまでと同じ（剣を振る・槍を突く・弓を引く・ハンマーを振り下ろす）
   if(tool==='sword'||tool==='wand'){const w=tool==='wand'?'wand':curWeapon(),s=dx||1,dir=S.dir,side=dir==='left'||dir==='right';
