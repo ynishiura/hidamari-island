@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.029";</script>
+<script>const GAME_VERSION="1.030";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -6545,7 +6545,8 @@ const _drawHumanOutfit=drawHuman;
 drawHuman=function(g,x,y,dir,frame,opt){
   if(!S||(!S.top&&!S.acc))return _drawHumanOutfit(g,x,y,dir,frame,opt);
   const gd=pcGender(),dg=RT.diag,d8=dg||({up:'u',down:'d',left:'l',right:'r'})[dir],pk=pcKey(gd,d8),orig=gi('ch_'+pk);
-  const v=d8[0]==='u'?'back':d8==='l'||d8==='r'?'side':'front',f=d8.includes('l')?-1:d8.includes('r')?1:0;
+  // 女の子の右上・左上の絵は、ほとんど横顔（顔が見える）なので、小物は横向きとして描く（後ろ姿のマントが体の前をおおわないように）
+  const v=(d8==='l'||d8==='r'||(gd==='f'&&(d8==='ul'||d8==='ur')))?'side':d8[0]==='u'?'back':'front',f=d8.includes('l')?-1:d8.includes('r')?1:0;
   let B=null,k=0,bob=0,tilt=0;
   if(orig&&S.acc&&ACCS[S.acc]&&!pk.includes('cape')){B=bodyOf(orig);const fr=gi(`ch_${gd}_d8_d`);if(fr&&fr!==orig){const F=bodyOf(fr),r=orig.naturalHeight/fr.naturalHeight;B={...B,top:F.top*r,neck:F.neck*r,hip:F.hip*r,hw:F.hw*orig.naturalHeight/fr.naturalHeight}}k=PC_H/orig.naturalHeight;const walking=frame>0,sw=Math.sin(frame*1.55);bob=walking?Math.abs(sw)*2:Math.sin(performance.now()/650)*.7;tilt=walking?sw*.05:0}
   const acc=layer=>{if(!B)return;g.save();g.translate(x,y-bob);g.rotate(tilt);drawAcc(g,S.acc,B,k,v,f,layer);g.restore()};
