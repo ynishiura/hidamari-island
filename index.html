@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.031";</script>
+<script>const GAME_VERSION="1.032";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -6788,6 +6788,58 @@ drawIcon=function(c,id){
   g.fillStyle=col[2];g.fillRect(11,10,5,1.4);g.fillStyle='rgba(255,255,255,.35)';g.fillRect(6,19,20,1);
   g.restore();
 };
+</script>
+<script>
+// ===================== 装備 =====================
+// メニューの「装備」（キー I）。武器・服・帽子・小物（マント・めがねなど）を、まとめて付けかえる画面。
+// 上に今の姿（正面と横）を出し、タブごとに持っている物を並べる。押すと付ける／もう一度押すと外す
+const EQUIP_TABS=[['weapon','武器'],['top','服'],['hat','帽子'],['acc','小物']];
+function equipPreview(){
+  const c=document.createElement('canvas');c.width=360;c.height=150;c.className='eqprev';
+  const g=c.getContext('2d'),keepD=RT.diag;RT.diag=null;
+  const bg=g.createLinearGradient(0,0,0,150);bg.addColorStop(0,'#cfe9c0');bg.addColorStop(1,'#9fd08a');g.fillStyle=bg;g.fillRect(0,0,360,150);
+  const keepT=S.tool,keepDir=S.dir;
+  [['down',75],['right',180],['up',285]].forEach(([d,x])=>{S.tool=d==='right'&&hasWeapon()?'sword':'hand';g.save();g.translate(x,138);g.scale(2.4,2.4);drawHuman(g,0,0,d,0,{});if(S.tool==='sword'){S.dir='right';drawToolInHand(g,0,0)}g.restore()});
+  S.tool=keepT;S.dir=keepDir;RT.diag=keepD;return c;
+}
+function equipRows(t){
+  if(t==='weapon')return ownWeapons().map(w=>({id:w,icon:w==='sword'?'sword':'w_'+w,name:w==='sword'?toolName('sword',S.tools.sword||1):WEAPONS[w].name,note:WEAPONS[w].note||'近くの敵を切る',on:curWeapon()===w,
+    use:()=>{S.weapon=w;toast(`武器を「${weaponLabel()}」にした`,true)}}));
+  const key={top:'top',hat:'hat',acc:'acc'}[t],verb={top:['着た','ぬいだ'],hat:['かぶった','ぬいだ'],acc:['つけた','はずした']}[t];
+  const ids=Object.keys(S.bag).filter(id=>(S.bag[id]||0)>0&&ITEMS[id]&&ITEMS[id].kind===key);
+  if(S[key]&&!ids.includes(S[key])&&ITEMS[S[key]])ids.unshift(S[key]);
+  return ids.map(id=>({id,icon:id,name:ITEMS[id].name,note:ITEMS[id].note||'',on:S[key]===id,
+    use:()=>{S[key]=S[key]===id?null:id;toast(`${ITEMS[id].name}を${S[key]?verb[0]:verb[1]}`)}}));
+}
+function openEquip(tab){
+  openPanel('装備',EQUIP_TABS,tab||'weapon',(body,t)=>{
+    const now=[['武器',hasWeapon()?weaponLabel():'なし'],['服',S.top&&ITEMS[S.top]?ITEMS[S.top].name:'いつもの服'],['帽子',S.hat&&ITEMS[S.hat]?ITEMS[S.hat].name:'なし'],['小物',S.acc&&ITEMS[S.acc]?ITEMS[S.acc].name:'なし']];
+    body.append(h('div',{class:'eqtop'},equipPreview(),h('div',{class:'eqnow'},...now.map(([k,v])=>h('div',{},h('span',{class:'muted'},k+'：'),h('b',{},v))))));
+    const rows=equipRows(t);
+    if(!rows.length){body.append(h('p',{class:'muted'},{weapon:'武器はまだ持っていない。クラフトで剣・槍・弓・ハンマーを作れるよ',top:'服はまだ持っていない。お店や旅の商人で買えるよ',hat:'帽子はまだ持っていない。お店や旅の商人で買えるよ',acc:'小物はまだ持っていない。お店や旅の商人で買えるよ'}[t]));return}
+    const grid=h('div',{class:'grid'});
+    for(const r of rows){
+      const btn=h('button',{class:r.on?'btn sub':'btn',on:()=>{if(t==='weapon'&&r.on)return;r.use();sfx('get');updateHud();if(typeof buildToolbar==='function')buildToolbar();refresh()}},t==='weapon'?(r.on?'装備中':'装備する'):(r.on?'はずす':'装備する'));
+      if(t==='weapon'&&r.on)btn.setAttribute('disabled','');
+      grid.append(h('div',{class:'cell'+(r.on?' eqon':'')},iconCanvas(r.icon),h('div',{class:'nm'},r.name),h('div',{class:'meta'},r.on?'装備中':(r.note||'')),btn));
+    }
+    body.append(grid);
+  });
+}
+// メニューのボタン（持ち物の下）とキー I
+{const b=document.createElement('button');b.className='mbtn';b.id='bEquip';b.innerHTML='装備<small>I</small>';const bag=$('bBag');bag.after(b);b.onclick=()=>RT.title||openEquip()}
+addEventListener('keydown',e=>{
+  if(e.code!=='KeyI'||RT.title||RT.dlg||e.repeat)return;
+  if(document.activeElement&&document.activeElement.tagName==='INPUT')return;
+  if(RT.panel){if(RT.panel.title==='装備')closePanel();return}
+  openEquip();
+});
+{const st=document.createElement('style');st.textContent=`
+.eqtop{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
+.eqprev{width:100%;max-width:360px;height:auto;border-radius:12px;border:2px solid var(--leaf,#8cc878)}
+.eqnow{display:grid;gap:4px;font-size:14px}
+.cell.eqon{outline:3px solid #e6a93a;outline-offset:-3px}
+`;document.head.append(st)}
 </script>
 <script>
 // ===================== タイトル画面 =====================
