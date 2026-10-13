@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.034";</script>
+<script>const GAME_VERSION="1.035";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -1100,6 +1100,7 @@ function groundFor(season){
   if(groundCache[key])return groundCache[key];
   if(W.home)return groundCache[key]=homeGround();
   if(W.museum)return groundCache[key]=museumGround();
+  if(W.shop)return groundCache[key]=shopGround();
   if(W.id!=='island')return groundCache[key]=caveGround();
   const c=document.createElement('canvas');c.width=MW*T;c.height=MH*T;
   const g=c.getContext('2d');
@@ -1732,6 +1733,7 @@ function pressA(){
   if(inHome()){homePressA(fx,fy,ptx,pty);return}
   if(inVHouse()){vhousePressA(fx,fy,ptx,pty);return}
   if(inMuseum()){museumPressA(fx,fy,ptx,pty);return}
+  if(inShop()){shopPressA(fx,fy,ptx,pty);return}
   const st=stairsAt(ptx,pty)||(S.tool!=='sword'&&S.tool!=='wand'?stairsAt(fx,fy):null);if(st){useStairs(st);return}
   for(const b of W.bld){
     if((fx===b.door.x&&fy===b.y+b.h-1&&S.dir==='up')||(ptx===b.door.x&&pty===b.door.y&&S.dir==='up')){enterBuilding(b);return}
@@ -1973,6 +1975,7 @@ function hintText(){
   if(RT.layout)return null;
   if(inHome())return homeHint();
   if(inMuseum())return museumHint();
+  if(inShop())return shopHint();
   if(inVHouse())return vhouseHint();
   if(inCave()){
     const [fx,fy]=facingTile(),ptx=Math.floor(S.px/T),pty=Math.floor((S.py-6)/T);
@@ -2344,7 +2347,7 @@ function torchCheck(){if(S&&S.torchUntil&&!torchOn()){S.torchUntil=0;toast('松�
 function render(t){
   torchCheck();
   const s=season();
-  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=W.home?'#1f1712':W.museum?'#1d1a24':'#4a9fcd';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=W.home||W.shop?'#1f1712':W.museum?'#1d1a24':'#4a9fcd';ctx.fillRect(0,0,cv.width,cv.height);
   // レイアウト中は部屋全体が入るように引いて映す（下の帯のぶん、上に寄せる）
   let ZZ=Z;if(RT.layout&&W.room)ZZ=Math.min(Z,VW/(W.room.x1-W.room.x0),(VH-120)/(W.room.y1-W.room.y0));
   RT.camZ=ZZ;
@@ -2378,7 +2381,7 @@ function render(t){
   const D=[];const inV=(x,y,m=3)=>x>=x0-m&&x<=x1+m&&y>=y0-m&&y<=y1+m;;let mk=0;const casts=[],take=()=>{for(;mk<D.length;mk++)casts.push(D[mk])},skip=()=>{mk=D.length};   // casts＝影を落とす物
   W.trees.forEach((tr,i)=>{if(inV(tr.x,tr.y)&&!S.cleared?.[i])D.push([(tr.y+1)*T-4,()=>S.stumps[i]?drawStump(ctx,tr):drawTree(ctx,tr,s,S.fruit[i],RT.shake.get(i))])});take();
   if(W.home)W.furn.forEach(f=>D.push([isFloor(f)?-1e9:(W.oy+f.y+f.h)*T-4,()=>drawFurn(ctx,f)]));skip();
-  if(W.museum)museumObjects(D,ctx);skip();
+  if(W.museum)museumObjects(D,ctx);if(W.shop)shopObjects(D,ctx);skip();
   lifeObjects(D,ctx,t);surpriseObjects(D,ctx,t);skip();   // 住民の家の主・家に来た住民・誕生日の風船・旅の商人・ビン   // 博物館の中：展示ケース・受付・ホーホ
   if(inCave())W.nodes.forEach((o,i)=>{if(inV(o.x,o.y))D.push([(o.y+1)*T-4,()=>drawNode(ctx,o,i)])});skip();
   RT.enemies.forEach(e=>D.push([e.y+(e.d.fly?20:0),()=>drawEnemy(ctx,e,t)]));take();
@@ -2574,7 +2577,7 @@ function updateHud(){
   if(!S)return;
   $('hDay').textContent=`${SEASONS[season()]} ${dayInSeason()}日目`;
   $('bLayout').hidden=!inHome()||!!RT.layout;
-  $('hWx').textContent=`${inCave()?`洞窟 地下${caveFloor()}階`:inHome()?`わが家 ${W.w}×${W.h}マス`:inMuseum()?'ひだまり博物館':inVHouse()?`${vById(S.loc.slice(3))?.name||''}の家`:S.weather}・${titleFor(S.lv)}`;
+  $('hWx').textContent=`${inCave()?`洞窟 地下${caveFloor()}階`:inHome()?`わが家 ${W.w}×${W.h}マス`:inMuseum()?'ひだまり博物館':inShop()?'ひだまり商店':inVHouse()?`${vById(S.loc.slice(3))?.name||''}の家`:S.weather}・${titleFor(S.lv)}`;
   $('bells').textContent=S.bells.toLocaleString()+'円';
   $('hLv').textContent=S.lv;
   $('hSta').textContent=`${Math.ceil(S.sta)}/${maxSta()}`;$('hStaBar').style.width=(S.sta/maxSta()*100)+'%';
@@ -2648,7 +2651,7 @@ function enterBuilding(b){
     goMuseum('door');save();
   }else if(b.type==='shop'){
     if(S.min<8*60||S.min>=22*60){showDialog('ひだまり商店',['「本日の営業は終了しました」と書いてある。（営業時間 8:00〜22:00）']);return}
-    openShop('sell');
+    goShop('door');save();   // お店の中へ（shopin.js）
   }else{
     const v=VILLAGERS.find(v=>v.id===b.vid);
     if(villagersOut()){goVHouse(v.id,'door');save()}   // 住民の家の中へ（life.js）
@@ -2720,7 +2723,8 @@ function openShop(tab){
         {id:'fence_item',name:'木の柵',price:150,note:'島に置ける。となりの柵とつながる'},{id:'bench_item',name:'ベンチ',price:1500,note:'島に置ける'},{id:'lamp_item',name:'街灯',price:2500,note:'島に置ける。夜に明かりがともる'},
         {id:'hat_straw',name:'麦わら帽子',price:900,note:'持ち物から「かぶる」'},{id:'hat_cap',name:'キャップ',price:900,note:'持ち物から「かぶる」'},{id:'hat_knit',name:'ニット帽',price:1100,note:'持ち物から「かぶる」'},
         ...Object.keys(TOPS).filter(k=>!['top_star'].includes(k)).map(k=>({id:k,name:TOPS[k].name,price:ITEMS[k].price,note:'持ち物から「着る」'})),
-        ...['acc_scarf','acc_glasses','acc_sun','acc_bag','acc_pochette','acc_pendant'].map(k=>({id:k,name:ITEMS[k].name,price:ITEMS[k].price,note:'持ち物から「つける」'}))];
+        ...['acc_scarf','acc_glasses','acc_sun','acc_bag','acc_pochette','acc_pendant'].map(k=>({id:k,name:ITEMS[k].name,price:ITEMS[k].price,note:'持ち物から「つける」'})),
+        ...(typeof SHOP_MORE==='function'?SHOP_MORE():[])];   // more.js でふやした服・帽子・小物
       const grid=h('div',{class:'grid'});
       for(const tl of TOOLS.filter(t=>t.buy&&!S.tools[t.id]))grid.append(h('div',{class:'cell'},iconCanvas(tl.id),h('div',{class:'nm'},tl.name),h('div',{class:'meta'},tl.id==='shovel'?'化石を掘ったり、岩をたたける':'花に水をあげて育てる'),h('button',{on:()=>{if(S.bells<tl.buy){toast('お金が足りない');return}S.bells-=tl.buy;S.tools[tl.id]=1;S.tool=tl.id;toast(`${tl.name}を買った！ キー${tl.key}で持ちかえ`,true);sfx('lv');updateHud();refresh()}},`${tl.buy}円`)));
       for(const it of items)grid.append(h('div',{class:'cell'},iconCanvas(it.id),h('div',{class:'nm'},it.name),h('div',{class:'meta'},it.note),h('div',{class:'rowline',style:'justify-content:center;margin:0;gap:4px'},
@@ -3949,7 +3953,8 @@ function groundFor(season){
   if(groundCache[key])return groundCache[key];
   for(const k in groundCache)delete groundCache[k];   // 地面の絵は大きいので、いま使う1枚だけ持つ
   if(W.home)return groundCache[key]=homeGround();
-  if(W.museum)return groundCache[key]=museumGround();   // 博物館の中（museum.js）
+  if(W.museum)return groundCache[key]=museumGround();
+  if(W.shop)return groundCache[key]=shopGround();   // お店の中（shopin.js）   // 博物館の中（museum.js）
   if(W.id!=='island')return groundCache[key]=caveGround();
   const P=GPAL[season];
   const c=document.createElement('canvas');c.width=MW*T;c.height=MH*T;const g=c.getContext('2d');
@@ -4715,7 +4720,7 @@ function needGender(){if(selGender)return false;document.getElementById('genderH
 <script>
 // 絵の場所の一覧（公開サイト用。tools/split_assets.py が作る）。絵は使うときと、空いた時間に少しずつ読む
 const GIMG_LAZY=1;
-const GIMG_SRC={"apple":"img/apple.d4326de0.webp","b1":"img/b1.f624b69f.webp","b10":"img/b10.7778cd65.webp","b11":"img/b11.92e28ef8.webp","b12":"img/b12.4dbd6ef1.webp","b13":"img/b13.e511dc48.webp","b14":"img/b14.c30184a3.webp","b15":"img/b15.4d5f551c.webp","b16":"img/b16.934df31f.webp","b17":"img/b17.4d6fe51f.webp","b18":"img/b18.0d0bec8f.webp","b19":"img/b19.d10dbed3.webp","b2":"img/b2.96c7619c.webp","b20":"img/b20.b5a2aa3e.webp","b21":"img/b21.dd0aab76.webp","b22":"img/b22.ab58037a.webp","b3":"img/b3.2525277d.webp","b4":"img/b4.a57a39cf.webp","b5":"img/b5.42850fb8.webp","b6":"img/b6.a9843ea4.webp","b7":"img/b7.51fcae35.webp","b8":"img/b8.e4c71b8b.webp","b9":"img/b9.dd9658de.webp","bait":"img/bait.f7b9152e.webp","bld_cave":"img/bld_cave.1297c14a.webp","bld_house1":"img/bld_house1.e0881bcb.webp","bld_house2":"img/bld_house2.9cff8ca2.webp","bld_house3":"img/bld_house3.e2fb038c.webp","bld_kuro":"img/bld_kuro.cd53c902.webp","bld_mugi":"img/bld_mugi.a6c3d2b7.webp","bld_popo":"img/bld_popo.df3d2785.webp","bld_shop":"img/bld_shop.5955c6f6.webp","bld_tent":"img/bld_tent.3e9d9cab.webp","branch":"img/branch.3b4bb8e1.webp","can":"img/can.7bb84159.webp","ch_f_d8_d":"img/ch_f_d8_d.95462ae7.webp","ch_f_d8_dl":"img/ch_f_d8_dl.1d18b5cb.webp","ch_f_d8_dr":"img/ch_f_d8_dr.f92e7c35.webp","ch_f_d8_l":"img/ch_f_d8_l.50bd5dc5.webp","ch_f_d8_r":"img/ch_f_d8_r.67cd85a3.webp","ch_f_d8_u":"img/ch_f_d8_u.ae0565fc.webp","ch_f_d8_ul":"img/ch_f_d8_ul.b82ab0a4.webp","ch_f_d8_ur":"img/ch_f_d8_ur.5a7553cc.webp","ch_m_cape_d":"img/ch_m_cape_d.43fc3129.webp","ch_m_cape_l":"img/ch_m_cape_l.8bcb9642.webp","ch_m_cape_r":"img/ch_m_cape_r.66136e97.webp","ch_m_cape_u":"img/ch_m_cape_u.ce10fbba.webp","ch_m_d8_d":"img/ch_m_d8_d.faae30c9.webp","ch_m_d8_dl":"img/ch_m_d8_dl.4803a823.webp","ch_m_d8_dr":"img/ch_m_d8_dr.3ce34600.webp","ch_m_d8_l":"img/ch_m_d8_l.4803a823.webp","ch_m_d8_r":"img/ch_m_d8_r.3ce34600.webp","ch_m_d8_u":"img/ch_m_d8_u.e6283b3c.webp","ch_m_d8_ul":"img/ch_m_d8_ul.4803a823.webp","ch_m_d8_ur":"img/ch_m_d8_ur.3ce34600.webp","copper":"img/copper.91ddcceb.webp","drink":"img/drink.d150cd4a.webp","en_bat":"img/en_bat.6b29eb8b.webp","en_boar":"img/en_boar.dd02d784.webp","en_drake":"img/en_drake.2c77cdb8.webp","en_fslime":"img/en_fslime.ada99476.webp","en_ghost":"img/en_ghost.e9f252e8.webp","en_golem":"img/en_golem.f46a3cfc.webp","en_rslime":"img/en_rslime.6d69f424.webp","en_shroom":"img/en_shroom.bbebbdf8.webp","en_slime":"img/en_slime.b158feb9.webp","en_spider":"img/en_spider.86c566bb.webp","en_wasp":"img/en_wasp.cb8624d9.webp","f1":"img/f1.ced4e001.webp","f10":"img/f10.bfc5303e.webp","f11":"img/f11.0c95511f.webp","f12":"img/f12.da080f96.webp","f13":"img/f13.8e0b4a84.webp","f14":"img/f14.77bd7ec8.webp","f15":"img/f15.f13d8a71.webp","f16":"img/f16.49cc4b85.webp","f17":"img/f17.12fb6529.webp","f18":"img/f18.19bdbe07.webp","f19":"img/f19.76298842.webp","f2":"img/f2.85e9af62.webp","f20":"img/f20.b370c27f.webp","f21":"img/f21.7514471c.webp","f22":"img/f22.313244ba.webp","f23":"img/f23.d5bff4a0.webp","f24":"img/f24.84be35f4.webp","f25":"img/f25.d238aaaf.webp","f26":"img/f26.e45aa3f2.webp","f27":"img/f27.95c767b6.webp","f28":"img/f28.5aec1806.webp","f29":"img/f29.1d6fda9d.webp","f3":"img/f3.31df98a2.webp","f30":"img/f30.cefe2981.webp","f31":"img/f31.3d0b7d00.webp","f32":"img/f32.969e13d4.webp","f33":"img/f33.9b78fb28.webp","f34":"img/f34.2b80aa9d.webp","f35":"img/f35.d4c2eeb5.webp","f36":"img/f36.04488ed7.webp","f37":"img/f37.8e6bf7fc.webp","f38":"img/f38.c4c92b5f.webp","f39":"img/f39.63ab8033.webp","f4":"img/f4.146e8ccd.webp","f40":"img/f40.a0fd65d1.webp","f5":"img/f5.af3bd08a.webp","f6":"img/f6.de92d100.webp","f7":"img/f7.f9ea73d7.webp","f8":"img/f8.f6f0dccc.webp","f9":"img/f9.a6f4cb1c.webp","fl_cosmos_0":"img/fl_cosmos_0.3a37a698.webp","fl_cosmos_1":"img/fl_cosmos_1.ead244da.webp","fl_cosmos_2":"img/fl_cosmos_2.912a07e1.webp","fl_cosmos_3":"img/fl_cosmos_3.28acd4ea.webp","fl_rose_0":"img/fl_rose_0.8ee19cad.webp","fl_rose_1":"img/fl_rose_1.d0be819e.webp","fl_rose_2":"img/fl_rose_2.7c3941b8.webp","fl_rose_3":"img/fl_rose_3.1378efbf.webp","fl_rose_4":"img/fl_rose_4.fd99ae55.webp","fl_tulip_0":"img/fl_tulip_0.92bcba7e.webp","fl_tulip_1":"img/fl_tulip_1.20881bac.webp","fl_tulip_2":"img/fl_tulip_2.96e642fc.webp","fl_tulip_3":"img/fl_tulip_3.71ac7304.webp","fl_tulip_4":"img/fl_tulip_4.7db6194f.webp","fl_tulip_5":"img/fl_tulip_5.8394cb50.webp","gel":"img/gel.fe2130ce.webp","gold":"img/gold.936e45f7.webp","hardwood":"img/hardwood.7ece4b43.webp","honey":"img/honey.ee50ad7d.webp","iron":"img/iron.8ae60e8b.webp","lantern":"img/lantern.6399aeab.webp","lure":"img/lure.0de9551b.webp","mpwater":"img/mpwater.81f7dbc5.webp","mstone":"img/mstone.c83351ef.webp","net":"img/net.fb8995ed.webp","node_copper":"img/node_copper.2b6c3ce9.webp","node_crystal":"img/node_crystal.62db92e7.webp","node_gold":"img/node_gold.611fe0a6.webp","node_iron":"img/node_iron.da3ef4a3.webp","node_silver":"img/node_silver.3e1c7fe7.webp","pc_f":"img/pc_f.b765db6d.webp","pc_m":"img/pc_m.ac111237.webp","pt_akane":"img/pt_akane.dff8daeb.webp","pt_arai":"img/pt_arai.4c8ef7d9.webp","pt_chuta":"img/pt_chuta.167d537c.webp","pt_gaako":"img/pt_gaako.a0865a73.webp","pt_hachi":"img/pt_hachi.fd13c8a8.webp","pt_hari":"img/pt_hari.a6575725.webp","pt_hoho":"img/pt_hoho.6d6b876a.webp","pt_kabakichi":"img/pt_kabakichi.b25a4c16.webp","pt_kapi":"img/pt_kapi.a554050e.webp","pt_kero":"img/pt_kero.e8497941.webp","pt_kon":"img/pt_kon.0e6fb98c.webp","pt_kotsume":"img/pt_kotsume.a733a0e4.webp","pt_kuro":"img/pt_kuro.a9ec0b20.webp","pt_kurumi":"img/pt_kurumi.a7e39d09.webp","pt_leo":"img/pt_leo.2f191e61.webp","pt_meme":"img/pt_meme.8ac38392.webp","pt_merchant":"img/pt_merchant.4f4e2a56.webp","pt_merry":"img/pt_merry.5de30bc8.webp","pt_mikan":"img/pt_mikan.e70bca48.webp","pt_mimi":"img/pt_mimi.bcbc5d05.webp","pt_mugi":"img/pt_mugi.81634d84.webp","pt_pakara":"img/pt_pakara.be6fc969.webp","pt_pao":"img/pt_pao.0de97d6a.webp","pt_pengo":"img/pt_pengo.31a39193.webp","pt_ponta":"img/pt_ponta.514a9e28.webp","pt_popo":"img/pt_popo.cc76af91.webp","pt_ruga":"img/pt_ruga.7992033d.webp","pt_shikano":"img/pt_shikano.51331f0c.webp","pt_shiro":"img/pt_shiro.93f9aec3.webp","pt_tanta":"img/pt_tanta.58c67027.webp","pt_wanio":"img/pt_wanio.b6758d86.webp","pt_yuuka":"img/pt_yuuka.11998d20.webp","rock":"img/rock.b98ac17d.webp","rod":"img/rod.c59223b7.webp","s_cosmos":"img/s_cosmos.243c04c4.webp","s_rose":"img/s_rose.f72fac25.webp","s_tulip":"img/s_tulip.f13b4606.webp","shell":"img/shell.b57ec3f8.webp","shovel":"img/shovel.d54d6b1f.webp","silver":"img/silver.c41ce8a0.webp","stone":"img/stone.e95153a2.webp","stump":"img/stump.87c3efb8.webp","sword":"img/sword.757cf82b.webp","tree_0":"img/tree_0.372fd85d.webp","tree_1":"img/tree_1.711d9227.webp","tree_2":"img/tree_2.571e42ad.webp","tree_2s":"img/tree_2s.b8039344.webp","tree_3":"img/tree_3.29f45f07.webp","tree_s":"img/tree_s.76ded22c.webp","wand":"img/wand.046ceab2.webp","wk_akane_back":"img/wk_akane_back.8c66da9b.webp","wk_akane_front":"img/wk_akane_front.9e8e0621.webp","wk_akane_right":"img/wk_akane_right.2d30ee95.webp","wk_akane_side":"img/wk_akane_side.cf00e870.webp","wk_arai_back":"img/wk_arai_back.b03ff475.webp","wk_arai_front":"img/wk_arai_front.93b0d68e.webp","wk_arai_right":"img/wk_arai_right.1e97b899.webp","wk_arai_side":"img/wk_arai_side.596c7a3f.webp","wk_chuta_back":"img/wk_chuta_back.c4951381.webp","wk_chuta_front":"img/wk_chuta_front.8a874e73.webp","wk_chuta_right":"img/wk_chuta_right.66244e2b.webp","wk_chuta_side":"img/wk_chuta_side.2fc2cb8d.webp","wk_gaako_back":"img/wk_gaako_back.fabcdbdd.webp","wk_gaako_front":"img/wk_gaako_front.70a08750.webp","wk_gaako_right":"img/wk_gaako_right.0e736c9e.webp","wk_gaako_side":"img/wk_gaako_side.5b39856f.webp","wk_hachi_back":"img/wk_hachi_back.6d13f7c3.webp","wk_hachi_front":"img/wk_hachi_front.f9ede715.webp","wk_hachi_right":"img/wk_hachi_right.675a3837.webp","wk_hachi_side":"img/wk_hachi_side.2232b358.webp","wk_hari_back":"img/wk_hari_back.517adf60.webp","wk_hari_front":"img/wk_hari_front.e0cacf28.webp","wk_hari_right":"img/wk_hari_right.3abba6eb.webp","wk_hari_side":"img/wk_hari_side.592ba67c.webp","wk_hoho_back":"img/wk_hoho_back.f8ddb67e.webp","wk_hoho_front":"img/wk_hoho_front.805210f8.webp","wk_hoho_right":"img/wk_hoho_right.483235ab.webp","wk_hoho_side":"img/wk_hoho_side.d17e26e4.webp","wk_kabakichi_back":"img/wk_kabakichi_back.42b1d4ad.webp","wk_kabakichi_front":"img/wk_kabakichi_front.9f749e55.webp","wk_kabakichi_right":"img/wk_kabakichi_right.0e7515b4.webp","wk_kabakichi_side":"img/wk_kabakichi_side.88a01a8c.webp","wk_kapi_back":"img/wk_kapi_back.b3252091.webp","wk_kapi_front":"img/wk_kapi_front.cd0b7549.webp","wk_kapi_right":"img/wk_kapi_right.65e7c053.webp","wk_kapi_side":"img/wk_kapi_side.30fe81fc.webp","wk_kero_back":"img/wk_kero_back.394b24ff.webp","wk_kero_front":"img/wk_kero_front.a9ce1a85.webp","wk_kero_right":"img/wk_kero_right.100e1a4d.webp","wk_kero_side":"img/wk_kero_side.b7daa4d4.webp","wk_kon_back":"img/wk_kon_back.bf7b8250.webp","wk_kon_front":"img/wk_kon_front.971800b0.webp","wk_kon_right":"img/wk_kon_right.3b18073c.webp","wk_kon_side":"img/wk_kon_side.2bd6b34b.webp","wk_kotsume_back":"img/wk_kotsume_back.cc804adc.webp","wk_kotsume_front":"img/wk_kotsume_front.67cbbe22.webp","wk_kotsume_right":"img/wk_kotsume_right.2bd01fb9.webp","wk_kotsume_side":"img/wk_kotsume_side.8d5c0d3b.webp","wk_kuro_back":"img/wk_kuro_back.3faf6885.webp","wk_kuro_front":"img/wk_kuro_front.287af5d7.webp","wk_kuro_right":"img/wk_kuro_right.32829d20.webp","wk_kuro_side":"img/wk_kuro_side.b6d8fdd0.webp","wk_kurumi_back":"img/wk_kurumi_back.ec0160ba.webp","wk_kurumi_front":"img/wk_kurumi_front.0c10cc3c.webp","wk_kurumi_right":"img/wk_kurumi_right.e22e0683.webp","wk_kurumi_side":"img/wk_kurumi_side.71ff33fe.webp","wk_leo_back":"img/wk_leo_back.f860529e.webp","wk_leo_front":"img/wk_leo_front.a69d2c92.webp","wk_leo_right":"img/wk_leo_right.5b285f01.webp","wk_leo_side":"img/wk_leo_side.f336a59c.webp","wk_meme_back":"img/wk_meme_back.b8b0cc45.webp","wk_meme_front":"img/wk_meme_front.217be324.webp","wk_meme_right":"img/wk_meme_right.02822709.webp","wk_meme_side":"img/wk_meme_side.b98abd92.webp","wk_merchant_front":"img/wk_merchant_front.295b9827.webp","wk_merry_back":"img/wk_merry_back.5d34078e.webp","wk_merry_front":"img/wk_merry_front.2c57d34c.webp","wk_merry_right":"img/wk_merry_right.d874da40.webp","wk_merry_side":"img/wk_merry_side.f14768fe.webp","wk_mikan_back":"img/wk_mikan_back.dccf9a2b.webp","wk_mikan_front":"img/wk_mikan_front.69f6e1f1.webp","wk_mikan_right":"img/wk_mikan_right.ac2fadb1.webp","wk_mikan_side":"img/wk_mikan_side.0bffe829.webp","wk_mimi_back":"img/wk_mimi_back.95396126.webp","wk_mimi_front":"img/wk_mimi_front.98c5968f.webp","wk_mimi_right":"img/wk_mimi_right.fc247303.webp","wk_mimi_side":"img/wk_mimi_side.a7d87ee4.webp","wk_mugi_back":"img/wk_mugi_back.6b9a0d8c.webp","wk_mugi_front":"img/wk_mugi_front.6cfbfbbc.webp","wk_mugi_right":"img/wk_mugi_right.ec3468c1.webp","wk_mugi_side":"img/wk_mugi_side.6fd3a7e5.webp","wk_pakara_back":"img/wk_pakara_back.b0fbf0ef.webp","wk_pakara_front":"img/wk_pakara_front.69302925.webp","wk_pakara_right":"img/wk_pakara_right.b463a258.webp","wk_pakara_side":"img/wk_pakara_side.90cee9b8.webp","wk_pao_back":"img/wk_pao_back.64091b77.webp","wk_pao_front":"img/wk_pao_front.e86bb9a7.webp","wk_pao_right":"img/wk_pao_right.20a045d1.webp","wk_pao_side":"img/wk_pao_side.3eb15b4e.webp","wk_pengo_back":"img/wk_pengo_back.040bd5c2.webp","wk_pengo_front":"img/wk_pengo_front.b71f8fbd.webp","wk_pengo_right":"img/wk_pengo_right.4b6aac76.webp","wk_pengo_side":"img/wk_pengo_side.c8f3ef84.webp","wk_ponta_back":"img/wk_ponta_back.04183451.webp","wk_ponta_front":"img/wk_ponta_front.458bb174.webp","wk_ponta_right":"img/wk_ponta_right.e60d51f3.webp","wk_ponta_side":"img/wk_ponta_side.436c1612.webp","wk_popo_back":"img/wk_popo_back.7aa8d73e.webp","wk_popo_front":"img/wk_popo_front.c971f840.webp","wk_popo_right":"img/wk_popo_right.d3f36e48.webp","wk_popo_side":"img/wk_popo_side.d8419911.webp","wk_ruga_back":"img/wk_ruga_back.59cb46ee.webp","wk_ruga_front":"img/wk_ruga_front.fa8f2acd.webp","wk_ruga_right":"img/wk_ruga_right.e98adfc9.webp","wk_ruga_side":"img/wk_ruga_side.c304166d.webp","wk_shikano_back":"img/wk_shikano_back.584abcd8.webp","wk_shikano_front":"img/wk_shikano_front.74b4c1f0.webp","wk_shikano_right":"img/wk_shikano_right.7e24e376.webp","wk_shikano_side":"img/wk_shikano_side.d6ff71cc.webp","wk_shiro_back":"img/wk_shiro_back.cd5b37c2.webp","wk_shiro_front":"img/wk_shiro_front.6136f746.webp","wk_shiro_right":"img/wk_shiro_right.d8185a71.webp","wk_shiro_side":"img/wk_shiro_side.abb04530.webp","wk_tanta_back":"img/wk_tanta_back.584e7302.webp","wk_tanta_front":"img/wk_tanta_front.24de3a8b.webp","wk_tanta_right":"img/wk_tanta_right.23a1dcb8.webp","wk_tanta_side":"img/wk_tanta_side.3f62da42.webp","wk_wanio_back":"img/wk_wanio_back.fe92baa9.webp","wk_wanio_front":"img/wk_wanio_front.494a9e24.webp","wk_wanio_right":"img/wk_wanio_right.4b8a5cb7.webp","wk_wanio_side":"img/wk_wanio_side.f430d66d.webp","wk_yuuka_back":"img/wk_yuuka_back.59a93d72.webp","wk_yuuka_front":"img/wk_yuuka_front.13bf4739.webp","wk_yuuka_right":"img/wk_yuuka_right.5c88c8c7.webp","wk_yuuka_side":"img/wk_yuuka_side.9e0bdab9.webp","wood":"img/wood.1e0bfbdb.webp","x1":"img/x1.c1d3b25b.webp","x10":"img/x10.8d52c7de.webp","x11":"img/x11.9c59e762.webp","x12":"img/x12.f7de2993.webp","x13":"img/x13.2218fc73.webp","x2":"img/x2.941acc38.webp","x3":"img/x3.a46d1497.webp","x4":"img/x4.9cf7c560.webp","x5":"img/x5.f66450c9.webp","x6":"img/x6.7e56d952.webp","x7":"img/x7.7c32d17d.webp","x8":"img/x8.f21a0bc2.webp","x9":"img/x9.df22157e.webp"};
+const GIMG_SRC={"apple":"img/apple.d4326de0.webp","b1":"img/b1.f624b69f.webp","b10":"img/b10.7778cd65.webp","b11":"img/b11.92e28ef8.webp","b12":"img/b12.4dbd6ef1.webp","b13":"img/b13.e511dc48.webp","b14":"img/b14.c30184a3.webp","b15":"img/b15.4d5f551c.webp","b16":"img/b16.934df31f.webp","b17":"img/b17.4d6fe51f.webp","b18":"img/b18.0d0bec8f.webp","b19":"img/b19.d10dbed3.webp","b2":"img/b2.96c7619c.webp","b20":"img/b20.b5a2aa3e.webp","b21":"img/b21.dd0aab76.webp","b22":"img/b22.ab58037a.webp","b3":"img/b3.2525277d.webp","b4":"img/b4.a57a39cf.webp","b5":"img/b5.42850fb8.webp","b6":"img/b6.a9843ea4.webp","b7":"img/b7.51fcae35.webp","b8":"img/b8.e4c71b8b.webp","b9":"img/b9.dd9658de.webp","bait":"img/bait.f7b9152e.webp","bld_cave":"img/bld_cave.1297c14a.webp","bld_house1":"img/bld_house1.e0881bcb.webp","bld_house2":"img/bld_house2.9cff8ca2.webp","bld_house3":"img/bld_house3.e2fb038c.webp","bld_kuro":"img/bld_kuro.cd53c902.webp","bld_mugi":"img/bld_mugi.a6c3d2b7.webp","bld_popo":"img/bld_popo.df3d2785.webp","bld_shop":"img/bld_shop.5955c6f6.webp","bld_tent":"img/bld_tent.3e9d9cab.webp","branch":"img/branch.3b4bb8e1.webp","can":"img/can.7bb84159.webp","ch_f_d8_d":"img/ch_f_d8_d.95462ae7.webp","ch_f_d8_dl":"img/ch_f_d8_dl.1d18b5cb.webp","ch_f_d8_dr":"img/ch_f_d8_dr.f92e7c35.webp","ch_f_d8_l":"img/ch_f_d8_l.50bd5dc5.webp","ch_f_d8_r":"img/ch_f_d8_r.67cd85a3.webp","ch_f_d8_u":"img/ch_f_d8_u.ae0565fc.webp","ch_f_d8_ul":"img/ch_f_d8_ul.b82ab0a4.webp","ch_f_d8_ur":"img/ch_f_d8_ur.5a7553cc.webp","ch_m_cape_d":"img/ch_m_cape_d.43fc3129.webp","ch_m_cape_l":"img/ch_m_cape_l.8bcb9642.webp","ch_m_cape_r":"img/ch_m_cape_r.66136e97.webp","ch_m_cape_u":"img/ch_m_cape_u.ce10fbba.webp","ch_m_d8_d":"img/ch_m_d8_d.faae30c9.webp","ch_m_d8_dl":"img/ch_m_d8_dl.4803a823.webp","ch_m_d8_dr":"img/ch_m_d8_dr.3ce34600.webp","ch_m_d8_l":"img/ch_m_d8_l.4803a823.webp","ch_m_d8_r":"img/ch_m_d8_r.3ce34600.webp","ch_m_d8_u":"img/ch_m_d8_u.e6283b3c.webp","ch_m_d8_ul":"img/ch_m_d8_ul.4803a823.webp","ch_m_d8_ur":"img/ch_m_d8_ur.3ce34600.webp","copper":"img/copper.91ddcceb.webp","drink":"img/drink.d150cd4a.webp","en_bat":"img/en_bat.6b29eb8b.webp","en_boar":"img/en_boar.dd02d784.webp","en_drake":"img/en_drake.2c77cdb8.webp","en_fslime":"img/en_fslime.ada99476.webp","en_ghost":"img/en_ghost.e9f252e8.webp","en_golem":"img/en_golem.f46a3cfc.webp","en_rslime":"img/en_rslime.6d69f424.webp","en_shroom":"img/en_shroom.bbebbdf8.webp","en_slime":"img/en_slime.b158feb9.webp","en_spider":"img/en_spider.86c566bb.webp","en_wasp":"img/en_wasp.cb8624d9.webp","f1":"img/f1.ced4e001.webp","f10":"img/f10.bfc5303e.webp","f11":"img/f11.0c95511f.webp","f12":"img/f12.da080f96.webp","f13":"img/f13.8e0b4a84.webp","f14":"img/f14.77bd7ec8.webp","f15":"img/f15.f13d8a71.webp","f16":"img/f16.49cc4b85.webp","f17":"img/f17.12fb6529.webp","f18":"img/f18.19bdbe07.webp","f19":"img/f19.76298842.webp","f2":"img/f2.85e9af62.webp","f20":"img/f20.b370c27f.webp","f21":"img/f21.7514471c.webp","f22":"img/f22.313244ba.webp","f23":"img/f23.d5bff4a0.webp","f24":"img/f24.84be35f4.webp","f25":"img/f25.d238aaaf.webp","f26":"img/f26.e45aa3f2.webp","f27":"img/f27.95c767b6.webp","f28":"img/f28.5aec1806.webp","f29":"img/f29.1d6fda9d.webp","f3":"img/f3.31df98a2.webp","f30":"img/f30.cefe2981.webp","f31":"img/f31.3d0b7d00.webp","f32":"img/f32.969e13d4.webp","f33":"img/f33.9b78fb28.webp","f34":"img/f34.2b80aa9d.webp","f35":"img/f35.d4c2eeb5.webp","f36":"img/f36.04488ed7.webp","f37":"img/f37.8e6bf7fc.webp","f38":"img/f38.c4c92b5f.webp","f39":"img/f39.63ab8033.webp","f4":"img/f4.146e8ccd.webp","f40":"img/f40.a0fd65d1.webp","f5":"img/f5.af3bd08a.webp","f6":"img/f6.de92d100.webp","f7":"img/f7.f9ea73d7.webp","f8":"img/f8.f6f0dccc.webp","f9":"img/f9.a6f4cb1c.webp","fl_cosmos_0":"img/fl_cosmos_0.3a37a698.webp","fl_cosmos_1":"img/fl_cosmos_1.ead244da.webp","fl_cosmos_2":"img/fl_cosmos_2.912a07e1.webp","fl_cosmos_3":"img/fl_cosmos_3.28acd4ea.webp","fl_rose_0":"img/fl_rose_0.8ee19cad.webp","fl_rose_1":"img/fl_rose_1.d0be819e.webp","fl_rose_2":"img/fl_rose_2.7c3941b8.webp","fl_rose_3":"img/fl_rose_3.1378efbf.webp","fl_rose_4":"img/fl_rose_4.fd99ae55.webp","fl_tulip_0":"img/fl_tulip_0.92bcba7e.webp","fl_tulip_1":"img/fl_tulip_1.20881bac.webp","fl_tulip_2":"img/fl_tulip_2.96e642fc.webp","fl_tulip_3":"img/fl_tulip_3.71ac7304.webp","fl_tulip_4":"img/fl_tulip_4.7db6194f.webp","fl_tulip_5":"img/fl_tulip_5.8394cb50.webp","gel":"img/gel.fe2130ce.webp","gold":"img/gold.936e45f7.webp","hardwood":"img/hardwood.7ece4b43.webp","honey":"img/honey.ee50ad7d.webp","iron":"img/iron.8ae60e8b.webp","lantern":"img/lantern.6399aeab.webp","lure":"img/lure.0de9551b.webp","mpwater":"img/mpwater.81f7dbc5.webp","mstone":"img/mstone.c83351ef.webp","net":"img/net.fb8995ed.webp","node_copper":"img/node_copper.2b6c3ce9.webp","node_crystal":"img/node_crystal.62db92e7.webp","node_gold":"img/node_gold.611fe0a6.webp","node_iron":"img/node_iron.da3ef4a3.webp","node_silver":"img/node_silver.3e1c7fe7.webp","pc_f":"img/pc_f.b765db6d.webp","pc_m":"img/pc_m.ac111237.webp","pt_akane":"img/pt_akane.dff8daeb.webp","pt_arai":"img/pt_arai.4c8ef7d9.webp","pt_chuta":"img/pt_chuta.167d537c.webp","pt_gaako":"img/pt_gaako.a0865a73.webp","pt_hachi":"img/pt_hachi.fd13c8a8.webp","pt_hari":"img/pt_hari.a6575725.webp","pt_hoho":"img/pt_hoho.6d6b876a.webp","pt_kabakichi":"img/pt_kabakichi.b25a4c16.webp","pt_kapi":"img/pt_kapi.a554050e.webp","pt_kero":"img/pt_kero.e8497941.webp","pt_komachi":"img/pt_komachi.4ec2a005.webp","pt_kon":"img/pt_kon.0e6fb98c.webp","pt_kotsume":"img/pt_kotsume.a733a0e4.webp","pt_kuro":"img/pt_kuro.a9ec0b20.webp","pt_kurumi":"img/pt_kurumi.a7e39d09.webp","pt_leo":"img/pt_leo.2f191e61.webp","pt_meme":"img/pt_meme.8ac38392.webp","pt_merchant":"img/pt_merchant.4f4e2a56.webp","pt_merry":"img/pt_merry.5de30bc8.webp","pt_mikan":"img/pt_mikan.e70bca48.webp","pt_mimi":"img/pt_mimi.bcbc5d05.webp","pt_mugi":"img/pt_mugi.81634d84.webp","pt_pakara":"img/pt_pakara.be6fc969.webp","pt_pao":"img/pt_pao.0de97d6a.webp","pt_pengo":"img/pt_pengo.31a39193.webp","pt_ponta":"img/pt_ponta.514a9e28.webp","pt_popo":"img/pt_popo.cc76af91.webp","pt_ruga":"img/pt_ruga.7992033d.webp","pt_shikano":"img/pt_shikano.51331f0c.webp","pt_shiro":"img/pt_shiro.93f9aec3.webp","pt_tanta":"img/pt_tanta.58c67027.webp","pt_wanio":"img/pt_wanio.b6758d86.webp","pt_yuuka":"img/pt_yuuka.11998d20.webp","rock":"img/rock.b98ac17d.webp","rod":"img/rod.c59223b7.webp","s_cosmos":"img/s_cosmos.243c04c4.webp","s_rose":"img/s_rose.f72fac25.webp","s_tulip":"img/s_tulip.f13b4606.webp","shell":"img/shell.b57ec3f8.webp","shovel":"img/shovel.d54d6b1f.webp","silver":"img/silver.c41ce8a0.webp","stone":"img/stone.e95153a2.webp","stump":"img/stump.87c3efb8.webp","sword":"img/sword.757cf82b.webp","tree_0":"img/tree_0.372fd85d.webp","tree_1":"img/tree_1.711d9227.webp","tree_2":"img/tree_2.571e42ad.webp","tree_2s":"img/tree_2s.b8039344.webp","tree_3":"img/tree_3.29f45f07.webp","tree_s":"img/tree_s.76ded22c.webp","wand":"img/wand.046ceab2.webp","wk_akane_back":"img/wk_akane_back.8c66da9b.webp","wk_akane_front":"img/wk_akane_front.9e8e0621.webp","wk_akane_right":"img/wk_akane_right.2d30ee95.webp","wk_akane_side":"img/wk_akane_side.cf00e870.webp","wk_arai_back":"img/wk_arai_back.b03ff475.webp","wk_arai_front":"img/wk_arai_front.93b0d68e.webp","wk_arai_right":"img/wk_arai_right.1e97b899.webp","wk_arai_side":"img/wk_arai_side.596c7a3f.webp","wk_chuta_back":"img/wk_chuta_back.c4951381.webp","wk_chuta_front":"img/wk_chuta_front.8a874e73.webp","wk_chuta_right":"img/wk_chuta_right.66244e2b.webp","wk_chuta_side":"img/wk_chuta_side.2fc2cb8d.webp","wk_gaako_back":"img/wk_gaako_back.fabcdbdd.webp","wk_gaako_front":"img/wk_gaako_front.70a08750.webp","wk_gaako_right":"img/wk_gaako_right.0e736c9e.webp","wk_gaako_side":"img/wk_gaako_side.5b39856f.webp","wk_hachi_back":"img/wk_hachi_back.6d13f7c3.webp","wk_hachi_front":"img/wk_hachi_front.f9ede715.webp","wk_hachi_right":"img/wk_hachi_right.675a3837.webp","wk_hachi_side":"img/wk_hachi_side.2232b358.webp","wk_hari_back":"img/wk_hari_back.517adf60.webp","wk_hari_front":"img/wk_hari_front.e0cacf28.webp","wk_hari_right":"img/wk_hari_right.3abba6eb.webp","wk_hari_side":"img/wk_hari_side.592ba67c.webp","wk_hoho_back":"img/wk_hoho_back.f8ddb67e.webp","wk_hoho_front":"img/wk_hoho_front.805210f8.webp","wk_hoho_right":"img/wk_hoho_right.483235ab.webp","wk_hoho_side":"img/wk_hoho_side.d17e26e4.webp","wk_kabakichi_back":"img/wk_kabakichi_back.42b1d4ad.webp","wk_kabakichi_front":"img/wk_kabakichi_front.9f749e55.webp","wk_kabakichi_right":"img/wk_kabakichi_right.0e7515b4.webp","wk_kabakichi_side":"img/wk_kabakichi_side.88a01a8c.webp","wk_kapi_back":"img/wk_kapi_back.b3252091.webp","wk_kapi_front":"img/wk_kapi_front.cd0b7549.webp","wk_kapi_right":"img/wk_kapi_right.65e7c053.webp","wk_kapi_side":"img/wk_kapi_side.30fe81fc.webp","wk_kero_back":"img/wk_kero_back.394b24ff.webp","wk_kero_front":"img/wk_kero_front.a9ce1a85.webp","wk_kero_right":"img/wk_kero_right.100e1a4d.webp","wk_kero_side":"img/wk_kero_side.b7daa4d4.webp","wk_komachi_front":"img/wk_komachi_front.b0c68a66.webp","wk_kon_back":"img/wk_kon_back.bf7b8250.webp","wk_kon_front":"img/wk_kon_front.971800b0.webp","wk_kon_right":"img/wk_kon_right.3b18073c.webp","wk_kon_side":"img/wk_kon_side.2bd6b34b.webp","wk_kotsume_back":"img/wk_kotsume_back.cc804adc.webp","wk_kotsume_front":"img/wk_kotsume_front.67cbbe22.webp","wk_kotsume_right":"img/wk_kotsume_right.2bd01fb9.webp","wk_kotsume_side":"img/wk_kotsume_side.8d5c0d3b.webp","wk_kuro_back":"img/wk_kuro_back.3faf6885.webp","wk_kuro_front":"img/wk_kuro_front.287af5d7.webp","wk_kuro_right":"img/wk_kuro_right.32829d20.webp","wk_kuro_side":"img/wk_kuro_side.b6d8fdd0.webp","wk_kurumi_back":"img/wk_kurumi_back.ec0160ba.webp","wk_kurumi_front":"img/wk_kurumi_front.0c10cc3c.webp","wk_kurumi_right":"img/wk_kurumi_right.e22e0683.webp","wk_kurumi_side":"img/wk_kurumi_side.71ff33fe.webp","wk_leo_back":"img/wk_leo_back.f860529e.webp","wk_leo_front":"img/wk_leo_front.a69d2c92.webp","wk_leo_right":"img/wk_leo_right.5b285f01.webp","wk_leo_side":"img/wk_leo_side.f336a59c.webp","wk_meme_back":"img/wk_meme_back.b8b0cc45.webp","wk_meme_front":"img/wk_meme_front.217be324.webp","wk_meme_right":"img/wk_meme_right.02822709.webp","wk_meme_side":"img/wk_meme_side.b98abd92.webp","wk_merchant_front":"img/wk_merchant_front.295b9827.webp","wk_merry_back":"img/wk_merry_back.5d34078e.webp","wk_merry_front":"img/wk_merry_front.2c57d34c.webp","wk_merry_right":"img/wk_merry_right.d874da40.webp","wk_merry_side":"img/wk_merry_side.f14768fe.webp","wk_mikan_back":"img/wk_mikan_back.dccf9a2b.webp","wk_mikan_front":"img/wk_mikan_front.69f6e1f1.webp","wk_mikan_right":"img/wk_mikan_right.ac2fadb1.webp","wk_mikan_side":"img/wk_mikan_side.0bffe829.webp","wk_mimi_back":"img/wk_mimi_back.95396126.webp","wk_mimi_front":"img/wk_mimi_front.98c5968f.webp","wk_mimi_right":"img/wk_mimi_right.fc247303.webp","wk_mimi_side":"img/wk_mimi_side.a7d87ee4.webp","wk_mugi_back":"img/wk_mugi_back.6b9a0d8c.webp","wk_mugi_front":"img/wk_mugi_front.6cfbfbbc.webp","wk_mugi_right":"img/wk_mugi_right.ec3468c1.webp","wk_mugi_side":"img/wk_mugi_side.6fd3a7e5.webp","wk_pakara_back":"img/wk_pakara_back.b0fbf0ef.webp","wk_pakara_front":"img/wk_pakara_front.69302925.webp","wk_pakara_right":"img/wk_pakara_right.b463a258.webp","wk_pakara_side":"img/wk_pakara_side.90cee9b8.webp","wk_pao_back":"img/wk_pao_back.64091b77.webp","wk_pao_front":"img/wk_pao_front.e86bb9a7.webp","wk_pao_right":"img/wk_pao_right.20a045d1.webp","wk_pao_side":"img/wk_pao_side.3eb15b4e.webp","wk_pengo_back":"img/wk_pengo_back.040bd5c2.webp","wk_pengo_front":"img/wk_pengo_front.b71f8fbd.webp","wk_pengo_right":"img/wk_pengo_right.4b6aac76.webp","wk_pengo_side":"img/wk_pengo_side.c8f3ef84.webp","wk_ponta_back":"img/wk_ponta_back.04183451.webp","wk_ponta_front":"img/wk_ponta_front.458bb174.webp","wk_ponta_right":"img/wk_ponta_right.e60d51f3.webp","wk_ponta_side":"img/wk_ponta_side.436c1612.webp","wk_popo_back":"img/wk_popo_back.7aa8d73e.webp","wk_popo_front":"img/wk_popo_front.c971f840.webp","wk_popo_right":"img/wk_popo_right.d3f36e48.webp","wk_popo_side":"img/wk_popo_side.d8419911.webp","wk_ruga_back":"img/wk_ruga_back.59cb46ee.webp","wk_ruga_front":"img/wk_ruga_front.fa8f2acd.webp","wk_ruga_right":"img/wk_ruga_right.e98adfc9.webp","wk_ruga_side":"img/wk_ruga_side.c304166d.webp","wk_shikano_back":"img/wk_shikano_back.584abcd8.webp","wk_shikano_front":"img/wk_shikano_front.74b4c1f0.webp","wk_shikano_right":"img/wk_shikano_right.7e24e376.webp","wk_shikano_side":"img/wk_shikano_side.d6ff71cc.webp","wk_shiro_back":"img/wk_shiro_back.cd5b37c2.webp","wk_shiro_front":"img/wk_shiro_front.6136f746.webp","wk_shiro_right":"img/wk_shiro_right.d8185a71.webp","wk_shiro_side":"img/wk_shiro_side.abb04530.webp","wk_tanta_back":"img/wk_tanta_back.584e7302.webp","wk_tanta_front":"img/wk_tanta_front.24de3a8b.webp","wk_tanta_right":"img/wk_tanta_right.23a1dcb8.webp","wk_tanta_side":"img/wk_tanta_side.3f62da42.webp","wk_wanio_back":"img/wk_wanio_back.fe92baa9.webp","wk_wanio_front":"img/wk_wanio_front.494a9e24.webp","wk_wanio_right":"img/wk_wanio_right.4b8a5cb7.webp","wk_wanio_side":"img/wk_wanio_side.f430d66d.webp","wk_yuuka_back":"img/wk_yuuka_back.59a93d72.webp","wk_yuuka_front":"img/wk_yuuka_front.13bf4739.webp","wk_yuuka_right":"img/wk_yuuka_right.5c88c8c7.webp","wk_yuuka_side":"img/wk_yuuka_side.9e0bdab9.webp","wood":"img/wood.1e0bfbdb.webp","x1":"img/x1.c1d3b25b.webp","x10":"img/x10.8d52c7de.webp","x11":"img/x11.9c59e762.webp","x12":"img/x12.f7de2993.webp","x13":"img/x13.2218fc73.webp","x2":"img/x2.941acc38.webp","x3":"img/x3.a46d1497.webp","x4":"img/x4.9cf7c560.webp","x5":"img/x5.f66450c9.webp","x6":"img/x6.7e56d952.webp","x7":"img/x7.7c32d17d.webp","x8":"img/x8.f21a0bc2.webp","x9":"img/x9.df22157e.webp"};
 </script>
 <script>
 // 公開サイト用：曲の中身は別のファイル（url）。流すときに読む（tools/split_assets.py が作る）
@@ -5599,7 +5604,7 @@ function faceIcon(key,ring,kind){
 }
 // ---------- ミニマップ ----------
 // 家の中にいる間は、島の地図に切りかえて描く（自分の印は家の前）
-function withIsland(fn){if(!inHome()&&!inMuseum()&&!inVHouse())return fn();const w=W,loc=S.loc,px=S.px,py=S.py,h=inMuseum()?(ISL.bld.find(b=>b.type==='museum')||ISL.bld[1]):inVHouse()?(ISL.bld.find(b=>b.vid===S.loc.slice(3))||ISL.bld[1]):ISL.bld[1];W=ISL;S.loc='island';S.px=(h.door.x+.5)*T;S.py=(h.door.y+.5)*T;try{return fn()}finally{W=w;S.loc=loc;S.px=px;S.py=py}}
+function withIsland(fn){if(!inHome()&&!inMuseum()&&!inVHouse()&&!inShop())return fn();const w=W,loc=S.loc,px=S.px,py=S.py,h=inShop()?(ISL.bld.find(b=>b.type==='shop')||ISL.bld[0]):inMuseum()?(ISL.bld.find(b=>b.type==='museum')||ISL.bld[1]):inVHouse()?(ISL.bld.find(b=>b.vid===S.loc.slice(3))||ISL.bld[1]):ISL.bld[1];W=ISL;S.loc='island';S.px=(h.door.x+.5)*T;S.py=(h.door.y+.5)*T;try{return fn()}finally{W=w;S.loc=loc;S.px=px;S.py=py}}
 let mmT=0;
 function drawMinimap(dt,t){
   const c=document.getElementById('minimap');if(!c||!S||RT.title)return;
@@ -5632,7 +5637,7 @@ function openMap(){
     c.addEventListener('click',e=>{
       const r=c.getBoundingClientRect(),tx=Math.floor((e.clientX-r.left)/r.width*MW),ty=Math.floor((e.clientY-r.top)/r.height*MH);
       if(!inMap(tx,ty))return;
-      if(inHome()||inMuseum()||inVHouse()){toast('外に出てから歩こう');return}
+      if(inHome()||inMuseum()||inVHouse()||inShop()){toast('外に出てから歩こう');return}
       if(inCave()&&caveSeenStr()[ti(tx,ty)]!=='1'){toast('まだ行ったことのない場所だ');return}
       const g2=walkable(tx,ty)?{act:false,tx,ty,stands:[[tx,ty]]}:{act:false,tx,ty,stands:n4(tx,ty)};
       closePanel();startGoal(g2,[(tx+.5)*T,(ty+.5)*T]);
@@ -6455,11 +6460,20 @@ function recolorImg(im,topId,gd){
   const id=cg.getImageData(0,0,iw,ih),d=id.data,mask=new Uint8Array(iw*ih);let sl=0,n=0;
   for(let y=0;y<ih;y++)for(let x=0;x<iw;x++){const o=(y*iw+x)*4;if(d[o+3]<128)continue;if(isCloth(gd,d[o],d[o+1],d[o+2],y/ih)){mask[y*iw+x]=1;sl+=d[o]*.3+d[o+1]*.59+d[o+2]*.11;n++}}
   const base=n?sl/n:128,c1=hexRgb(T0.c),c2=T0.c2?hexRgb(T0.c2):c1,p=Math.max(6,Math.round(ih*.045));
+  let my0=ih,my1=0;for(let y=0;y<ih;y++)for(let x=0;x<iw;x++)if(mask[y*iw+x]){if(y<my0)my0=y;if(y>my1)my1=y}
+  const c3=c1.map(v=>Math.min(255,v*1.35+20)),yHalf=my0+(my1-my0)*.55;
   for(let y=0;y<ih;y++)for(let x=0;x<iw;x++){if(!mask[y*iw+x])continue;const o=(y*iw+x)*4,l=(d[o]*.3+d[o+1]*.59+d[o+2]*.11)/base,k=Math.min(1.35,Math.max(.25,l));
     let col=c1;
     if(T0.pat==='border'&&((y/p)|0)%2)col=c2;
     else if(T0.pat==='dot'){const dx=x%(p*2)-p,dy=(y+((x/(p*2)|0)%2)*p)%(p*2)-p;if(dx*dx+dy*dy<p*p*.28)col=c2}
     else if(T0.pat==='check'&&(((x/p)|0)+((y/p)|0))%2)col=c2;
+    else if(T0.pat==='vstripe'&&((x/p)|0)%2)col=c2;
+    else if(T0.pat==='half'&&y>yHalf)col=c2;
+    else if(T0.pat==='zigzag'){const q=p*2,zz=Math.abs(x%q-p);if((y+zz)%q<p*.55)col=c2}
+    else if(T0.pat==='heart'||T0.pat==='flower'){const q=p*2.2,ox=(((y/q)|0)%2)*q/2,lx=((x+ox)%q)/q*2-1,ly=(y%q)/q*2-1;
+      if(T0.pat==='heart'){const hx=lx*1.25,hy=-ly*1.25+.25,t=hx*hx+hy*hy-1;if(t*t*t-hx*hx*hy*hy*hy<0)col=c2}
+      else{const r=Math.hypot(lx,ly),a=Math.atan2(ly,lx);if(r<.18)col=[246,216,96];else if(r<.5+.22*Math.cos(5*a))col=c2}}
+    else if(T0.pat==='camo'){const v=Math.sin(x*.09+Math.sin(y*.05)*2)+Math.sin(y*.11+x*.03)+Math.sin((x+y)*.06);if(v<-.6)col=c2;else if(v>1.1)col=c3}
     else if(T0.pat==='star'){const dx=Math.abs(x%(p*2)-p),dy=Math.abs((y+((x/(p*2)|0)%2)*p)%(p*2)-p);if(dx+dy<p*.45||dx<p*.12&&dy<p*.55||dy<p*.12&&dx<p*.55)col=c2}
     d[o]=Math.min(255,col[0]*k);d[o+1]=Math.min(255,col[1]*k);d[o+2]=Math.min(255,col[2]*k)}
   cg.putImageData(id,0,0);c.naturalWidth=iw;c.naturalHeight=ih;c.__outfit=topId;c.src=key;_topCache.set(key,c);return c;
@@ -6570,8 +6584,18 @@ drawIcon=function(c,id){
   const it=ITEMS[id];if(!it||(it.kind!=='top'&&it.kind!=='acc'))return _drawIconClothes(c,id);
   const g=c.getContext('2d'),s=c.width;g.clearRect(0,0,s,s);g.save();g.scale(s/32,s/32);
   if(it.kind==='top'){const T0=TOPS[id];g.fillStyle=T0.c;g.beginPath();g.moveTo(9,7);g.lineTo(13,5);g.quadraticCurveTo(16,9,19,5);g.lineTo(23,7);g.lineTo(29,13);g.lineTo(25,17);g.lineTo(23,15);g.lineTo(23,27);g.lineTo(9,27);g.lineTo(9,15);g.lineTo(7,17);g.lineTo(3,13);g.closePath();g.fill();
-    if(T0.pat){g.save();g.clip();g.fillStyle=T0.c2;if(T0.pat==='border')for(let y=8;y<28;y+=5)g.fillRect(0,y,32,2.5);else if(T0.pat==='check')for(let y=4;y<28;y+=6)for(let x=2;x<30;x+=6)if(((x+y)/6|0)%2)g.fillRect(x,y,3,3);else for(let y=9;y<28;y+=6)for(let x=6;x<28;x+=7){g.beginPath();g.arc(x+(y%12?3:0),y,1.6,0,7);g.fill()}g.restore()}
-    g.strokeStyle='rgba(0,0,0,.25)';g.lineWidth=.8;g.stroke()}
+    g.strokeStyle='rgba(0,0,0,.25)';g.lineWidth=.8;g.stroke();   // ふち（模様を描く前に）
+    if(T0.pat){g.save();g.clip();g.fillStyle=T0.c2;const P=T0.pat;
+      if(P==='border'){for(let y=8;y<28;y+=5)g.fillRect(0,y,32,2.5)}
+      else if(P==='check'){for(let y=4;y<28;y+=6)for(let x=2;x<30;x+=6)if(((x+y)/6|0)%2)g.fillRect(x,y,3,3)}
+      else if(P==='vstripe'){for(let x=4;x<30;x+=5)g.fillRect(x,0,2.4,32)}
+      else if(P==='half'){g.fillRect(0,17,32,15)}
+      else if(P==='zigzag'){g.strokeStyle=T0.c2;g.lineWidth=1.6;for(let y=10;y<28;y+=6){g.beginPath();for(let x=2;x<=30;x+=3)g.lineTo(x,y+((x/3)%2?2:-1));g.stroke()}}
+      else if(P==='heart'){for(let y=11;y<28;y+=6)for(let x=7;x<28;x+=6){_heart(g,x+(y%12?3:0),y,2.2);g.fill()}}
+      else if(P==='flower'){for(let y=11;y<28;y+=7)for(let x=8;x<28;x+=7){const cx=x+(y%14?3:0);for(let q=0;q<5;q++){const a=q*1.2566;g.beginPath();g.arc(cx+Math.cos(a)*1.5,y+Math.sin(a)*1.5,1.2,0,7);g.fill()}}}
+      else if(P==='camo'){for(const [x,y,r] of [[10,12,4],[20,18,5],[13,23,3.5],[24,10,3]]){g.beginPath();g.ellipse(x,y,r,r*.7,.5,0,7);g.fill()}g.fillStyle=shade(T0.c,.3);for(const [x,y,r] of [[18,12,2.5],[9,19,2.5],[22,25,2.4]]){g.beginPath();g.ellipse(x,y,r,r*.7,-.4,0,7);g.fill()}}
+      else{for(let y=9;y<28;y+=6)for(let x=6;x<28;x+=7){g.beginPath();g.arc(x+(y%12?3:0),y,1.6,0,7);g.fill()}}   // 水玉・星
+      g.restore()}}
   else{   // 小物：その小物をつけた主人公の上半身（羽・マント・リュックは後ろ姿）
     const keep=S&&S.acc,kd=RT.diag;if(S)S.acc=id;RT.diag=null;
     const back=['acc_cape','acc_wings','acc_bag'].includes(id);
@@ -6898,6 +6922,440 @@ addEventListener('keydown',e=>{
 `;document.head.append(st)}
 </script>
 <script>
+// ===================== 品物をふやす（家具・服・帽子・小物を 20 種類ずつ） =====================
+// どれもお店で買える（服・帽子・小物は「買う」、家具は「家具」）。お店の日替わりの台や、旅の商人にも並ぶことがある
+const _addItem=(id,name,price,kind,note)=>{ITEMS[id]={id,name,price,kind,note,shop:true}};
+
+// ---------------- 服（20） ----------------
+// 模様：border（よこじま）・dot（水玉）・check（チェック）・star（星）に加えて、vstripe（たてじま）・half（上下で色ちがい）・heart（ハート）・zigzag（ギザギザ）・flower（花）・camo（迷彩）
+const TOPS2={
+  top_navy:['紺の服','#34457a'],top_purple:['むらさきの服','#8a5ac8'],top_brown:['茶色の服','#8a5a34'],top_mint:['ミントの服','#8fd8c0'],
+  top_lemon:['レモン色の服','#f3df6a'],top_wine:['ワインレッドの服','#8a2a3a'],top_beige:['ベージュの服','#e3d1b0'],top_gray:['灰色の服','#9aa0a8'],
+  top_border_blue:['青いボーダーの服','#3a6ab8','border','#f4f2ec'],top_border_black:['黒いボーダーの服','#3a3a40','border','#f2f0ea'],
+  top_dot_blue:['青い水玉の服','#3a7bd5','dot','#ffffff'],top_dot_black:['黒い水玉の服','#33333a','dot','#f6f3ea'],
+  top_check_red:['赤いチェックの服','#c8303a','check','#f08a8a'],top_check_blue:['青いチェックの服','#2f5aa8','check','#8ab4ea'],
+  top_vstripe:['たてじまの服','#f2f0ea','vstripe','#5fa8d8'],top_heart:['ハートがらの服','#f8cdd9','heart','#e0507a'],
+  top_zigzag:['ギザギザもようの服','#f6d860','zigzag','#3a3a40'],top_two:['ツートンの服','#f08a3c','half','#3a7bd5'],
+  top_sakura:['さくらもようの服','#fbe3ea','flower','#f08aa8'],top_camo:['迷彩の服','#6b7a4a','camo','#45532f'],
+};
+for(const [id,[name,c,pat,c2]] of Object.entries(TOPS2)){TOPS[id]={name,c,...(pat?{pat,c2}:{})};_addItem(id,name,pat?1800:1200,'top',pat?'着ると、主人公の服が この模様になる':'着ると、主人公の服の色が変わる')}
+
+// ---------------- 帽子（20） ----------------
+const HATS2={hat_cap_red:'赤いキャップ',hat_cap_black:'黒いキャップ',hat_knit_blue:'青いニット帽',hat_knit_green:'緑のニット帽',hat_beret_red:'赤いベレー帽',hat_beret_navy:'紺のベレー帽',
+  hat_straw_blue:'青いリボンの麦わら帽子',hat_bucket:'バケットハット',hat_top:'シルクハット',hat_witch:'魔女の帽子',hat_cowboy:'カウボーイハット',hat_santa:'サンタの帽子',hat_chef:'コック帽',
+  hat_party:'パーティー帽',hat_tiara:'ティアラ',hat_flower:'花かんむり',hat_catear:'ねこみみ',hat_bunny:'うさみみ',hat_helmet:'ヘルメット',hat_sailor:'セーラー帽'};
+const HAT2_PRICE={hat_top:3500,hat_witch:3000,hat_tiara:6000,hat_flower:1800,hat_cowboy:2500,hat_santa:2000,hat_helmet:1500};
+for(const [id,name] of Object.entries(HATS2)){HATS[id]=name;_addItem(id,name,HAT2_PRICE[id]||1200,'hat','かぶると、主人公の頭にのる')}
+const _drawHatBase=drawHat;
+drawHat=function(g,id,x,y,w,back){
+  if(!HATS2[id])return _drawHatBase(g,id,x,y,w,back);
+  const s=w/24;g.save();g.translate(x,y);g.scale(s,s);g.lineJoin='round';
+  const ol=(c='rgba(40,25,20,.55)',lw=.7)=>{g.strokeStyle=c;g.lineWidth=lw;g.stroke()};
+  const cap=(c,c2)=>{ell(g,0,1,11,8,c);g.fillStyle=c;g.fillRect(-11,1,22,4);if(!back)ell(g,0,5,13,3,c2);circ(g,0,-6,1.8,c2);g.fillStyle='rgba(255,255,255,.3)';g.fillRect(-6,-4,4,5)};
+  const knit=(c,c2)=>{ell(g,0,1,11,9,c);rrect(g,-11.5,2,23,5,2,c2);g.strokeStyle='rgba(0,0,0,.18)';g.lineWidth=.7;for(let i=-8;i<=8;i+=4){g.beginPath();g.moveTo(i,-6);g.lineTo(i,2);g.stroke()}circ(g,0,-9,4,c2)};
+  const beret=(c,c2)=>{ell(g,1,0,13,6,c);ell(g,1,-1,11,4.5,c2);rrect(g,-.5,-8,2,3,1,c)};
+  const flower=(fx,fy,r,c)=>{for(let k=0;k<5;k++){const a=k*1.2566;circ(g,fx+Math.cos(a)*r*.75,fy+Math.sin(a)*r*.75,r*.55,c)}circ(g,fx,fy,r*.4,'#f6d860')};
+  switch(id){
+    case 'hat_cap_red':cap('#d9473f','#a8302a');break;
+    case 'hat_cap_black':cap('#3a3a40','#222226');break;
+    case 'hat_knit_blue':knit('#3a7bd5','#f2f0ea');break;
+    case 'hat_knit_green':knit('#3f9a5a','#f6e9c8');break;
+    case 'hat_beret_red':beret('#a8302a','#d14a42');break;
+    case 'hat_beret_navy':beret('#26325a','#3a4a80');break;
+    case 'hat_straw_blue':ell(g,0,5,19,5,'#c99a4a');ell(g,0,4,18,4.2,'#e8c46a');ell(g,0,-1,10,7,'#e8c46a');rrect(g,-10,1,20,3,1,'#3a7bd5');g.strokeStyle='rgba(150,110,50,.5)';g.lineWidth=.6;for(const r of [12,15]){g.beginPath();g.ellipse(0,4.5,r,r*.25,0,0,7);g.stroke()}break;
+    case 'hat_bucket':ell(g,0,4,15,4,'#c9b48e');g.fillStyle='#e3d1b0';g.beginPath();g.moveTo(-10,4);g.lineTo(-8,-6);g.quadraticCurveTo(0,-9,8,-6);g.lineTo(10,4);g.closePath();g.fill();ol();rrect(g,-9.5,0,19,2.5,1,'#8a6a48');break;
+    case 'hat_top':ell(g,0,4,15,3.5,'#222226');g.fillStyle='#2e2e34';g.beginPath();g.roundRect(-8,-15,16,19,2);g.fill();rrect(g,-8,-2,16,3.5,.5,'#c8303a');ell(g,0,-15,8,2,'#3e3e46');g.fillStyle='rgba(255,255,255,.18)';g.fillRect(-6,-13,2.5,10);break;
+    case 'hat_witch':ell(g,0,4,18,4.5,'#4a2a6a');g.fillStyle='#5e3a86';g.beginPath();g.moveTo(-10,4);g.quadraticCurveTo(-4,-8,2,-18);g.quadraticCurveTo(6,-22,12,-20);g.quadraticCurveTo(6,-16,8,-6);g.lineTo(10,4);g.closePath();g.fill();ol();
+      rrect(g,-10,0,20,3.5,1,'#2e1a44');rrect(g,-2.5,-.5,5,4.5,1,'#e6c45a');rrect(g,-1.2,.6,2.4,2.3,.5,'#2e1a44');break;
+    case 'hat_cowboy':g.fillStyle='#9a6a3a';g.beginPath();g.moveTo(-19,1);g.quadraticCurveTo(-16,6,0,6);g.quadraticCurveTo(16,6,19,1);g.quadraticCurveTo(14,4,0,4);g.quadraticCurveTo(-14,4,-19,1);g.fill();
+      g.fillStyle='#b07a44';g.beginPath();g.moveTo(-9,4);g.lineTo(-8,-7);g.quadraticCurveTo(-4,-10,0,-7);g.quadraticCurveTo(4,-10,8,-7);g.lineTo(9,4);g.closePath();g.fill();ol();rrect(g,-9,0,18,2.5,1,'#5a3a1e');break;
+    case 'hat_santa':g.fillStyle='#d9473f';g.beginPath();g.moveTo(-11,3);g.quadraticCurveTo(-8,-12,4,-14);g.quadraticCurveTo(13,-14,15,-4);g.lineTo(11,3);g.closePath();g.fill();ol();rrect(g,-12,0,24,6,3,'#f6f3ea');circ(g,15,-3,3.4,'#f6f3ea');break;
+    case 'hat_chef':for(const [cx,cy,r] of [[-6,-8,6.6],[0,-11,7.6],[6,-8,6.6]])circ(g,cx,cy,r,'#c9ccd4');rrect(g,-9.6,-4.6,19.2,9.2,1.4,'#c9ccd4');rrect(g,-9,-4,18,8,1,'#f6f6f2');for(const [cx,cy,r] of [[-6,-8,6],[0,-11,7],[6,-8,6]])circ(g,cx,cy,r,'#ffffff');g.strokeStyle='rgba(120,120,130,.35)';g.lineWidth=.6;g.beginPath();g.moveTo(-9,-3);g.lineTo(9,-3);g.stroke();break;
+    case 'hat_party':g.save();g.rotate(.15);g.fillStyle='#5fa8d8';g.beginPath();g.moveTo(-7,3);g.lineTo(0,-17);g.lineTo(7,3);g.closePath();g.fill();g.save();g.clip();g.fillStyle='#f6d860';for(let i=-16;i<4;i+=6)g.fillRect(-8,i,16,2.5);g.restore();ol();circ(g,0,-17,2.6,'#e0507a');g.restore();break;
+    case 'hat_tiara':g.fillStyle='#d8dde6';g.beginPath();g.moveTo(-9,3);g.quadraticCurveTo(0,-1,9,3);g.lineTo(7,0);g.lineTo(4,-3);g.lineTo(2,-1);g.lineTo(0,-6);g.lineTo(-2,-1);g.lineTo(-4,-3);g.lineTo(-7,0);g.closePath();g.fill();ol('#8a95a6',.5);
+      circ(g,0,-3,1.4,'#e0507a');circ(g,-4.5,0,1,'#5fa8d8');circ(g,4.5,0,1,'#5fa8d8');break;
+    case 'hat_flower':for(let i=0;i<7;i++){const a=Math.PI*(1.05+i*.15),fx=Math.cos(a)*11,fy=3+Math.sin(a)*3.5;if(back&&i===3)continue;flower(fx,fy,2.6,['#f49ac1','#ffffff','#f6d860','#a8c8f0'][i%4])}
+      g.strokeStyle='#5fa05a';g.lineWidth=1;g.beginPath();g.ellipse(0,3,11,3.5,0,Math.PI,2*Math.PI);g.stroke();break;
+    case 'hat_catear':case 'hat_bunny':{const bun=id==='hat_bunny';g.strokeStyle='#3a3a40';g.lineWidth=2;g.beginPath();g.ellipse(0,4,11,4,0,Math.PI,2*Math.PI);g.stroke();
+      for(const sx of [-1,1]){g.save();g.translate(sx*7,0);g.rotate(sx*(bun?.18:.3));
+        if(bun){ell(g,0,-9,3.4,9,'#fbfbf8');ell(g,0,-9,1.6,6.5,'#f6c0cc')}else{g.fillStyle='#3a3a40';g.beginPath();g.moveTo(-4,2);g.lineTo(0,-8);g.lineTo(4,2);g.closePath();g.fill();g.fillStyle='#f6a6be';g.beginPath();g.moveTo(-2,1);g.lineTo(0,-4.5);g.lineTo(2,1);g.closePath();g.fill()}
+        g.restore()}break}
+    case 'hat_helmet':ell(g,0,1,12,9,'#f2c230');g.fillStyle='#f2c230';g.fillRect(-12,1,24,3);ell(g,0,4,14,2.6,'#d9a81c');rrect(g,-1.5,-8,3,12,1,'#e0b425');g.fillStyle='rgba(255,255,255,.35)';g.beginPath();g.ellipse(-5,-3,2.5,4,-.4,0,7);g.fill();break;
+    case 'hat_sailor':ell(g,0,2,11,5,'#f6f6f2');g.fillStyle='#f6f6f2';g.fillRect(-11,1,22,3);rrect(g,-11.5,2,23,3.5,1.5,'#2f5aa8');ell(g,0,-2,9,3,'#ffffff');if(!back){rrect(g,-3,1.5,6,4,1,'#2f5aa8');circ(g,0,3.5,1,'#e6c45a')}break;
+  }
+  g.restore();
+};
+
+// 帽子の小さな絵：背の高い帽子は、下げて小さめに描く（上が切れないように）
+const HAT2_TALL={hat_top:[25,17],hat_witch:[26,16],hat_chef:[25,17],hat_santa:[24,18],hat_party:[26,16],hat_bunny:[26,16],hat_catear:[22,20],hat_cowboy:[19,20]};
+{const _drawIconHat2=drawIcon;drawIcon=function(c,id){const t=HAT2_TALL[id];if(!t)return _drawIconHat2(c,id);
+  const g=c.getContext('2d'),s=c.width;g.clearRect(0,0,s,s);g.save();g.scale(s/32,s/32);drawHat(g,id,16,t[0],t[1],false);g.restore()}}
+// ---------------- 小物（20） ----------------
+// t＝種類（neck 首・eyes 目・face 顔・pin 髪かざり・bag 背中・wing 羽）、c＝色
+const ACC2={
+  acc_bowtie:{n:'蝶ネクタイ',t:'neck',s:'bowtie',c:'#c8303a',p:1200},acc_tie:{n:'ネクタイ',t:'neck',s:'tie',c:'#2f4a8a',p:1200},
+acc_lei:{n:'花の首かざり',t:'neck',s:'lei',c:'#f49ac1',p:1800},
+  acc_star_pendant:{n:'星のペンダント',t:'neck',s:'pend',shape:'star',c:'#f6d860',p:2500},acc_heart_pendant:{n:'ハートのペンダント',t:'neck',s:'pend',shape:'heart',c:'#e0507a',p:2500},
+  acc_scarf_blue:{n:'青いマフラー',t:'neck',s:'scarf',c:'#3a7bd5',p:900},acc_scarf_check:{n:'チェックのマフラー',t:'neck',s:'scarf',c:'#c8303a',c2:'#f0d070',p:1100},
+  acc_monocle:{n:'片めがね',t:'eyes',s:'monocle',c:'#c99a28',p:2200},acc_heart_glasses:{n:'ハートのめがね',t:'eyes',s:'heart',c:'#e0507a',p:1600},
+  acc_star_glasses:{n:'星のめがね',t:'eyes',s:'star',c:'#f2b818',p:1600},acc_goggles:{n:'ゴーグル',t:'eyes',s:'goggles',c:'#5a6470',p:1800},acc_red_glasses:{n:'赤ぶちめがね',t:'eyes',s:'round',c:'#c8303a',p:1200},
+  acc_mask:{n:'マスク',t:'face',s:'mask',c:'#f6f6f2',p:500},acc_bandage:{n:'ばんそうこう',t:'face',s:'bandage',c:'#f0c89a',p:300},
+  acc_flower_pin:{n:'花のかみかざり',t:'pin',s:'flower',c:'#f49ac1',p:900},acc_ribbon_pin:{n:'リボンのかみどめ',t:'pin',s:'ribbon',c:'#5fa8d8',p:900},
+  acc_bag_blue:{n:'青いリュック',t:'bag',s:'pack',c:'#3a6ab8',c2:'#2a4f8f',p:2000},acc_randoseru:{n:'ランドセル',t:'bag',s:'randoseru',c:'#c8303a',c2:'#8a1f28',p:4000},
+  acc_butterfly:{n:'ちょうの羽',t:'wing',s:'butterfly',c:'#7cc8f0',p:8000},acc_bat:{n:'こうもりの羽',t:'wing',s:'bat',c:'#4a2a6a',p:8000},
+};
+const ACC2_NOTE={neck:'首につける小物',eyes:'顔（目）につける小物',face:'顔につける小物',pin:'髪につける小物',bag:'背中にしょう小物',wing:'背中にはえる小物'};
+for(const [id,a] of Object.entries(ACC2)){ACCS[id]=a.n;_addItem(id,a.n,a.p,'acc',ACC2_NOTE[a.t])}
+function _star(g,x,y,r){g.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.45:r;g.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr)}g.closePath()}
+function _heart(g,x,y,r){g.beginPath();g.moveTo(x,y+r*.9);g.bezierCurveTo(x-r*1.4,y-r*.1,x-r*.7,y-r*1.1,x,y-r*.35);g.bezierCurveTo(x+r*.7,y-r*1.1,x+r*1.4,y-r*.1,x,y+r*.9);g.closePath()}
+const _drawAccBase=drawAcc;
+drawAcc=function(g,id,B,k,v,f,layer){
+  const A=ACC2[id];if(!A)return _drawAccBase(g,id,B,k,v,f,layer);
+  const X=px=>(px-B.iw/2)*k,Y=py=>-PC_H+2+py*k,cx=X(B.cx),ny=Y(B.neck),hy=Y(B.hip),u=B.hw*k/24,sw=B.sw*k,hTop=Y(B.top),eye=hTop+(ny-hTop)*.74,hw=B.hw*k;
+  const R=(x,y,w,h,r,c)=>{g.fillStyle=c;g.beginPath();g.roundRect(x,y,w,h,r);g.fill()};
+  const ol=(c='rgba(40,25,20,.6)',lw=.45*u)=>{g.strokeStyle=c;g.lineWidth=lw;g.stroke()};
+  const side=v==='side',back=v==='back';
+  if(A.t==='neck'&&layer==='front'&&!back){
+    const px=cx+(side?f*sw*.18:0),py=ny+1*u;
+    if(A.s==='bowtie'){g.fillStyle=A.c;for(const s of side?[f]:[-1,1]){g.beginPath();g.moveTo(px,py);g.lineTo(px+s*3.6*u,py-2*u);g.lineTo(px+s*3.6*u,py+2*u);g.closePath();g.fill();ol()}circ(g,px,py,1.1*u,shade(A.c,-.2))}
+    else if(A.s==='tie'){R(px-1.3*u,py-1.2*u,2.6*u,2*u,.6*u,shade(A.c,-.15));g.fillStyle=A.c;g.beginPath();g.moveTo(px-1.2*u,py+.6*u);g.lineTo(px+1.2*u,py+.6*u);g.lineTo(px+1.8*u,py+8*u);g.lineTo(px,py+9.6*u);g.lineTo(px-1.8*u,py+8*u);g.closePath();g.fill();ol();
+      g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=.5*u;for(const t of [3,5.5]){g.beginPath();g.moveTo(px-1.4*u,py+t*u);g.lineTo(px+1.4*u,py+(t-1)*u);g.stroke()}}
+    else if(A.s==='lei'){for(let i=0;i<9;i++){const t=i/8,x=cx-sw*.42+t*sw*.84,y=ny+Math.sin(t*Math.PI)*5*u;if(side&&(x-cx)*f<-sw*.1)continue;const col=['#f49ac1','#f6d860','#ffffff','#f08a3c'][i%4];for(let q=0;q<5;q++){const a=q*1.2566;circ(g,x+Math.cos(a)*1.1*u,y+Math.sin(a)*1.1*u,.8*u,col)}circ(g,x,y,.5*u,'#e8a020')}}
+    else if(A.s==='pend'){g.strokeStyle='#d6a93a';g.lineWidth=.6*u;g.beginPath();g.moveTo(px-sw*.22,ny);g.quadraticCurveTo(px,ny+8*u,px+sw*.22,ny);g.stroke();
+      g.fillStyle=A.c;(A.shape==='star'?_star:_heart)(g,px,ny+7.6*u,2.3*u);g.fill();ol('rgba(80,40,20,.6)',.35*u);circ(g,px-.6*u,ny+7*u,.5*u,'rgba(255,255,255,.8)')}
+    else if(A.s==='scarf'){R(cx-sw*.42,ny-1*u,sw*.84,4.6*u,2.2*u,A.c);if(A.c2){g.fillStyle=A.c2;for(let x=cx-sw*.4;x<cx+sw*.4;x+=2.4*u)g.fillRect(x,ny-1*u,.8*u,4.6*u)}g.fillStyle='rgba(255,255,255,.25)';g.fillRect(cx-sw*.38,ny-.6*u,sw*.76,.8*u);
+      const tx=side?cx-f*sw*.25:cx+sw*.18;R(tx-1.8*u,ny,3.6*u,9*u,1.5*u,shade(A.c,-.12));g.fillStyle='#f6f3ea';for(let i=0;i<3;i++)g.fillRect(tx-1.6*u+i*1.2*u,ny+8*u,.7*u,1.6*u)}
+  }
+  if(A.t==='eyes'&&layer==='front'){
+    if(back){if(A.s==='goggles'){R(cx-hw*.5,eye-1.2*u,hw,2.4*u,1*u,'#3a3a40')}return}
+    const lensAt=side?[cx+f*hw*.3]:[cx+f*hw*.1-hw*.2,cx+f*hw*.1+hw*.2];
+    if(A.s==='goggles'){R(cx-hw*.5,eye-1.2*u,hw,2.4*u,1*u,'#3a3a40');for(const x of lensAt){circ(g,x,eye,3.3*u,'#8a96a0');circ(g,x,eye,2.6*u,'rgba(120,200,240,.85)');circ(g,x-.8*u,eye-.8*u,.7*u,'rgba(255,255,255,.9)')}return}
+    if(A.s==='monocle'){const x=lensAt[lensAt.length-1];g.beginPath();g.arc(x,eye,2.9*u,0,7);g.fillStyle='rgba(220,240,250,.3)';g.fill();ol(A.c,.8*u);g.strokeStyle=A.c;g.lineWidth=.4*u;g.beginPath();g.moveTo(x+2*u,eye+2*u);g.quadraticCurveTo(x+3*u,eye+6*u,x+1*u,eye+9*u);g.stroke();return}
+    for(const x of lensAt){
+      if(A.s==='heart'){g.fillStyle='rgba(240,120,160,.55)';_heart(g,x,eye,2.9*u);g.fill();ol(A.c,.7*u)}
+      else if(A.s==='star'){g.fillStyle='rgba(250,220,90,.45)';_star(g,x,eye,3.4*u);g.fill();ol(A.c,.7*u)}
+      else{g.beginPath();g.arc(x,eye,2.8*u,0,7);g.fillStyle='rgba(220,240,250,.25)';g.fill();ol(A.c,.9*u)}}
+    g.strokeStyle=A.c;g.lineWidth=.8*u;g.beginPath();if(side){const x=lensAt[0];g.moveTo(x-f*2.8*u,eye);g.lineTo(x-f*9*u,eye-.8*u)}else{g.moveTo(lensAt[0]+2.6*u,eye);g.lineTo(lensAt[1]-2.6*u,eye)}g.stroke();
+  }
+  if(A.t==='face'&&layer==='front'&&!back){
+    const o=side?f*hw*.32:f*hw*.1;
+    if(A.s==='mask'){const w=side?5.5*u:9*u,x=cx+o-(side?w/2-f*1*u:w/2);R(x,eye+2.8*u,w,4.6*u,1.6*u,A.c);g.strokeStyle='rgba(150,150,160,.6)';g.lineWidth=.35*u;g.beginPath();g.roundRect(x,eye+2.8*u,w,4.6*u,1.6*u);g.stroke();
+      g.beginPath();for(const t of [1.6,3.2])g.moveTo(x+.6*u,eye+2.8*u+t*u),g.lineTo(x+w-.6*u,eye+2.8*u+t*u);g.stroke()}
+    else{const x=side?cx+o-f*1.5*u:cx+o+hw*.24,y=eye+2.6*u;g.save();g.translate(x,y);g.rotate(-.5);R(-2.4*u,-.9*u,4.8*u,1.8*u,.8*u,A.c);R(-.8*u,-.9*u,1.6*u,1.8*u,.3*u,'#f6dcc0');g.restore()}
+  }
+  if(A.t==='pin'&&layer==='front'){
+    const px=back?cx-hw*.3:side?cx-f*hw*.12:cx+hw*.3,py=hTop+(ny-hTop)*.22;
+    if(A.s==='flower'){for(let q=0;q<5;q++){const a=q*1.2566;circ(g,px+Math.cos(a)*1.6*u,py+Math.sin(a)*1.6*u,1.2*u,A.c)}circ(g,px,py,.9*u,'#f6d860')}
+    else{g.fillStyle=A.c;for(const s of [-1,1]){g.beginPath();g.moveTo(px,py);g.quadraticCurveTo(px+s*3.4*u,py-2.6*u,px+s*3.6*u,py+.4*u);g.quadraticCurveTo(px+s*2*u,py+1.4*u,px,py);g.fill()}circ(g,px,py,1*u,shade(A.c,-.2))}
+  }
+  if(A.t==='bag'){
+    const bag=(x,y,w,h)=>{R(x,y,w,h,2.5*u,A.c);if(A.s==='randoseru'){R(x,y,w,h*.62,2.5*u,A.c2);R(x+w*.4,y+h*.5,w*.2,h*.14,.8*u,'#e6c45a')}else{R(x+w*.12,y+h*.45,w*.76,h*.4,2*u,A.c2);R(x+w*.4,y+h*.55,w*.2,h*.15,1*u,'#e6c45a')}g.fillStyle='rgba(255,255,255,.2)';g.fillRect(x+w*.1,y+1*u,w*.8,1.2*u)};
+    if(back&&layer==='front')bag(cx-sw*.4,ny-1*u,sw*.8,(hy-ny)*.95);
+    if(v==='front'&&layer==='back')bag(cx-sw*.55,ny+1*u,sw*1.1,(hy-ny)*.7);
+    if(v==='front'&&layer==='front'){g.strokeStyle=A.c2;g.lineWidth=1.6*u;for(const s of [-1,1]){g.beginPath();g.moveTo(cx+s*sw*.28,ny+1*u);g.lineTo(cx+s*sw*.3,ny+(hy-ny)*.5);g.stroke()}}
+    if(side&&layer==='back')bag(cx-f*sw*.6-sw*.3,ny,sw*.6,(hy-ny)*.9);
+  }
+  if(A.t==='wing'&&((back&&layer==='front')||(!back&&layer==='back'))){
+    const wing=s=>{g.save();g.translate(cx+s*sw*.2-(side?f*sw*.3:0),ny+(hy-ny)*.25);g.scale(s*.62,.62);
+      if(A.s==='butterfly'){g.fillStyle=A.c;g.beginPath();g.moveTo(0,0);g.quadraticCurveTo(10*u,-18*u,22*u,-12*u);g.quadraticCurveTo(22*u,-2*u,6*u,1*u);g.closePath();g.fill();ol('rgba(30,60,90,.7)',.8*u);
+        g.fillStyle='#f6a6d0';g.beginPath();g.moveTo(0,2*u);g.quadraticCurveTo(14*u,4*u,15*u,12*u);g.quadraticCurveTo(6*u,13*u,0,4*u);g.closePath();g.fill();ol('rgba(30,60,90,.7)',.8*u);
+        circ(g,13*u,-9*u,2.4*u,'#ffffff');circ(g,9*u,7*u,1.6*u,'#ffffff')}
+      else{g.fillStyle=A.c;g.beginPath();g.moveTo(0,0);g.lineTo(6*u,-10*u);g.lineTo(22*u,-12*u);g.quadraticCurveTo(19*u,-6*u,21*u,-2*u);g.quadraticCurveTo(16*u,-4*u,15*u,1*u);g.quadraticCurveTo(10*u,-1*u,9*u,4*u);g.quadraticCurveTo(5*u,1*u,0,5*u);g.closePath();g.fill();ol('rgba(20,10,30,.8)',.8*u);
+        g.strokeStyle='rgba(255,255,255,.25)';g.lineWidth=.6*u;g.beginPath();g.moveTo(6*u,-10*u);g.lineTo(15*u,1*u);g.moveTo(6*u,-10*u);g.lineTo(9*u,4*u);g.stroke()}
+      g.restore()};
+    if(side)wing(-f);else{wing(-1);wing(1)}
+  }
+};
+// 小物そのものの絵（持ち物・お店・装備）
+const _drawAccItemBase=drawAccItem;
+drawAccItem=function(c,id){
+  const A=ACC2[id];if(!A)return _drawAccItemBase(c,id);
+  const g=c.getContext('2d'),s=c.width;g.clearRect(0,0,s,s);g.save();g.scale(s/32,s/32);g.lineJoin='round';g.lineCap='round';
+  const ol=(w=.8,col='rgba(40,25,20,.7)')=>{g.strokeStyle=col;g.lineWidth=w;g.stroke()};
+  ell(g,16,28.5,10,2.2,'rgba(0,0,0,.15)');
+  switch(A.s){
+    case 'bowtie':g.fillStyle=A.c;for(const sx of [-1,1]){g.beginPath();g.moveTo(16,16);g.lineTo(16+sx*11,9);g.quadraticCurveTo(16+sx*13,16,16+sx*11,23);g.closePath();g.fill();ol()}circ(g,16,16,3,shade(A.c,-.25));break;
+    case 'tie':rrect(g,13,4,6,5,1.5,shade(A.c,-.15));g.fillStyle=A.c;g.beginPath();g.moveTo(13.2,8.5);g.lineTo(18.8,8.5);g.lineTo(21,24);g.lineTo(16,28);g.lineTo(11,24);g.closePath();g.fill();ol();g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=1.2;for(const y of [13,18,23]){g.beginPath();g.moveTo(12.5,y);g.lineTo(19.5,y-3);g.stroke()}break;
+    case 'lei':for(let i=0;i<12;i++){const a=i/12*Math.PI*2,x=16+Math.cos(a)*10,y=15+Math.sin(a)*8,col=['#f49ac1','#f6d860','#ffffff','#f08a3c'][i%4];for(let q=0;q<5;q++){const b=q*1.2566;circ(g,x+Math.cos(b)*1.8,y+Math.sin(b)*1.8,1.4,col)}circ(g,x,y,.9,'#e8a020')}break;
+    case 'pend':g.strokeStyle='#d6a93a';g.lineWidth=1;g.beginPath();g.moveTo(6,5);g.quadraticCurveTo(16,22,26,5);g.stroke();g.fillStyle=A.c;(A.shape==='star'?_star:_heart)(g,16,21,6);g.fill();ol(.7,'rgba(90,40,20,.7)');circ(g,14,19,1.2,'rgba(255,255,255,.85)');break;
+    case 'scarf':g.fillStyle=A.c;g.beginPath();g.ellipse(16,12,10,5.5,0,0,7);g.ellipse(16,11.5,6,2.8,0,0,7,true);g.fill('evenodd');ol();
+      g.fillStyle=shade(A.c,-.12);g.beginPath();g.moveTo(17,15);g.lineTo(22.5,14);g.lineTo(24,26);g.lineTo(18.5,26.5);g.closePath();g.fill();ol();
+      if(A.c2){g.fillStyle=A.c2;for(let x=8;x<25;x+=4)g.fillRect(x,8,1.4,8);for(let y=17;y<26;y+=3)g.fillRect(18.5,y,5,1.2)}
+      g.strokeStyle='#f3ead8';g.lineWidth=.7;for(let i=0;i<5;i++){g.beginPath();g.moveTo(19+i*1.1,26.4);g.lineTo(19+i*1.1,28.4);g.stroke()}break;
+    case 'monocle':g.beginPath();g.arc(14,13,7,0,7);g.fillStyle='rgba(200,230,250,.35)';g.fill();ol(1.8,A.c);g.strokeStyle='rgba(255,255,255,.75)';g.lineWidth=1;g.beginPath();g.arc(12.5,11.5,3.4,3.6,4.6);g.stroke();
+      g.strokeStyle=A.c;g.lineWidth=.8;g.setLineDash([1,1]);g.beginPath();g.moveTo(19,18);g.quadraticCurveTo(24,23,22,28);g.stroke();g.setLineDash([]);break;
+    case 'heart':case 'star':case 'round':for(const x of [10,22]){if(A.s==='heart'){g.fillStyle='rgba(240,120,160,.55)';_heart(g,x,16,5.2);g.fill();ol(1.5,A.c)}else if(A.s==='star'){g.fillStyle='rgba(250,220,90,.5)';_star(g,x,16,6);g.fill();ol(1.4,A.c)}else{g.beginPath();g.arc(x,16,5.2,0,7);g.fillStyle='rgba(200,230,250,.3)';g.fill();ol(1.6,A.c)}}
+      g.strokeStyle=A.c;g.lineWidth=1.3;g.beginPath();g.moveTo(14.8,15.2);g.quadraticCurveTo(16,13.8,17.2,15.2);g.moveTo(4.9,15);g.lineTo(2,13.5);g.moveTo(27.1,15);g.lineTo(30,13.5);g.stroke();break;
+    case 'goggles':rrect(g,2,13,28,5,2.5,'#3a3a40');for(const x of [10,22]){circ(g,x,15.5,6.4,'#8a96a0');circ(g,x,15.5,5,'rgba(120,200,240,.9)');circ(g,x-1.6,13.8,1.4,'rgba(255,255,255,.9)')}break;
+    case 'mask':rrect(g,5,9,22,15,5,A.c);g.strokeStyle='rgba(150,150,160,.7)';g.lineWidth=.8;g.beginPath();g.roundRect(5,9,22,15,5);g.stroke();g.beginPath();for(const y of [14,19])g.moveTo(7,y),g.lineTo(25,y);g.stroke();
+      g.strokeStyle='#e6e6ea';g.lineWidth=1.2;g.beginPath();g.moveTo(5,12);g.quadraticCurveTo(1,16,5,21);g.moveTo(27,12);g.quadraticCurveTo(31,16,27,21);g.stroke();break;
+    case 'bandage':g.save();g.translate(16,16);g.rotate(-.6);rrect(g,-12,-4.5,24,9,4,A.c);rrect(g,-4,-4.5,8,9,1.5,'#f6dcc0');g.fillStyle='rgba(160,110,70,.5)';for(const x of [-9,-7,7,9])for(const y of [-1.5,1.5])circ(g,x,y,.6,'rgba(160,110,70,.5)');g.restore();break;
+    case 'flower':for(let q=0;q<5;q++){const a=q*1.2566-Math.PI/2;circ(g,16+Math.cos(a)*6,14+Math.sin(a)*6,5,A.c)}circ(g,16,14,3.4,'#f6d860');rrect(g,6,23,20,3,1.5,'#b0b6c0');break;
+    case 'ribbon':g.fillStyle=A.c;for(const sx of [-1,1]){g.beginPath();g.moveTo(16,14);g.quadraticCurveTo(16+sx*13,3,16+sx*13,15);g.quadraticCurveTo(16+sx*8,21,16,14);g.fill();ol()}circ(g,16,14,3,shade(A.c,-.25));g.fillStyle=A.c;g.beginPath();g.moveTo(15,16);g.lineTo(11,25);g.lineTo(14,24);g.lineTo(16,17);g.lineTo(18,24);g.lineTo(21,25);g.lineTo(17,16);g.fill();break;
+    case 'pack':case 'randoseru':g.strokeStyle=shade(A.c2,-.2);g.lineWidth=1.6;g.beginPath();g.moveTo(11,8);g.quadraticCurveTo(16,2.5,21,8);g.stroke();rrect(g,7,7,18,21,5,A.c);g.strokeStyle='rgba(30,20,20,.6)';g.lineWidth=1;g.beginPath();g.roundRect(7,7,18,21,5);g.stroke();
+      if(A.s==='randoseru'){rrect(g,7.4,7.4,17.2,13,4.5,A.c2);rrect(g,14,17,4,4,1,'#e6c45a')}else{rrect(g,10.5,19.5,11,6.5,2.5,A.c2);rrect(g,14.5,14.8,3,3.4,.8,'#e6c45a')}g.fillStyle='rgba(255,255,255,.2)';g.fillRect(9,9,1.4,15);break;
+    case 'butterfly':for(const sx of [-1,1]){g.save();g.translate(16,16);g.scale(sx,1);g.fillStyle=A.c;g.beginPath();g.moveTo(0,0);g.quadraticCurveTo(4,-14,14,-11);g.quadraticCurveTo(15,-3,2,1);g.closePath();g.fill();ol(.7,'rgba(30,60,90,.8)');
+      g.fillStyle='#f6a6d0';g.beginPath();g.moveTo(0,2);g.quadraticCurveTo(11,3,10,11);g.quadraticCurveTo(4,11,0,4);g.closePath();g.fill();ol(.7,'rgba(30,60,90,.8)');circ(g,9,-7,1.8,'#fff');g.restore()}break;
+    case 'bat':for(const sx of [-1,1]){g.save();g.translate(16,15);g.scale(sx,1);g.fillStyle=A.c;g.beginPath();g.moveTo(0,0);g.lineTo(3,-7);g.lineTo(14,-8);g.quadraticCurveTo(12,-4,14,-1);g.quadraticCurveTo(10,-3,9,1);g.quadraticCurveTo(6,-1,5,3);g.quadraticCurveTo(3,1,0,4);g.closePath();g.fill();ol(.7,'rgba(20,10,30,.9)');g.restore()}break;
+  }
+  g.restore();
+};
+
+// ---------------- 家具（20） ----------------
+Object.assign(FURN_DEF,{
+  bathtub:{name:'おふろ',w:2,h:1,price:9000,note:'あったかいお湯'},washer:{name:'せんたく機',w:1,h:1,price:6000,note:'ぐるぐる回る'},
+  aquarium:{name:'水そう',w:2,h:1,price:9500,tall:true,note:'熱帯魚が泳ぐ'},globe:{name:'地球儀',w:1,h:1,price:3500,note:'くるっと回せる'},
+  vase:{name:'花びん',w:1,h:1,price:1800,note:'季節の花をいけて'},cactus:{name:'サボテン',w:1,h:1,price:1200,note:'とげに注意'},
+  bonsai:{name:'ぼんさい',w:1,h:1,price:4000,note:'渋い松の木'},guitar:{name:'ギター',w:1,h:1,price:5500,tall:true,note:'スタンドに立てたギター'},
+  drum:{name:'ドラム',w:2,h:1,price:9000,note:'ドンドン、シャーン'},radio:{name:'ラジオ',w:1,h:1,price:2200,note:'なつかしい音'},
+  loveseat:{name:'2人がけソファ',w:2,h:1,price:7000,note:'ふたりでゆったり'},hammock:{name:'ハンモック',w:2,h:1,price:5000,note:'ゆらゆらお昼寝'},
+  stove:{name:'ストーブ',w:1,h:1,price:4500,note:'冬のおとも'},fan:{name:'せんぷうき',w:1,h:1,price:2500,note:'夏のおとも'},
+  mirror:{name:'姿見',w:1,h:1,price:4000,tall:true,note:'全身がうつる鏡'},dresser:{name:'ドレッサー',w:1,h:1,price:6500,tall:true,note:'鏡つきの化粧台'},
+  hourglass:{name:'砂時計',w:1,h:1,price:1500,note:'さらさら'},arcade:{name:'ゲーム機',w:1,h:1,price:12000,tall:true,note:'レトロなゲーム機'},
+  firtree:{name:'もみの木',w:1,h:1,price:5000,tall:true,note:'星とオーナメントつき'},andon:{name:'あんどん',w:1,h:1,price:3000,note:'和紙のやさしい明かり'},
+});
+for(const k of ['washer','globe','vase','cactus','bonsai','fan','stove','radio'])FURN_DEF[k].tall=true;   // 絵が1マスより上へ出る物（小さな絵で上が切れないように）
+for(const k of ['bathtub','washer','aquarium','globe','vase','cactus','bonsai','guitar','drum','radio','loveseat','hammock','stove','fan','mirror','dresser','hourglass','arcade','firtree','andon'])FURN_NAME[k]=FURN_DEF[k].name;
+Object.assign(FURN2_PAINT,{
+  bathtub(g,W,H){fShadow(g,2,H-10,W-4,10,4,.3);g.fillStyle=fLin(g,0,6,0,H,[[0,'#ffffff'],[1,'#d8dee4']]);fRR(g,2,6,W-4,H-8,8);g.fill();g.strokeStyle='#b9c2ca';g.lineWidth=1;g.stroke();
+    g.fillStyle=fLin(g,0,8,0,16,[[0,'#9fd6f0'],[1,'#6fb8e0']]);fRR(g,6,8,W-12,8,4);g.fill();for(const [x,y,r] of [[12,9,2.4],[18,8,1.6],[W-16,9,2],[W/2,7.5,1.4]])circ(g,x,y,r,'rgba(255,255,255,.85)');
+    fMetal(g,W-10,0,3,9);rrect(g,W-13,0,9,2.5,1,'#c9d0d6');ell(g,10,H-2,2,1.2,'#c9a640');ell(g,W-10,H-2,2,1.2,'#c9a640')},
+  washer(g,W,H){const top=-6;fShadow(g,3,H-8,W-6,8,3,.3);g.fillStyle=fLin(g,4,0,W-4,0,[[0,'#e7edf1'],[.5,'#ffffff'],[1,'#cfd8de']]);fRR(g,4,top,W-8,H-top-2,4);g.fill();g.strokeStyle='#aab6be';g.lineWidth=1;g.stroke();
+    rrect(g,6,top+2,W-12,5,1.5,'#cfd8de');circ(g,W-10,top+4.5,1.4,'#5fa8d8');circ(g,W/2,top+(H-top)/2+3,8,'#8a96a0');circ(g,W/2,top+(H-top)/2+3,6.4,'rgba(140,200,235,.9)');circ(g,W/2-2,top+(H-top)/2+1,1.6,'rgba(255,255,255,.9)')},
+  aquarium(g,W,H){const top=-T+8;fShadow(g,2,H-10,W-4,10,3,.3);fWood(g,2,H-12,W-4,12,2,'#6b4426',131,false);
+    g.fillStyle=fLin(g,0,top,0,H-12,[[0,'#bfe8f6'],[1,'#3f9fcf']]);g.fillRect(4,top,W-8,H-12-top);g.strokeStyle='#5a6470';g.lineWidth=2;g.strokeRect(4,top,W-8,H-12-top);
+    for(let i=0;i<5;i++){const x=10+i*10;g.strokeStyle='#4f9a5a';g.lineWidth=1.6;g.beginPath();g.moveTo(x,H-13);g.quadraticCurveTo(x+3,H-22,x,H-30-(i%2)*6);g.stroke()}
+    for(const [x,y,c] of [[18,top+12,'#f08a3c'],[W-20,top+20,'#f6d860'],[W/2,top+26,'#e0507a']]){ell(g,x,y,4,2.4,c);g.fillStyle=c;g.beginPath();g.moveTo(x+3,y);g.lineTo(x+7,y-3);g.lineTo(x+7,y+3);g.fill()}
+    for(const [x,y] of [[12,top+8],[14,top+3]])circ(g,x,y,1.2,'rgba(255,255,255,.8)')},
+  globe(g,W,H){fShadow(g,6,H-8,W-12,8,4,.3);rrect(g,W/2-7,H-7,14,5,2,'#8a5a34');rrect(g,W/2-1.2,H-16,2.4,10,1,'#c9a640');
+    g.strokeStyle='#c9a640';g.lineWidth=1.6;g.beginPath();g.arc(W/2,H-20,11,Math.PI*.7,Math.PI*2.3);g.stroke();
+    circ(g,W/2,H-20,9,'#5fa8d8');g.fillStyle='#6dbb52';g.beginPath();g.ellipse(W/2-3,H-23,4,3,.4,0,7);g.ellipse(W/2+4,H-17,3,4,-.3,0,7);g.fill();circ(g,W/2-3,H-25,2,'rgba(255,255,255,.35)')},
+  vase(g,W,H){fShadow(g,7,H-8,W-14,8,4,.3);g.fillStyle=fLin(g,W/2-7,0,W/2+7,0,[[0,'#3a6ab8'],[.5,'#7aa8e8'],[1,'#2a4f8f']]);g.beginPath();g.moveTo(W/2-4,H-22);g.quadraticCurveTo(W/2-10,H-10,W/2-6,H-3);g.lineTo(W/2+6,H-3);g.quadraticCurveTo(W/2+10,H-10,W/2+4,H-22);g.closePath();g.fill();
+    g.strokeStyle='#4f9a5a';g.lineWidth=1.2;for(const dx of [-6,0,6]){g.beginPath();g.moveTo(W/2,H-21);g.quadraticCurveTo(W/2+dx,H-26,W/2+dx*1.3,H-32);g.stroke()}
+    for(const [dx,c] of [[-8,'#f49ac1'],[0,'#f6d860'],[8,'#ffffff']])for(let q=0;q<5;q++){const a=q*1.2566;circ(g,W/2+dx+Math.cos(a)*2,H-33+Math.sin(a)*2,1.6,c)}},
+  cactus(g,W,H){fShadow(g,7,H-8,W-14,8,4,.3);rrect(g,W/2-7,H-11,14,9,2,'#c8784a');rrect(g,W/2-8,H-12,16,3,1,'#a85a34');
+    g.fillStyle='#5fa05a';g.beginPath();g.roundRect(W/2-4,H-30,8,20,4);g.fill();g.beginPath();g.roundRect(W/2-11,H-24,5,9,2.5);g.fill();g.beginPath();g.roundRect(W/2+6,H-27,5,10,2.5);g.fill();
+    g.fillStyle='#3f7a3a';g.fillRect(W/2-7,H-17,4,3);g.fillRect(W/2+3,H-19,4,3);g.fillStyle='rgba(255,255,255,.7)';for(const [x,y] of [[W/2-2,H-26],[W/2+2,H-20],[W/2-1,H-14]])g.fillRect(x,y,1,1);circ(g,W/2,H-31,2.2,'#f49ac1')},
+  bonsai(g,W,H){fShadow(g,4,H-8,W-8,8,4,.3);rrect(g,4,H-10,W-8,7,2,'#6b5a8a');rrect(g,3,H-11,W-6,3,1,'#4a3a6a');
+    g.strokeStyle='#6b4426';g.lineWidth=3;g.beginPath();g.moveTo(W/2,H-10);g.quadraticCurveTo(W/2-6,H-16,W/2+2,H-20);g.quadraticCurveTo(W/2+8,H-23,W/2+2,H-27);g.stroke();
+    for(const [x,y,r] of [[W/2-7,H-20,5],[W/2+7,H-23,5.5],[W/2,H-29,5]]){ell(g,x,y,r,r*.6,'#3f7a3a');ell(g,x-1,y-1,r*.7,r*.4,'#5fa05a')}},
+  guitar(g,W,H){const top=-T+6;fShadow(g,6,H-8,W-12,8,4,.3);g.strokeStyle='#3a3a40';g.lineWidth=1.4;g.beginPath();g.moveTo(W/2-6,H-2);g.lineTo(W/2,H-12);g.lineTo(W/2+6,H-2);g.stroke();
+    rrect(g,W/2-1.6,top,3.2,H-24-top,1,'#4a2e18');rrect(g,W/2-2.6,top-2,5.2,6,1.5,'#2e1a10');
+    g.fillStyle=fLin(g,0,H-28,0,H-6,[[0,'#e09a4a'],[1,'#a85a24']]);g.beginPath();g.ellipse(W/2,H-24,6,6,0,0,7);g.ellipse(W/2,H-13,8,8,0,0,7);g.fill();circ(g,W/2,H-19,2.4,'#2e1a10');rrect(g,W/2-4,H-11,8,2,1,'#2e1a10');
+    g.strokeStyle='rgba(255,255,255,.6)';g.lineWidth=.4;for(const dx of [-1,0,1]){g.beginPath();g.moveTo(W/2+dx,top+2);g.lineTo(W/2+dx,H-11);g.stroke()}},
+  drum(g,W,H){fShadow(g,2,H-8,W-4,8,4,.3);ell(g,W/2,H-6,11,4,'#d8dee4');g.fillStyle=fLin(g,0,H-18,0,H-6,[[0,'#d9473f'],[1,'#8a2a2a']]);g.fillRect(W/2-11,H-17,22,11);ell(g,W/2,H-17,11,4,'#f2f0ea');
+    for(const x of [10,W-10]){rrect(g,x-.8,H-20,1.6,16,.5,'#9aa3ab');ell(g,x,H-21,6,1.6,'#e6c45a')}ell(g,W/2+14,H-12,5,2,'#e6e9ec');rrect(g,W/2+11,H-12,6,6,1,'#c8303a');
+    g.strokeStyle='#9aa3ab';g.lineWidth=.8;for(let i=0;i<5;i++){g.beginPath();g.moveTo(W/2-10+i*5,H-16);g.lineTo(W/2-8+i*5,H-7);g.stroke()}},
+  radio(g,W,H){fShadow(g,5,H-8,W-10,8,4,.3);rrect(g,5,H-20,W-10,17,3,'#b07a44');rrect(g,7,H-18,12,13,2,'#5a3a1e');g.fillStyle='rgba(255,220,160,.35)';for(let y=H-17;y<H-6;y+=2.2)g.fillRect(8,y,10,1);
+    circ(g,W-11,H-14,3,'#e6c45a');circ(g,W-11,H-7,2,'#3a3a40');g.strokeStyle='#9aa3ab';g.lineWidth=1;g.beginPath();g.moveTo(W-8,H-20);g.lineTo(W-3,H-30);g.stroke()},
+  loveseat(g,W,H){fShadow(g,2,H-10,W-4,10,4,.3);const c='#5f8fc8';g.fillStyle=fLin(g,0,-4,0,12,[[0,shade(c,.15)],[1,c]]);fRR(g,4,-4,W-8,16,6);g.fill();
+    fCloth(g,2,8,W-4,H-10,5,c);for(const x of [6,W/2+1])fCloth(g,x,10,W/2-7,8,4,shade(c,.12));rrect(g,0,6,7,H-8,3,shade(c,-.1));rrect(g,W-7,6,7,H-8,3,shade(c,-.1));rrect(g,W/2-6,-1,12,9,3,'#f6d860')},
+  hammock(g,W,H){fShadow(g,4,H-6,W-8,6,3,.25);for(const x of [3,W-3]){rrect(g,x-1.5,-8,3,H+6,1,'#8a5a34')}
+    g.strokeStyle='#c9b48e';g.lineWidth=.8;for(const s of [-1,1]){g.beginPath();g.moveTo(W/2+s*(W/2-3),-4);g.lineTo(W/2+s*(W/2-10),4);g.stroke()}
+    g.fillStyle=fLin(g,0,2,0,14,[[0,'#f08a3c'],[1,'#c8603a']]);g.beginPath();g.moveTo(8,4);g.quadraticCurveTo(W/2,20,W-8,4);g.quadraticCurveTo(W/2,10,8,4);g.fill();
+    g.save();g.clip();g.fillStyle='#f6d860';for(let x=10;x<W-8;x+=8)g.fillRect(x,0,3,20);g.restore()},
+  stove(g,W,H){fShadow(g,4,H-8,W-8,8,4,.3);rrect(g,5,H-24,W-10,21,4,'#5a5f66');rrect(g,8,H-18,W-16,11,2,'#2a2e33');
+    g.fillStyle=fLin(g,0,H-16,0,H-8,[[0,'#ffd27a'],[1,'#f0703a']]);g.beginPath();g.ellipse(W/2,H-12,5,3.5,0,0,7);g.fill();rrect(g,6,H-26,W-12,3,1.5,'#7a828a');rrect(g,W/2-4,H-31,8,5,1,'#8a929a');
+    for(const x of [8,W-8])rrect(g,x-1,H-4,2,3,.5,'#3a3e44')},
+  fan(g,W,H){fShadow(g,7,H-8,W-14,8,4,.3);ell(g,W/2,H-4,7,2.5,'#cfd8de');rrect(g,W/2-1,H-20,2,16,1,'#b9c2ca');circ(g,W/2,H-22,9.5,'#e7edf1');g.strokeStyle='#9aa3ab';g.lineWidth=.6;for(let i=0;i<8;i++){const a=i*Math.PI/4;g.beginPath();g.moveTo(W/2,H-22);g.lineTo(W/2+Math.cos(a)*9.5,H-22+Math.sin(a)*9.5);g.stroke()}
+    g.fillStyle='rgba(140,200,235,.85)';for(let i=0;i<3;i++){const a=i*2.094+performance.now()/120;g.beginPath();g.ellipse(W/2+Math.cos(a)*4.5,H-22+Math.sin(a)*4.5,4.5,2.2,a,0,7);g.fill()}circ(g,W/2,H-22,2,'#5a6470')},
+  mirror(g,W,H){const top=-T+4;fShadow(g,5,H-8,W-10,8,4,.3);rrect(g,W/2-9,top,18,H-top-4,8,'#b07a44');g.fillStyle=fLin(g,0,top,0,H,[[0,'#e8f4fa'],[1,'#a8c8d8']]);fRR(g,W/2-7,top+2,14,H-top-9,6);g.fill();
+    g.fillStyle='rgba(255,255,255,.6)';g.beginPath();g.moveTo(W/2-4,top+6);g.lineTo(W/2-1,top+6);g.lineTo(W/2-5,top+22);g.lineTo(W/2-7,top+22);g.fill();for(const x of [W/2-7,W/2+7])rrect(g,x-1.5,H-6,3,4,1,'#8a5a34')},
+  dresser(g,W,H){const top=-T+6;fShadow(g,3,H-8,W-6,8,3,.3);g.fillStyle='#b07a44';g.beginPath();g.ellipse(W/2,top+10,9,11,0,0,7);g.fill();g.fillStyle=fLin(g,0,top,0,top+20,[[0,'#e8f4fa'],[1,'#b8d4e0']]);g.beginPath();g.ellipse(W/2,top+10,7,9,0,0,7);g.fill();
+    fWood(g,3,top+20,W-6,H-top-22,2,'#c88a54',141,false);knob(g,W/2,top+26);rrect(g,6,top+17,4,4,1.5,'#f49ac1');rrect(g,W-11,top+16,3,5,1,'#a8c8f0')},
+  hourglass(g,W,H){fShadow(g,9,H-8,W-18,8,4,.3);rrect(g,W/2-7,H-6,14,3,1,'#8a5a34');rrect(g,W/2-7,H-27,14,3,1,'#8a5a34');for(const x of [W/2-6,W/2+5])rrect(g,x,H-25,1.4,19,.5,'#6b4426');
+    g.fillStyle='rgba(220,240,250,.6)';g.beginPath();g.moveTo(W/2-5,H-24);g.lineTo(W/2+5,H-24);g.lineTo(W/2+1,H-15);g.lineTo(W/2+5,H-7);g.lineTo(W/2-5,H-7);g.lineTo(W/2-1,H-15);g.closePath();g.fill();
+    g.fillStyle='#e6c45a';g.beginPath();g.moveTo(W/2-3,H-21);g.lineTo(W/2+3,H-21);g.lineTo(W/2,H-16);g.closePath();g.fill();g.beginPath();g.moveTo(W/2-4.5,H-7.5);g.lineTo(W/2+4.5,H-7.5);g.lineTo(W/2,H-12);g.closePath();g.fill();g.fillRect(W/2-.4,H-16,.8,4)},
+  arcade(g,W,H){const top=-T+4;fShadow(g,3,H-8,W-6,8,3,.3);g.fillStyle=fLin(g,0,top,0,H,[[0,'#3a6ab8'],[1,'#26325a']]);fRR(g,4,top,W-8,H-top-2,3);g.fill();
+    rrect(g,6,top+3,W-12,6,1.5,'#f6d860');g.fillStyle='#c8303a';g.font='bold 5px sans-serif';g.textAlign='center';g.fillText('GAME',W/2,top+7.6);
+    g.fillStyle=fLin(g,0,top+11,0,top+25,[[0,'#2a2e33'],[1,'#111']]);g.fillRect(7,top+11,W-14,14);g.fillStyle='#7cc06a';g.fillRect(10,top+18,4,3);g.fillStyle='#f08a3c';g.fillRect(W-15,top+14,4,3);g.fillStyle='#fff';g.fillRect(W/2-1,top+16,2,2);
+    rrect(g,5,top+27,W-10,6,2,'#1f2a44');circ(g,11,top+30,1.8,'#c8303a');circ(g,W-12,top+30,1.6,'#5fa8d8');circ(g,W-8,top+31,1.6,'#f6d860')},
+  firtree(g,W,H){const top=-T+2;fShadow(g,5,H-8,W-10,8,4,.3);rrect(g,W/2-5,H-8,10,6,1.5,'#b07a44');rrect(g,W/2-2,H-12,4,5,1,'#6b4426');
+    for(const [y,r] of [[H-13,13],[H-23,10],[H-32,7.5]]){g.fillStyle='#3f7a3a';g.beginPath();g.moveTo(W/2-r,y);g.lineTo(W/2,y-12);g.lineTo(W/2+r,y);g.closePath();g.fill();g.fillStyle='#5fa05a';g.beginPath();g.moveTo(W/2-r*.5,y-3);g.lineTo(W/2,y-12);g.lineTo(W/2+r*.2,y-4);g.closePath();g.fill()}
+    for(const [x,y,c] of [[W/2-6,H-15,'#d9473f'],[W/2+5,H-18,'#5fa8d8'],[W/2-3,H-26,'#f6d860'],[W/2+4,H-28,'#e0507a'],[W/2+8,H-14,'#f6d860']])circ(g,x,y,1.6,c);
+    g.fillStyle='#f6d860';_star(g,W/2,H-45,4);g.fill()},
+  andon(g,W,H){fShadow(g,7,H-8,W-14,8,4,.3);rrect(g,W/2-8,H-28,16,25,2,'#5a3a1e');const gl=g.createLinearGradient(0,H-26,0,H-6);gl.addColorStop(0,'#fff3c8');gl.addColorStop(1,'#ffd27a');g.fillStyle=gl;g.fillRect(W/2-6,H-26,12,21);
+    g.strokeStyle='#5a3a1e';g.lineWidth=1;g.beginPath();g.moveTo(W/2,H-26);g.lineTo(W/2,H-5);g.moveTo(W/2-6,H-16);g.lineTo(W/2+6,H-16);g.stroke();
+    const r=g.createRadialGradient(W/2,H-16,2,W/2,H-16,18);r.addColorStop(0,'rgba(255,220,140,.35)');r.addColorStop(1,'rgba(255,220,140,0)');g.fillStyle=r;g.fillRect(W/2-18,H-34,36,34)},
+});
+
+// ---------------- お店の「買う」に並べる ----------------
+const SHOP_MORE=()=>Object.values(ITEMS).filter(it=>it.shop&&it.kind!=='top').map(it=>({id:it.id,name:it.name,price:it.price,note:it.note}));
+</script>
+<script>
+// ===================== お店の中 =====================
+// ひだまり商店の中を歩ける。奥のカウンターに店員のコマチ（話すと売り買いの画面）。
+// 店の中の4つの台には、日替わりで商品が1つずつ並ぶ（調べるとその場で買える。買うとその日は売り切れ）
+const SHOP_W=11,SHOP_H=8,SHOP_OX=6,SHOP_OY=6;
+const SHOPKEEP={id:'komachi',name:'コマチ'};
+const inShop=()=>!!S&&S.loc==='shop';
+let SHOP_MAP=null;
+function shopMap(){
+  if(SHOP_MAP)return SHOP_MAP;
+  const w=SHOP_W,h=SHOP_H,ox=SHOP_OX,oy=SHOP_OY;
+  const tiles=new Uint8Array(MW*MH).fill(13),block=new Uint8Array(MW*MH).fill(1);
+  for(let y=oy;y<oy+h;y++)for(let x=ox;x<ox+w;x++){tiles[ti(x,y)]=12;block[ti(x,y)]=0}
+  const door={x:ox+Math.floor(w/2),y:oy+h};tiles[ti(door.x,door.y)]=14;block[ti(door.x,door.y)]=0;
+  const counter={x:ox+3,y:oy+2,w:5,h:1},clerk={x:ox+5,y:oy+1};
+  const stands=[[1,3],[8,3],[1,6],[8,6]].map(([x,y],i)=>({i,x:ox+x,y:oy+y,w:2,h:1}));
+  const solid=(x0,y0,ww,hh)=>{for(let y=y0;y<y0+hh;y++)for(let x=x0;x<x0+ww;x++)block[ti(x,y)]=1};
+  solid(ox,oy,w,2);   // 奥の棚と店員のいる所（カウンターの後ろ）には入れない
+  solid(counter.x,counter.y,counter.w,1);for(const s of stands)solid(s.x,s.y,s.w,s.h);
+  return SHOP_MAP={id:'shop',shop:true,w,h,ox,oy,tiles,block,door,counter,clerk,stands,
+    trees:[],rocks:[],bld:[],treeAt:new Map(),rockAt:new Map(),nodes:[],nodeAt:new Map(),
+    start:{x:(door.x+.5)*T,y:(door.y-.5)*T+4},
+    room:{x0:(ox-1)*T,y0:(oy-2.6)*T,x1:(ox+w+1)*T,y1:(oy+h+4.5)*T}};   // 下は広めに：出口が下の道具バーに隠れないように
+}
+// ---- 日替わりの商品 ----
+function shopPool(){
+  const L=[];
+  for(const id of ['hat_straw','hat_cap','hat_knit','hat_beret','hat_ribbon','acc_scarf','acc_glasses','acc_sun','acc_bag','acc_pochette','acc_pendant','acc_cape','sapling','bench_item','lamp_item'])if(ITEMS[id])L.push({id,price:ITEMS[id].price||1000});
+  for(const k of Object.keys(TOPS))if(ITEMS[k]&&k!=='top_star')L.push({id:k,price:ITEMS[k].price});
+  for(const [type,d] of Object.entries(FURN_DEF))if(d.price&&type!=='furnace')L.push({furn:type,price:d.price});
+  for(const id of Object.keys(WALLS||{}))L.push({id,price:ITEMS[id].price});
+  for(const it of Object.values(ITEMS))if(it.shop&&(it.kind==='hat'||it.kind==='acc'))L.push({id:it.id,price:it.price});   // more.js でふやした帽子・小物
+  return L;
+}
+function shopToday(){
+  if(!S.shopDisp||S.shopDisp.day!==S.day){
+    const r=seeded((S.seed^0x51a7)+S.day*7349),P=shopPool(),pick=[];
+    while(pick.length<4&&P.length){const i=Math.floor(r()*P.length);pick.push(P.splice(i,1)[0])}
+    S.shopDisp={day:S.day,items:pick,sold:[]};
+  }
+  return S.shopDisp;
+}
+const dispName=p=>p.furn?FURN_DEF[p.furn].name:ITEMS[p.id].name;
+const dispIcon=p=>p.furn?furnIcon(p.furn):iconCanvas(p.id);
+function buyDisplay(i){
+  const D=shopToday(),p=D.items[i];if(!p)return;
+  if(D.sold.includes(i)){showDialog(SHOPKEEP.name,['ごめんね、それは今日はもう売り切れなの。また明日、ちがう物を並べておくね。']);return}
+  const nm=dispName(p),note=p.furn?'家具。家の中の「レイアウト」から置けるよ。':(ITEMS[p.id].note||'');
+  showDialog(SHOPKEEP.name,[`それは「${nm}」。${p.price.toLocaleString()}円だよ。${note}`],null,[
+    [`買う（${p.price.toLocaleString()}円）`,()=>{endTalk();
+      if(S.bells<p.price){toast('お金が足りない');return}
+      if(!p.furn&&bagCount()+1>bagCap()){toast('ポケットに入りきらない');return}
+      S.bells-=p.price;if(p.furn){S.furnInv[p.furn]=(S.furnInv[p.furn]||0)+1}else S.bag[p.id]=(S.bag[p.id]||0)+1;
+      D.sold.push(i);toast(`${nm} を買った！`,true);sfx('get');updateHud();save()}],
+    ['やめる',endTalk]]);
+}
+// ---- 出入り ----
+function goShop(at){
+  W=shopMap();S.loc='shop';resetMapRT();shopToday();
+  if(at==='door'){S.px=W.start.x;S.py=W.start.y;S.dir='up';toast(`ひだまり商店へようこそ。カウンターの${SHOPKEEP.name}に話しかけると、売り買いができるよ`)}
+  RT.fade=.6;updateHud();
+}
+function leaveShop(){
+  W=ISL;S.loc='island';resetMapRT();
+  const b=W.bld.find(b=>b.type==='shop')||W.bld[0];S.px=(b.door.x+.5)*T;S.py=(b.door.y+1.5)*T;S.dir='down';
+  RT.fade=.6;updateHud();save();
+}
+// ---- どのマスが何か ----
+const shopCounterAt=(x,y)=>{const c=W.counter;return (x>=c.x&&x<c.x+c.w&&y===c.y)||(x===W.clerk.x&&y===W.clerk.y)};
+const shopStandAt=(x,y)=>W.stands.find(s=>x>=s.x&&x<s.x+s.w&&y>=s.y&&y<s.y+s.h)||null;
+const shopDoorAt=(x,y)=>x===W.door.x&&y===W.door.y;
+function talkClerk(){
+  showDialog(SHOPKEEP.name,[pick(['いらっしゃい！ ゆっくり見ていってね。','今日の台の品物は、朝に並べかえたばかりなんだ。','虫や魚も、高く買い取るよ！'])],null,[
+    ['売る',()=>{endTalk();openShop('sell')}],['買う',()=>{endTalk();openShop('buy')}],['家具',()=>{endTalk();openShop('furn')}],['道具の強化',()=>{endTalk();openShop('tool')}],['家の増築',()=>{endTalk();openShop('house')}],['またね',endTalk]]);
+}
+function shopPressA(fx,fy,ptx,pty){
+  if(shopDoorAt(fx,fy)||shopDoorAt(ptx,pty)){leaveShop();return}
+  if(shopCounterAt(fx,fy)){talkClerk();return}
+  const s=shopStandAt(fx,fy);if(s){buyDisplay(s.i);return}
+}
+function shopHint(){
+  const [fx,fy]=facingTile(),[px,py]=ptile();
+  if(shopDoorAt(fx,fy)||shopDoorAt(px,py))return '外に出る';
+  if(shopCounterAt(fx,fy))return '話す';
+  const s=shopStandAt(fx,fy);if(s)return shopToday().sold.includes(s.i)?'見る':'商品を見る';
+  return null;
+}
+function shopTick(){const [px,py]=ptile();if(shopDoorAt(px,py))leaveShop()}
+function shopClick(tx,ty){
+  if(shopDoorAt(tx,ty))return {act:false,tx,ty,stands:[[tx,ty]]};
+  if(shopCounterAt(tx,ty)){const c=W.counter,sx=W.clerk.x;return {act:true,tx:sx,ty:c.y,stands:[[sx,c.y+1]]}}
+  const s=shopStandAt(tx,ty);if(s){const st=[];for(let x=s.x;x<s.x+s.w;x++)st.push([x,s.y+1],[x,s.y-1]);st.push([s.x-1,s.y],[s.x+s.w,s.y]);return {act:true,tx,ty,stands:st.filter(([x,y])=>walkable(x,y))}}
+  return null;
+}
+// ---- 見た目 ----
+// 床と壁：木の床、奥の壁に商品だな（色とりどりの品）と看板、窓、入口のマットと「出口」の札
+function shopGround(){
+  const c=document.createElement('canvas');c.width=MW*T;c.height=MH*T;const g=c.getContext('2d');
+  const {ox,oy,w,h,door}=W,X0=ox*T,Y0=oy*T,X1=(ox+w)*T,Y1=(oy+h)*T,WY=Y0-2*T;
+  g.fillStyle='#1f1712';g.fillRect(0,0,c.width,c.height);
+  // 奥の壁：明るい緑の壁、白い腰板
+  const wg=g.createLinearGradient(0,WY,0,Y0);wg.addColorStop(0,'#cfe6b8');wg.addColorStop(1,'#b5d69a');g.fillStyle=wg;g.fillRect(X0,WY,X1-X0,2*T);
+  g.fillStyle='rgba(255,255,255,.18)';for(let x=X0+8;x<X1;x+=16)g.fillRect(x,WY,1.5,2*T-14);
+  g.fillStyle='#f4efe2';g.fillRect(X0,Y0-14,X1-X0,14);g.fillStyle='#c9b48e';g.fillRect(X0,Y0-4,X1-X0,4);
+  // 窓（左右）
+  for(const wx of [X0+12,X1-46]){g.fillStyle='#8a6a3c';g.fillRect(wx-3,WY+9,38,36);const sky=g.createLinearGradient(0,WY+12,0,WY+42);sky.addColorStop(0,'#9fd6ee');sky.addColorStop(1,'#e8f6fb');g.fillStyle=sky;g.fillRect(wx,WY+12,32,30);
+    g.fillStyle='#8a6a3c';g.fillRect(wx+14.5,WY+12,3,30);g.fillRect(wx,WY+25.5,32,3);g.fillStyle='rgba(255,255,255,.5)';g.fillRect(wx+3,WY+15,6,3)}
+  // 看板
+  const sx=(ox+w/2)*T;g.fillStyle='#3f7a52';g.beginPath();g.roundRect(sx-60,WY+8,120,24,6);g.fill();g.fillStyle='#fff8e6';g.font='bold 13px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.fillText('ひだまり商店',sx,WY+25);
+  // 奥の商品だな（カウンターの後ろの1段目）：箱やびんが並ぶ
+  const SY=Y0,SH=2*T;g.fillStyle='#8a5a34';g.fillRect(X0,SY,X1-X0,SH);
+  for(let r=0;r<2;r++){const yy=SY+r*T;g.fillStyle='#6b4426';g.fillRect(X0,yy+T-6,X1-X0,6);g.fillStyle='#a8723f';g.fillRect(X0,yy+T-7,X1-X0,2);
+    for(let x=X0+6;x<X1-8;x+=13){const k=hash(x,r*7),col=['#e8645a','#5fa8d8','#f2c84b','#7cc06a','#c88ad8','#f0a050'][Math.floor(k*6)],bh=10+k*10;
+      if(k<.5){rrect(g,x,yy+T-7-bh,10,bh,2,col);g.fillStyle='rgba(255,255,255,.35)';g.fillRect(x+2,yy+T-5-bh,2,bh-4)}
+      else{g.fillStyle=col;g.beginPath();g.roundRect(x+2,yy+T-7-bh,6,bh,3);g.fill();rrect(g,x+3,yy+T-9-bh,4,3,1,'#6b4426')}}}
+  // 床：あたたかい色の板張り
+  for(let y=oy+2;y<oy+h;y++)for(let x=ox;x<ox+w;x++){const px=x*T,py=y*T,hh=hash(x*3,y*5);
+    g.fillStyle=hh<.33?'#d8b07c':hh<.66?'#cfa671':'#dbb684';g.fillRect(px,py,T,T);g.fillStyle='rgba(110,70,30,.25)';g.fillRect(px,py+T/2-1,T,1.2);g.fillRect(px,py+T-1,T,1.2);
+    g.fillStyle='rgba(110,70,30,.18)';g.fillRect(px+((x+y)%2?T*.3:T*.7),py,1.2,T/2);g.fillRect(px+((x+y)%2?T*.8:T*.2),py+T/2,1.2,T/2)}
+  // 入口から店員までの緑のじゅうたん
+  const cx=W.clerk.x*T,cy=(W.counter.y+1)*T;g.fillStyle='#4f9a68';g.fillRect(cx+3,cy,T-6,Y1-cy);g.fillStyle='#f2d36a';g.fillRect(cx+3,cy,2,Y1-cy);g.fillRect(cx+T-5,cy,2,Y1-cy);
+  // 左右と手前の壁、出入口
+  g.fillStyle='#6b4a2a';g.fillRect(X0-10,WY,10,Y1-WY+12);g.fillRect(X1,WY,10,Y1-WY+12);g.fillStyle='#8a6a48';g.fillRect(X0-10,Y1,X1-X0+20,12);
+  const dx=door.x*T;g.fillStyle='#1f1712';g.fillRect(dx,Y1,T,12);
+  const lg=g.createLinearGradient(0,Y1-T,0,Y1);lg.addColorStop(0,'rgba(255,240,190,0)');lg.addColorStop(1,'rgba(255,240,190,.5)');g.fillStyle=lg;g.fillRect(dx,Y1-T,T,T);
+  g.fillStyle='#3f7a52';g.beginPath();g.roundRect(dx-6,Y1-T+6,T+12,T-10,5);g.fill();g.strokeStyle='#f2d36a';g.lineWidth=2;g.beginPath();g.roundRect(dx-3,Y1-T+9,T+6,T-16,4);g.stroke();
+  g.fillStyle='#f3e2b8';g.beginPath();g.roundRect(dx-8,Y1+14,T+16,16,4);g.fill();g.fillStyle='#4a3218';g.font='bold 11px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.fillText('出口 ▼',dx+T/2,Y1+26);
+  return c;
+}
+// カウンター：木の天板、レジ、呼び鈴
+function drawShopCounter(g){
+  const c=W.counter,x=c.x*T,y=c.y*T,w=c.w*T;
+  g.fillStyle='rgba(30,20,10,.25)';g.fillRect(x+3,y+T-2,w-2,6);
+  const fg=g.createLinearGradient(0,y+6,0,y+T);fg.addColorStop(0,'#9a6a3e');fg.addColorStop(1,'#734a28');g.fillStyle=fg;g.fillRect(x,y+6,w,T-4);
+  g.fillStyle='rgba(0,0,0,.15)';for(let i=1;i<c.w*2;i++)g.fillRect(x+i*T/2,y+10,1.5,T-10);
+  g.fillStyle='#e2bd86';g.beginPath();g.roundRect(x-3,y-2,w+6,10,3);g.fill();g.fillStyle='rgba(255,255,255,.35)';g.fillRect(x,y-1,w,2);
+  // レジ
+  const rx=x+w-44;rrect(g,rx,y-14,26,14,3,'#5a6470');rrect(g,rx+2,y-12,22,6,2,'#9fd6a8');g.fillStyle='#c9d0d6';for(let i=0;i<3;i++)for(let j=0;j<2;j++)g.fillRect(rx+3+i*7,y-5+j*0,5,3);
+  rrect(g,rx+4,y-20,18,7,2,'#5a6470');g.fillStyle='#e8f6e2';g.font='bold 6px sans-serif';g.textAlign='center';g.fillText('¥',rx+13,y-14.6);
+  // 呼び鈴と、紙袋
+  ell(g,x+16,y+1,5,2,'#9aa3ab');circ(g,x+16,y-2,4,'#e6c45a');circ(g,x+15,y-3,1.2,'#fff7d0');
+  rrect(g,x+28,y-12,12,13,2,'#d9b98a');g.fillStyle='#b8925e';g.fillRect(x+28,y-12,12,2);
+  g.fillStyle='#f3e2b8';g.beginPath();g.roundRect(x+w/2-24,y+12,48,13,3);g.fill();g.fillStyle='#4a3218';g.font='bold 9px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.fillText('おかいけい',x+w/2,y+22);
+}
+// 商品の台：布をかけた木の台に、今日の商品と値札
+function drawShopStand(g,s){
+  const D=shopToday(),p=D.items[s.i],sold=D.sold.includes(s.i),x=s.x*T,y=s.y*T,w=s.w*T;
+  g.fillStyle='rgba(30,20,10,.22)';g.fillRect(x+3,y+T-2,w-2,6);
+  rrect(g,x+2,y+8,w-4,T-8,3,'#8a5a34');g.fillStyle='#6b4426';g.fillRect(x+5,y+T-6,4,6);g.fillRect(x+w-9,y+T-6,4,6);
+  const cl=['#e8f0fa','#fbe6ea','#e8f5e0','#fff1d6'][s.i%4];rrect(g,x,y+2,w,12,3,cl);g.fillStyle='rgba(0,0,0,.08)';g.fillRect(x,y+12,w,2);
+  g.strokeStyle='rgba(120,90,60,.35)';g.lineWidth=1;g.beginPath();for(let k=0;k<w;k+=6){g.moveTo(x+k,y+14);g.lineTo(x+k+3,y+17)}g.stroke();
+  if(!p)return;
+  if(sold){g.fillStyle='#c0392b';g.font='bold 10px "Zen Maru Gothic",sans-serif';g.textAlign='center';g.fillText('売り切れ',x+w/2,y+1);return}
+  const ic=_dispArt(p);g.drawImage(ic,x+w/2-15,y-22,30,30);
+  const tag=`${p.price.toLocaleString()}円`;g.font='bold 8px "Zen Maru Gothic",sans-serif';const tw=g.measureText(tag).width+8;
+  rrect(g,x+w/2-tw/2,y+15,tw,11,3,'#fff8e6');g.strokeStyle='#c9a46a';g.lineWidth=1;g.beginPath();g.roundRect(x+w/2-tw/2,y+15,tw,11,3);g.stroke();
+  g.fillStyle='#4a3218';g.textAlign='center';g.fillText(tag,x+w/2,y+23.5);
+}
+const _dispCache=new Map();
+function _dispArt(p){const k=p.furn?'f:'+p.furn:p.id;let c=_dispCache.get(k);if(!c){c=dispIcon(p);_dispCache.set(k,c)}return c}
+// 店員：コマチの絵（無ければ、まだ描かない）
+function drawClerk(g){
+  const x=(W.clerk.x+.5)*T,y=(W.clerk.y+1)*T-8,im=gi('wk_komachi_front');   // カウンターの後ろの台に立つ（胸から上が見えるように）if(!im)return;
+  const h=VW_H,w=h*im.naturalWidth/im.naturalHeight,bob=Math.sin(performance.now()/600)*.6;ell(g,x,y,10,3.4,'rgba(30,40,30,.25)');g.drawImage(im,x-w/2,y-h+2-bob,w,h);
+}
+function shopObjects(D,ctx){
+  for(const s of W.stands)D.push([(s.y+s.h)*T-4,()=>drawShopStand(ctx,s)]);
+  D.push([(W.clerk.y+1)*T-6,()=>drawClerk(ctx)]);
+  D.push([(W.counter.y+1)*T-2,()=>drawShopCounter(ctx)]);
+}
+// 会話の顔：コマチ
+{const _sd=showDialog;showDialog=function(who,lines,done,choices){_sd(who,lines,done,choices);if(who===SHOPKEEP.name){const im=gi('pt_komachi'),p=document.getElementById('dPortrait');if(p&&im){p.src=im.src;p.hidden=false}}}}
+</script>
+<script>
 // ===================== タイトル画面 =====================
 // 画面：titleMain（ロゴとメニュー）/ titleSetup（名前と男女）/ titleConfirm（はじめからの確認）/ titleHowto（あそびかた）
 let titleMode='new',titleHasSave=false;
@@ -7006,6 +7464,7 @@ function clickTarget(wx,wy){
   if(S.tool==='wand'&&['orb','fire'].includes(curSpell().id))for(const e of RT.enemies)if(Math.hypot(wx-e.x,wy-(e.y-14))<26)return {act:true,cast:[e.x,e.y-14],stands:[]};
   if(inHome()){const hc=homeClick(tx,ty);if(hc)return hc;return walkable(tx,ty)?{act:false,tx,ty,stands:[[tx,ty]]}:onTile(false)}
   if(inMuseum()){const mc=museumClick(tx,ty);if(mc)return mc;return walkable(tx,ty)?{act:false,tx,ty,stands:[[tx,ty]]}:onTile(false)}
+  if(inShop()){const sc=shopClick(tx,ty);if(sc)return sc;return walkable(tx,ty)?{act:false,tx,ty,stands:[[tx,ty]]}:onTile(false)}
   if(inVHouse()){const vc=vhouseClick(tx,ty);if(vc)return vc;return walkable(tx,ty)?{act:false,tx,ty,stands:[[tx,ty]]}:onTile(false)}
   {const sc=surpriseClick(tx,ty);if(sc)return sc}
   if(inCave()){
@@ -7154,6 +7613,7 @@ function loop(ts){
       else if(mx||my){RT.goal=null;RT.approach=null;movePlayer(mx,my,run,dt)}else if(RT.goal)followGoal(dt);else{movePlayer(0,0,false,dt);RT.running=false}
       if(inHome())homeTick();
       if(inMuseum())museumTick();
+      if(inShop())shopTick();
       if(inVHouse())vhouseTick();
       tickSurprise(dt);
       if(onIsland()){const [tx,ty]=ptile();const z=tileAt(tx,ty)===7?W.zone[ti(tx,ty)]:0;if(z&&z!==RT.lastPier)toast(`${PIER_INFO[z][1]}：${PIER_INFO[z][2]}`);RT.lastPier=z}
@@ -7200,11 +7660,11 @@ function continueGame(){
 }
 function boot(snap){
   resize();buildToolbar();
-  if(snap&&snap.v===2){S=migrate(snap);genWorld(S.seed);fitToMap();resetVillagers();if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else if(S.loc==='museum')goMuseum(null);else if(S.loc.startsWith('vh:'))goVHouse(S.loc.slice(3),null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}RT.title=false;$('title').hidden=true;updateHud();renderTasks();requestAnimationFrame(loop);return}
+  if(snap&&snap.v===2){S=migrate(snap);genWorld(S.seed);fitToMap();resetVillagers();if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else if(S.loc==='museum')goMuseum(null);else if(S.loc==='shop')goShop(null);else if(S.loc.startsWith('vh:'))goVHouse(S.loc.slice(3),null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}RT.title=false;$('title').hidden=true;updateHud();renderTasks();requestAnimationFrame(loop);return}
   const sv=load();
   if(sv&&(sv.v===1||sv.v===2)){
     const old=sv.v===1;S=migrate(sv);genWorld(S.seed);if(old)initDaily();fitToMap();resetVillagers();
-    if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else if(S.loc==='museum')goMuseum(null);else if(S.loc.startsWith('vh:'))goVHouse(S.loc.slice(3),null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}
+    if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else if(S.loc==='museum')goMuseum(null);else if(S.loc==='shop')goShop(null);else if(S.loc.startsWith('vh:'))goVHouse(S.loc.slice(3),null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}
     RT.needName=!S.name||S.name==='あなた';
     selGender=S.gender||null;setupTitle(true);
   }else{
