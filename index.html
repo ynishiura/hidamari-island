@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.035";</script>
+<script>const GAME_VERSION="1.036";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2715,22 +2715,11 @@ function sellAll(){
 
 // お店
 function openShop(tab){
-  openPanel('ひだまり商店',[['sell','売る'],['buy','買う'],['furn','家具'],['tool','道具の強化'],['house','家の増築']],tab,(body,t)=>{
+  if(tab==='furn'){RT.shopGenre='furn';tab='buy'}   // 家具は「買う」の中のジャンル（shopcat.js）
+  openPanel('ひだまり商店',[['sell','売る'],['buy','買う'],['tool','道具の強化'],['house','家の増築']],tab,(body,t)=>{
     body.append(h('div',{class:'rowline'},h('div',{class:'grow muted'},'店主のコマチ「いらっしゃい。図鑑にのった子も、売ってくれてかまわないよ」'),h('span',{class:'pill'},`${S.bells.toLocaleString()}円`)));
     if(t==='sell'){body.append(h('div',{class:'rowline'},h('button',{class:'btn',on:sellAll},'生き物・化石・花・貝をまとめて売る'),h('span',{class:'muted'},'素材や道具の材料は残るよ')));body.append(bagGrid('sell'))}
-    if(t==='buy'){
-      const items=[...SEEDS.map(s=>({id:s.id,name:s.name,price:s.buy,note:FLOWER_DEF[s.species].name+'。水やりで3日ほどで咲く'})),{id:'apple',name:'リンゴ',price:250,note:'食べると体力が15回復'},{id:'torch',name:'松明',price:120,note:'使うと、しばらく自分のまわりが明るくなる（夜や洞窟で）'},{id:'sapling',name:'木の苗',price:800,note:'地面に植えると、2日で木が生える（砂浜には植えられない）'},
-        {id:'fence_item',name:'木の柵',price:150,note:'島に置ける。となりの柵とつながる'},{id:'bench_item',name:'ベンチ',price:1500,note:'島に置ける'},{id:'lamp_item',name:'街灯',price:2500,note:'島に置ける。夜に明かりがともる'},
-        {id:'hat_straw',name:'麦わら帽子',price:900,note:'持ち物から「かぶる」'},{id:'hat_cap',name:'キャップ',price:900,note:'持ち物から「かぶる」'},{id:'hat_knit',name:'ニット帽',price:1100,note:'持ち物から「かぶる」'},
-        ...Object.keys(TOPS).filter(k=>!['top_star'].includes(k)).map(k=>({id:k,name:TOPS[k].name,price:ITEMS[k].price,note:'持ち物から「着る」'})),
-        ...['acc_scarf','acc_glasses','acc_sun','acc_bag','acc_pochette','acc_pendant'].map(k=>({id:k,name:ITEMS[k].name,price:ITEMS[k].price,note:'持ち物から「つける」'})),
-        ...(typeof SHOP_MORE==='function'?SHOP_MORE():[])];   // more.js でふやした服・帽子・小物
-      const grid=h('div',{class:'grid'});
-      for(const tl of TOOLS.filter(t=>t.buy&&!S.tools[t.id]))grid.append(h('div',{class:'cell'},iconCanvas(tl.id),h('div',{class:'nm'},tl.name),h('div',{class:'meta'},tl.id==='shovel'?'化石を掘ったり、岩をたたける':'花に水をあげて育てる'),h('button',{on:()=>{if(S.bells<tl.buy){toast('お金が足りない');return}S.bells-=tl.buy;S.tools[tl.id]=1;S.tool=tl.id;toast(`${tl.name}を買った！ キー${tl.key}で持ちかえ`,true);sfx('lv');updateHud();refresh()}},`${tl.buy}円`)));
-      for(const it of items)grid.append(h('div',{class:'cell'},iconCanvas(it.id),h('div',{class:'nm'},it.name),h('div',{class:'meta'},it.note),h('div',{class:'rowline',style:'justify-content:center;margin:0;gap:4px'},
-        h('button',{on:()=>buy(it,1)},`${it.price}円`),h('button',{class:'btn sub',on:()=>buy(it,5)},'×5'))));
-      body.append(grid);
-    }
+    if(t==='buy')renderShopBuy(body);   // ジャンル別・入れかえ・季節の品物（shopcat.js）
     if(t==='furn'){
       body.append(h('p',{class:'muted',style:'margin:0 0 10px'},'買った家具は、家の中の「レイアウト」から好きな所に置けるよ。収納箱・植木鉢・テーブル・本だなはクラフトでも作れる。収納箱は箱ごとに別々にしまえて、置ける数は家の大きさで決まる（テント1・小さな家3・木の家5・大きな家7）。'));
       const grid=h('div',{class:'grid'});
@@ -7354,6 +7343,117 @@ function shopObjects(D,ctx){
 }
 // 会話の顔：コマチ
 {const _sd=showDialog;showDialog=function(who,lines,done,choices){_sd(who,lines,done,choices);if(who===SHOPKEEP.name){const im=gi('pt_komachi'),p=document.getElementById('dPortrait');if(p&&im){p.src=im.src;p.hidden=false}}}}
+</script>
+<script>
+// ===================== お店の品ぞろえ（ジャンル別・入れかえ・季節の品物） =====================
+// 「買う」はジャンルごとのタブ（種と道具・島の飾り・服・帽子・小物・家具・壁紙と床）。
+// 服・帽子・小物・家具は全部は並ばない：SHOP_ROT 日ごとに入れかわり、そのとき売っている物と、売っていない物を分けて出す。
+// 季節の品物は、その季節のあいだだけ並ぶ（季節は 7日ごとに 春→夏→秋→冬）
+const SHOP_ROT=3;
+const SHOP_GENRES=[['seed','種と道具'],['deco','島の飾り'],['top','服'],['hat','帽子'],['acc','小物'],['furn','家具'],['wall','壁紙と床']];
+const SHOP_PICK={top:8,hat:7,acc:7,furn:12};   // 入れかえで並ぶ数（季節の品物は別に足す）
+const SHOP_NEVER=new Set(['hat_crown','top_star','acc_cape','acc_wings','hat_beret','hat_ribbon','furnace']);   // お店では売らない（ごほうび・旅の商人・クラフトの品）
+const SHOP_ALWAYS=new Set(['box']);   // いつも並ぶ（収納箱）
+
+// ---- 季節の品物を足す ----
+Object.assign(TOPS,{top_tulip:{name:'チューリップがらの服',c:'#fff3d0',pat:'flower',c2:'#e8504a'},top_aloha:{name:'アロハシャツ',c:'#2f7ab8',pat:'flower',c2:'#fbe3ea'},
+  top_momiji:{name:'もみじがらの服',c:'#f3e3c3',pat:'star',c2:'#d9572a'},top_nordic:{name:'ノルディックセーター',c:'#c8303a',pat:'zigzag',c2:'#f6f3ea'}});
+for(const [id,p] of [['top_tulip',1800],['top_aloha',2200],['top_momiji',1800],['top_nordic',2600]])ITEMS[id]={id,name:TOPS[id].name,price:p,kind:'top',note:'季節の服。着ると、主人公の服がこの模様になる',shop:true};
+HATS.hat_earmuff='イヤーマフ';ITEMS.hat_earmuff={id:'hat_earmuff',name:'イヤーマフ',price:1500,kind:'hat',note:'冬の耳あて',shop:true};
+{const _dh=drawHat;drawHat=function(g,id,x,y,w,back){if(id!=='hat_earmuff')return _dh(g,id,x,y,w,back);
+  const s=w/24;g.save();g.translate(x,y);g.scale(s,s);g.strokeStyle='#8a5a8a';g.lineWidth=1.8;g.beginPath();g.ellipse(0,9,12.5,11,0,Math.PI*1.05,Math.PI*1.95);g.stroke();
+  for(const sx of [-1,1]){circ(g,sx*12.5,11,4.6,'#f6f0f6');circ(g,sx*12.5,11,3.4,'#f6c8dc');circ(g,sx*12.5-1,10,1.1,'rgba(255,255,255,.8)')}g.restore()}}
+Object.assign(FURN_DEF,{
+  koinobori:{name:'こいのぼり',w:1,h:1,price:5000,tall:true,note:'春の空を泳ぐ'},parasol:{name:'ビーチパラソル',w:1,h:1,price:4000,tall:true,note:'夏の日かげ'},
+  furin:{name:'風鈴',w:1,h:1,price:1500,tall:true,note:'ちりん、と涼しい音'},pumpkin:{name:'かぼちゃのランタン',w:1,h:1,price:2500,note:'秋の夜を照らす'},
+  snowman:{name:'雪だるま',w:1,h:1,price:3000,tall:true,note:'冬だけのお友だち'},
+});
+for(const k of ['koinobori','parasol','furin','pumpkin','snowman'])FURN_NAME[k]=FURN_DEF[k].name;
+Object.assign(FURN2_PAINT,{
+  koinobori(g,W,H){const top=-T-4;fShadow(g,W/2-4,H-6,8,6,3,.3);rrect(g,W/2-1.2,top,2.4,H-top-2,1,'#c9a46a');circ(g,W/2,top,2.2,'#e6c45a');
+    for(const [i,c] of [[0,'#2a3a6a'],[1,'#d9473f'],[2,'#3a8ad8']]){const y=top+5+i*9,len=19-i*2;g.fillStyle=c;g.beginPath();g.moveTo(W/2+1,y-3);g.quadraticCurveTo(W/2+len*.6,y-5,W/2+len,y-2);g.lineTo(W/2+len-3,y);g.lineTo(W/2+len,y+2);g.quadraticCurveTo(W/2+len*.6,y+5,W/2+1,y+3);g.closePath();g.fill();
+      circ(g,W/2+4,y-.5,1.6,'#fff');circ(g,W/2+4,y-.5,.8,'#222');g.strokeStyle='rgba(255,255,255,.5)';g.lineWidth=.6;for(let k=7;k<len-3;k+=3){g.beginPath();g.arc(W/2+k,y,1.6,-1.2,1.2);g.stroke()}}},
+  parasol(g,W,H){const top=-T+2;fShadow(g,4,H-6,W-8,6,3,.25);rrect(g,W/2-1,top+6,2,H-top-8,1,'#e6e9ec');
+    g.save();g.beginPath();g.moveTo(W/2-17,top+12);g.quadraticCurveTo(W/2,top-6,W/2+17,top+12);g.closePath();g.clip();for(let i=-3;i<4;i++){g.fillStyle=i%2?'#f6f3ea':'#e8504a';g.beginPath();g.moveTo(W/2,top);g.lineTo(W/2+i*6-3,top+14);g.lineTo(W/2+i*6+3,top+14);g.closePath();g.fill()}g.restore();
+    g.strokeStyle='rgba(120,40,30,.5)';g.lineWidth=.8;g.beginPath();g.moveTo(W/2-17,top+12);g.quadraticCurveTo(W/2,top-6,W/2+17,top+12);g.stroke();circ(g,W/2,top+1,1.4,'#e6c45a')},
+  furin(g,W,H){const top=-T+8;fShadow(g,W/2-6,H-6,12,6,3,.25);rrect(g,W/2-6,H-5,12,3,1,'#6b4426');rrect(g,W/2-1,top,2,H-top-4,1,'#8a5a34');rrect(g,W/2-1,top,10,2,1,'#8a5a34');
+    g.fillStyle='rgba(200,235,250,.85)';g.beginPath();g.arc(W/2+8,top+8,5,Math.PI,0);g.lineTo(W/2+13,top+10);g.lineTo(W/2+3,top+10);g.closePath();g.fill();g.strokeStyle='#5fa8d8';g.lineWidth=.6;g.stroke();
+    circ(g,W/2+6,top+6,1,'#e8504a');circ(g,W/2+10,top+7,1,'#f6d860');g.strokeStyle='#666';g.lineWidth=.4;g.beginPath();g.moveTo(W/2+8,top+2);g.lineTo(W/2+8,top+3);g.moveTo(W/2+8,top+10);g.lineTo(W/2+8,top+13);g.stroke();
+    rrect(g,W/2+6,top+13,4,9,.5,'#f6f3ea');g.fillStyle='#3a7bd5';g.fillRect(W/2+6.5,top+15,3,1)},
+  pumpkin(g,W,H){fShadow(g,5,H-8,W-10,8,4,.3);for(const [dx,r] of [[-6,7],[6,7],[0,8.5]]){g.fillStyle=fLin(g,0,H-22,0,H-4,[[0,'#f6a23a'],[1,'#c8601a']]);g.beginPath();g.ellipse(W/2+dx,H-12,r,9,0,0,7);g.fill()}
+    rrect(g,W/2-1.5,H-24,3,5,1,'#5a7a2a');g.fillStyle='#3a2410';g.beginPath();g.moveTo(W/2-6,H-15);g.lineTo(W/2-3,H-17);g.lineTo(W/2-2,H-14);g.closePath();g.moveTo(W/2+6,H-15);g.lineTo(W/2+3,H-17);g.lineTo(W/2+2,H-14);g.closePath();g.fill();
+    g.fillStyle='#ffd27a';g.beginPath();g.moveTo(W/2-6,H-10);g.lineTo(W/2+6,H-10);g.lineTo(W/2+4,H-7);g.lineTo(W/2+1,H-9);g.lineTo(W/2-1,H-7);g.lineTo(W/2-4,H-9);g.closePath();g.fill()},
+  snowman(g,W,H){const hy=H-27;fShadow(g,4,H-8,W-8,8,4,.3);circ(g,W/2,H-11,10,'#f6f8fb');g.strokeStyle='rgba(150,170,190,.6)';g.lineWidth=.8;g.beginPath();g.arc(W/2,H-11,10,0,7);g.stroke();
+    circ(g,W/2,hy,7.5,'#ffffff');g.beginPath();g.arc(W/2,hy,7.5,0,7);g.stroke();   // 頭は体の上にのせる
+    rrect(g,W/2-6,hy-13,12,7,1.5,'#3a6ab8');rrect(g,W/2-8,hy-7,16,2.2,1,'#2a4f8f');circ(g,W/2-2.5,hy-1,1,'#222');circ(g,W/2+2.5,hy-1,1,'#222');g.fillStyle='#f08a3c';g.beginPath();g.moveTo(W/2,hy+1);g.lineTo(W/2+6,hy+2.5);g.lineTo(W/2,hy+3);g.fill();
+    rrect(g,W/2-7,hy+6,14,3,1.5,'#d9473f');rrect(g,W/2+3,hy+7,3,7,1,'#d9473f');for(const y of [H-15,H-10])circ(g,W/2,y,1,'#3a3a40')},
+});
+const SEASON_OF={
+  top_sakura:0,hat_flower:0,acc_butterfly:0,acc_flower_pin:0,top_tulip:0,koinobori:0,
+  hat_straw:1,hat_straw_blue:1,acc_sun:1,top_aloha:1,parasol:1,furin:1,fan:1,
+  top_momiji:2,pumpkin:2,hat_witch:2,acc_bat:2,acc_scarf_check:2,
+  hat_santa:3,firtree:3,stove:3,kotatsu:3,snowman:3,top_nordic:3,hat_earmuff:3,acc_scarf:3,acc_scarf_blue:3,
+};
+const seasonNow=()=>season();
+const shopPeriod=()=>Math.floor((S.day-1)/SHOP_ROT);
+const shopDaysLeft=()=>SHOP_ROT-((S.day-1)%SHOP_ROT);
+// ジャンルごとの全部の品物（{key, id|furn, name, price, note}）
+function shopAll(genre){
+  const it=id=>({key:id,id,name:ITEMS[id].name,price:ITEMS[id].price,note:ITEMS[id].note||''});
+  if(genre==='seed')return [...SEEDS.map(s=>({key:s.id,id:s.id,name:s.name,price:s.buy,note:FLOWER_DEF[s.species].name+'。水やりで3日ほどで咲く'})),
+    {key:'apple',id:'apple',name:'リンゴ',price:250,note:'食べると体力が15回復'},{key:'torch',id:'torch',name:'松明',price:120,note:'使うと、しばらく自分のまわりが明るくなる'},
+    {key:'sapling',id:'sapling',name:'木の苗',price:800,note:'地面に植えると、2日で木になる（砂浜は不可）'},{key:'bait',id:'bait',name:'釣りエサ',price:100,note:'釣りで大物がかかりやすくなる'}].filter(x=>ITEMS[x.id]);
+  if(genre==='deco')return ['fence_item','bench_item','lamp_item'].filter(id=>ITEMS[id]).map(id=>({...it(id),price:{fence_item:150,bench_item:1500,lamp_item:2500}[id]}));
+  if(genre==='wall')return [...Object.keys(WALLS),...Object.keys(FLOORS)].map(it);
+  if(genre==='furn')return Object.entries(FURN_DEF).filter(([k,d])=>d.price&&!SHOP_NEVER.has(k)).map(([k,d])=>({key:k,furn:k,name:d.name,price:d.price,note:`${d.note}（${d.w}×${d.h}マス）`}));
+  return Object.values(ITEMS).filter(x=>x.kind===genre&&!SHOP_NEVER.has(x.id)&&(x.price||0)>0&&(genre!=='top'||TOPS[x.id])&&(genre!=='hat'||HATS[x.id])&&(genre!=='acc'||ACCS[x.id])).map(x=>it(x.id));
+}
+// いま売っている物と、売っていない物
+function shopStock(genre){
+  const all=shopAll(genre),n=SHOP_PICK[genre];
+  if(!n)return {on:all,off:[]};
+  const se=seasonNow(),on=[],off=[],rest=[];
+  for(const x of all){const s=SEASON_OF[x.key];if(s===undefined){SHOP_ALWAYS.has(x.key)?on.push(x):rest.push(x)}else(s===se?on:off).push({...x,season:s})}
+  const r=seeded((S.seed^0x7a3c)+shopPeriod()*9173+genre.length*131),pool=rest.slice(),pick=[];
+  while(pick.length<n&&pool.length)pick.push(pool.splice(Math.floor(r()*pool.length),1)[0]);
+  const pk=new Set(pick.map(x=>x.key));
+  return {on:[...on,...rest.filter(x=>pk.has(x.key))],off:[...rest.filter(x=>!pk.has(x.key)),...off]};
+}
+function shopHave(x){return x.furn?(S.furnInv[x.furn]||0)+((S.homeFurn||[]).filter(f=>f.type===x.furn).length):(S.bag[x.id]||0)}
+function shopBuyFurn(x){if(S.bells<x.price){toast('お金が足りない');return}S.bells-=x.price;S.furnInv[x.furn]=(S.furnInv[x.furn]||0)+1;toast(`${x.name}を買った！ 家の中の「レイアウト」から置けるよ`,true);sfx('get');updateHud();refresh()}
+function renderShopBuy(body){
+  const gk=RT.shopGenre&&SHOP_GENRES.some(g=>g[0]===RT.shopGenre)?RT.shopGenre:'seed';
+  const bar=h('div',{class:'genbar'});
+  for(const [k,l] of SHOP_GENRES)bar.append(h('button',{class:'genbtn'+(k===gk?' on':''),on:()=>{RT.shopGenre=k;refresh()}},l));
+  body.append(bar);
+  const st=shopStock(gk),rot=!!SHOP_PICK[gk];
+  if(rot)body.append(h('p',{class:'muted',style:'margin:6px 0 8px'},`いまは${SEASONS[seasonNow()]}。品物は ${SHOP_ROT}日ごとに入れかわるよ（次の入れかえまで あと${shopDaysLeft()}日）。季節の品物は、その季節のあいだだけ並ぶ。`));
+  else if(gk==='furn'||gk==='wall')body.append(h('p',{class:'muted',style:'margin:6px 0 8px'},'買った壁紙と床紙は、持ち物から「はる」「しく」で使えるよ。'));
+  const cell=(x,on)=>{
+    const icon=x.furn?furnIcon(x.furn,56):iconCanvas(x.id,48);
+    const tags=[];if(x.season!==undefined||SEASON_OF[x.key]!==undefined)tags.push(h('span',{class:'pill',style:'background:#fde3c8;color:#8a4a10'},`${SEASONS[SEASON_OF[x.key]]}の品物`));
+    const c=h('div',{class:'cell'+(on?'':' soldout')},icon,h('div',{class:'nm'},x.name),...tags,h('div',{class:'meta'},x.note),h('div',{class:'meta'},`持っている：${shopHave(x)}`));
+    if(!on){c.append(h('div',{class:'meta',style:'color:#a05a2a;font-weight:bold'},x.season!==undefined?`${SEASONS[x.season]}になったら並ぶ`:'いまは売っていない'));return c}
+    if(x.furn)c.append(h('button',{on:()=>shopBuyFurn(x)},`${x.price.toLocaleString()}円`));
+    else c.append(h('div',{class:'rowline',style:'justify-content:center;margin:0;gap:4px'},h('button',{on:()=>buy(x,1)},`${x.price.toLocaleString()}円`),
+      (gk==='seed'||gk==='deco')?h('button',{class:'btn sub',on:()=>buy(x,5)},'×5'):null));
+    return c;
+  };
+  const g1=h('div',{class:'grid'});
+  if(gk==='seed')for(const tl of TOOLS.filter(t=>t.buy&&!S.tools[t.id]))g1.append(h('div',{class:'cell'},iconCanvas(tl.id),h('div',{class:'nm'},tl.name),h('div',{class:'meta'},tl.id==='shovel'?'化石を掘ったり、岩をたたける':'花に水をあげて育てる'),
+    h('button',{on:()=>{if(S.bells<tl.buy){toast('お金が足りない');return}S.bells-=tl.buy;S.tools[tl.id]=1;S.tool=tl.id;toast(`${tl.name}を買った！`,true);sfx('get');updateHud();buildToolbar();refresh()}},`${tl.buy}円`)));
+  for(const x of st.on)g1.append(cell(x,true));
+  body.append(rot?h('b',{},`いま売っている物（${st.on.length}）`):null,g1);
+  if(st.off.length){const g2=h('div',{class:'grid'});for(const x of st.off)g2.append(cell(x,false));body.append(h('b',{style:'display:block;margin-top:14px'},`いまは売っていない物（${st.off.length}）`),g2)}
+}
+// 日替わりの台（shopin.js）も、いま売っている物から選ぶ
+shopPool=function(){const L=[];for(const g of ['top','hat','acc','furn'])for(const x of shopStock(g).on)L.push(x.furn?{furn:x.furn,price:x.price}:{id:x.id,price:x.price});return L};
+{const st=document.createElement('style');st.textContent=`
+.genbar{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 4px}
+.genbtn{border:2px solid var(--leaf,#8cc878);background:#fff;color:#3a5a2a;border-radius:999px;padding:4px 12px;font-weight:700;font-size:13px;cursor:pointer}
+.genbtn.on{background:var(--leaf-deep,#4f9a68);border-color:var(--leaf-deep,#4f9a68);color:#fff}
+.cell.soldout{opacity:.5;filter:grayscale(.6)}
+`;document.head.append(st)}
 </script>
 <script>
 // ===================== タイトル画面 =====================
