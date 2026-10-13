@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.032";</script>
+<script>const GAME_VERSION="1.033";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -6802,6 +6802,53 @@ function equipPreview(){
   [['down',75],['right',180],['up',285]].forEach(([d,x])=>{S.tool=d==='right'&&hasWeapon()?'sword':'hand';g.save();g.translate(x,138);g.scale(2.4,2.4);drawHuman(g,0,0,d,0,{});if(S.tool==='sword'){S.dir='right';drawToolInHand(g,0,0)}g.restore()});
   S.tool=keepT;S.dir=keepDir;RT.diag=keepD;return c;
 }
+// 小物そのものの絵（装備の画面用）。持ち物の絵は「付けた姿」だが、装備の画面は上に姿が出るので、物だけを描く。32×32 の座標
+function drawAccItem(c,id){
+  const g=c.getContext('2d'),s=c.width;g.clearRect(0,0,s,s);g.save();g.scale(s/32,s/32);g.lineJoin='round';g.lineCap='round';
+  const line=(w=.8,col='rgba(40,25,20,.75)')=>{g.strokeStyle=col;g.lineWidth=w;g.stroke()};
+  const lg=(y0,y1,a,b)=>{const q=g.createLinearGradient(0,y0,0,y1);q.addColorStop(0,a);q.addColorStop(1,b);return q};
+  ell(g,16,28.5,10,2.2,'rgba(0,0,0,.15)');
+  if(id==='acc_scarf'){   // マフラー：輪に巻いた赤い帯と、ふさの付いた垂れ
+    g.fillStyle=lg(6,20,'#ef5a50','#b8322c');g.beginPath();g.ellipse(16,12,10,5.5,0,0,7);g.ellipse(16,11.5,6,2.8,0,0,7,true);g.fill('evenodd');line();
+    g.fillStyle=lg(12,27,'#e04a42','#a82a25');g.beginPath();g.moveTo(17,15);g.lineTo(22.5,14);g.lineTo(24,26);g.lineTo(18.5,26.5);g.closePath();g.fill();line();
+    g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=.8;for(const y of [18,21,24]){g.beginPath();g.moveTo(18.2,y+.5);g.lineTo(23,y);g.stroke()}
+    g.strokeStyle='#f3ead8';g.lineWidth=.7;for(let i=0;i<5;i++){g.beginPath();g.moveTo(19+i*1.1,26.4);g.lineTo(19+i*1.1,28.4);g.stroke()}}
+  else if(id==='acc_glasses'||id==='acc_sun'){   // めがね・サングラス
+    const dark=id==='acc_sun',fr=dark?'#1e1e24':'#7a4a24';
+    for(const x of [10,22]){g.beginPath();g.arc(x,16,5.2,0,7);if(dark){g.fillStyle=lg(11,21,'#3a3f4a','#111318');g.fill()}else{g.fillStyle='rgba(200,230,250,.35)';g.fill()}g.strokeStyle=fr;g.lineWidth=1.6;g.stroke();
+      g.strokeStyle='rgba(255,255,255,.7)';g.lineWidth=.9;g.beginPath();g.arc(x-1.2,14.6,2.4,3.6,4.6);g.stroke()}
+    g.strokeStyle=fr;g.lineWidth=1.3;g.beginPath();g.moveTo(14.8,15.2);g.quadraticCurveTo(16,13.8,17.2,15.2);g.stroke();
+    g.beginPath();g.moveTo(4.9,15);g.lineTo(2,13.5);g.moveTo(27.1,15);g.lineTo(30,13.5);g.stroke()}
+  else if(id==='acc_bag'){   // リュック
+    g.strokeStyle='#5a3a1e';g.lineWidth=1.6;g.beginPath();g.moveTo(11,8);g.quadraticCurveTo(16,2.5,21,8);g.stroke();   // 持ち手
+    g.fillStyle=lg(7,28,'#a8703f','#7a4a24');g.beginPath();g.roundRect(7,7,18,21,5);g.fill();line(1);
+    g.fillStyle=lg(7,16,'#bf8650','#94602f');g.beginPath();g.moveTo(7.4,13);g.quadraticCurveTo(7.4,7.4,13,7.4);g.lineTo(19,7.4);g.quadraticCurveTo(24.6,7.4,24.6,13);g.lineTo(24.6,15);g.quadraticCurveTo(16,18,7.4,15);g.closePath();g.fill();line(.7);   // ふた
+    g.fillStyle='#e6c45a';g.beginPath();g.roundRect(14.5,14.8,3,3.4,.8);g.fill();line(.5);
+    g.fillStyle=lg(19,27,'#b98048','#8a5a30');g.beginPath();g.roundRect(10.5,19.5,11,6.5,2.5);g.fill();line(.6);   // ポケット
+    g.fillStyle='rgba(255,255,255,.18)';g.fillRect(9,9,1.4,15)}
+  else if(id==='acc_cape'){   // マント：赤いえりと金の留め金、すそへ広がる
+    g.fillStyle=lg(6,28,'#c63c46','#7e1f27');g.beginPath();g.moveTo(11,7);g.lineTo(21,7);g.quadraticCurveTo(25,17,28,27);g.quadraticCurveTo(16,29.5,4,27);g.quadraticCurveTo(7,17,11,7);g.closePath();g.fill();line(.8);
+    g.strokeStyle='rgba(70,12,18,.35)';g.lineWidth=.8;for(const x of [11,16,21]){g.beginPath();g.moveTo(16+(x-16)*.4,10);g.lineTo(x+(x-16)*.6,27);g.stroke()}
+    g.fillStyle='rgba(255,220,220,.25)';g.beginPath();g.moveTo(12,9);g.lineTo(13.5,9);g.lineTo(10,26);g.lineTo(8,26);g.closePath();g.fill();
+    g.fillStyle='#b3323b';g.beginPath();g.roundRect(9.5,4.5,13,4.6,2.3);g.fill();line(.6);
+    circ(g,16,7,2.6,'#e2b23a');g.strokeStyle='#8a5a14';g.lineWidth=.5;g.beginPath();g.arc(16,7,2.6,0,7);g.stroke();circ(g,15.2,6.2,.9,'rgba(255,245,200,.9)')}
+  else if(id==='acc_wings'){   // 天使の羽
+    const wing=sx=>{g.save();g.translate(16,17);g.scale(sx,1);g.fillStyle=lg(-10,10,'#ffffff','#e3e8f6');g.beginPath();g.moveTo(1,-2);g.quadraticCurveTo(6,-12,14,-10);g.quadraticCurveTo(12,-6,14,-4);g.quadraticCurveTo(10,-1,12,2);g.quadraticCurveTo(8,4,9,7);g.quadraticCurveTo(4,8,1,4);g.closePath();g.fill();line(.7,'rgba(110,130,170,.9)');
+      g.strokeStyle='rgba(150,170,210,.8)';g.lineWidth=.6;g.beginPath();g.moveTo(3,-3);g.quadraticCurveTo(8,-7,12,-7);g.moveTo(3,0);g.quadraticCurveTo(7,-2,11,-1);g.moveTo(3,3);g.quadraticCurveTo(6,3,8,5);g.stroke();g.restore()};
+    wing(1);wing(-1)}
+  else if(id==='acc_pendant'){   // ペンダント
+    g.strokeStyle='#d6a93a';g.lineWidth=1;g.beginPath();g.moveTo(6,5);g.quadraticCurveTo(16,24,26,5);g.stroke();
+    g.strokeStyle='rgba(255,240,180,.8)';g.lineWidth=.4;g.setLineDash([.8,.8]);g.beginPath();g.moveTo(6.5,5.5);g.quadraticCurveTo(16,23.4,25.5,5.5);g.stroke();g.setLineDash([]);
+    g.fillStyle=lg(15,27,'#8fd8f6','#2f8fc0');g.beginPath();g.moveTo(16,15.5);g.lineTo(20.5,20.5);g.lineTo(16,27);g.lineTo(11.5,20.5);g.closePath();g.fill();line(.7,'#1f5f86');
+    g.fillStyle='rgba(255,255,255,.8)';g.beginPath();g.moveTo(14.5,19);g.lineTo(16,17.4);g.lineTo(16.6,19.6);g.closePath();g.fill();circ(g,16,15.2,1.2,'#e6c45a')}
+  else if(id==='acc_pochette'){   // ポシェット
+    g.strokeStyle='#c8505a';g.lineWidth=1.2;g.beginPath();g.moveTo(9,17);g.quadraticCurveTo(10,3,16,3);g.quadraticCurveTo(22,3,23,17);g.stroke();
+    g.fillStyle=lg(14,28,'#f6a6be','#d8708e');g.beginPath();g.roundRect(7,14,18,13,4.5);g.fill();line(.9);
+    g.fillStyle=lg(14,21,'#f9bccd','#e6849f');g.beginPath();g.moveTo(7.3,18);g.quadraticCurveTo(7.3,14.3,11.5,14.3);g.lineTo(20.5,14.3);g.quadraticCurveTo(24.7,14.3,24.7,18);g.quadraticCurveTo(16,23,7.3,18);g.closePath();g.fill();line(.6);
+    circ(g,16,20.2,1.5,'#e6c45a');g.fillStyle='rgba(255,255,255,.3)';g.fillRect(9,16,1.2,8)}
+  g.restore();
+}
+function equipIcon(id){if(ITEMS[id]&&ITEMS[id].kind==='acc'){const c=document.createElement('canvas');c.width=c.height=88;drawAccItem(c,id);return c}return iconCanvas(id)}
 function equipRows(t){
   if(t==='weapon')return ownWeapons().map(w=>({id:w,icon:w==='sword'?'sword':'w_'+w,name:w==='sword'?toolName('sword',S.tools.sword||1):WEAPONS[w].name,note:WEAPONS[w].note||'近くの敵を切る',on:curWeapon()===w,
     use:()=>{S.weapon=w;toast(`武器を「${weaponLabel()}」にした`,true)}}));
@@ -6821,7 +6868,7 @@ function openEquip(tab){
     for(const r of rows){
       const btn=h('button',{class:r.on?'btn sub':'btn',on:()=>{if(t==='weapon'&&r.on)return;r.use();sfx('get');updateHud();if(typeof buildToolbar==='function')buildToolbar();refresh()}},t==='weapon'?(r.on?'装備中':'装備する'):(r.on?'はずす':'装備する'));
       if(t==='weapon'&&r.on)btn.setAttribute('disabled','');
-      grid.append(h('div',{class:'cell'+(r.on?' eqon':'')},iconCanvas(r.icon),h('div',{class:'nm'},r.name),h('div',{class:'meta'},r.on?'装備中':(r.note||'')),btn));
+      grid.append(h('div',{class:'cell'+(r.on?' eqon':'')},equipIcon(r.icon),h('div',{class:'nm'},r.name),h('div',{class:'meta'},r.on?'装備中':(r.note||'')),btn));
     }
     body.append(grid);
   });
