@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.024";</script>
+<script>const GAME_VERSION="1.025";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -6445,11 +6445,21 @@ function drawAcc(g,id,B,k,v,f,layer){
       const w0=sw*.48,w1=sw*.76,gr=g.createLinearGradient(cx-w1,0,cx+w1,0);gr.addColorStop(0,RED);gr.addColorStop(.25,DARK);gr.addColorStop(.75,DARK);gr.addColorStop(1,RED);
       g.beginPath();g.moveTo(cx-w0,ny);g.lineTo(cx+w0,ny);g.lineTo(cx+w1+sway,ay);g.quadraticCurveTo(cx,ay+2*u,cx-w1+sway,ay);g.closePath();g.fillStyle=gr;g.fill();edge();
     }
-    if(v==='side'&&layer==='back'){   // 首の後ろから、背中の後ろへ流れる
-      const b=-f,x=d=>cx+b*sw*d;
-      g.beginPath();g.moveTo(x(.02),ny-.6*u);g.quadraticCurveTo(x(.5),ny+2*u,x(.8)+b*sway,ay-1*u);g.quadraticCurveTo(x(.5),ay+1.6*u,x(.14),ay);g.lineTo(x(.12),hy);g.closePath();
-      const gr=g.createLinearGradient(x(.05),0,x(.95),0);gr.addColorStop(0,DARK);gr.addColorStop(.45,RED);gr.addColorStop(1,'#c9444c');g.fillStyle=gr;g.fill();edge();
-      g.strokeStyle='rgba(70,15,20,.32)';g.lineWidth=.7*u;g.beginPath();g.moveTo(x(.3),ny+4*u);g.quadraticCurveTo(x(.5),hy,x(.55)+b*sway,ay);g.stroke();   // ひだ
+    if(v==='side'&&layer==='back'){   // 肩から背中の後ろへ、風になびく（すそは腰のあたりまで）
+      const q=u/1.375*1.15,b=-f,bk=sw*.3,X=d=>cx+b*(bk+d*q),t=performance.now()/260,w1=Math.sin(t)*1.1*q,w2=Math.sin(t+1.7)*.9*q;   // bk＝背中の位置
+      const shape=()=>{g.beginPath();g.moveTo(X(-6),ny+1*q);
+        g.quadraticCurveTo(X(4),ny-1.5*q,X(11.5),ny+6.5*q+w1);   // 上のふち：肩から後ろへ
+        g.quadraticCurveTo(X(12),ny+9.5*q+w1,X(8.5),ny+11.5*q+w2);   // 先のなびき
+        g.quadraticCurveTo(X(6),ny+9.5*q+w2,X(3.5),hy+.5*q);        // すその波
+        g.quadraticCurveTo(X(1.5),hy+3*q,X(-1.5),hy+2*q);
+        g.lineTo(X(-4),ny+6*q);g.closePath()};
+      const gr=g.createLinearGradient(0,ny,0,hy+3*q);gr.addColorStop(0,'#c13b44');gr.addColorStop(.5,RED);gr.addColorStop(1,DARK);
+      shape();g.fillStyle=gr;g.fill();edge();
+      g.save();shape();g.clip();
+      g.fillStyle='rgba(90,15,22,.38)';g.beginPath();g.moveTo(X(0),ny+7*q);g.quadraticCurveTo(X(6),ny+7*q+w1,X(11),ny+8*q+w1);g.lineTo(X(11),hy+4*q);g.lineTo(X(0),hy+4*q);g.closePath();g.fill();   // 下側の影（裏地）
+      g.strokeStyle='rgba(255,215,215,.3)';g.lineWidth=.7*q;g.beginPath();g.moveTo(X(-3),ny+1.5*q);g.quadraticCurveTo(X(4),ny,X(10.5),ny+6.5*q+w1);g.stroke();   // 上のふちの光
+      g.strokeStyle='rgba(70,12,18,.35)';g.lineWidth=.6*q;g.beginPath();g.moveTo(X(1),ny+3*q);g.quadraticCurveTo(X(4),ny+6*q,X(4),hy-1*q);g.stroke();   // ひだ
+      g.restore();
     }
     if(layer==='front'&&v==='front'){   // 首の赤いえりと、まん中の金の留め金
       R(cx-sw*.44,ny-.4*u,sw*.88,4.2*u,2.1*u,RED);g.fillStyle=DARK;g.fillRect(cx-sw*.4,ny+3*u,sw*.8,.7*u);
