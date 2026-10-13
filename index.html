@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.033";</script>
+<script>const GAME_VERSION="1.034";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -5131,7 +5131,10 @@ drawIcon=function(c,id){
     torch:g=>{g.save();g.translate(16,17);g.rotate(.35);g.fillStyle='#7a5030';g.fillRect(-2,-2,4,16);g.fillStyle='#5a3a1e';g.fillRect(-2.6,-3,5.2,3);   // 松明
       g.fillStyle='#f6a23a';g.beginPath();g.moveTo(0,-14);g.quadraticCurveTo(6,-8,3.5,-3);g.lineTo(-3.5,-3);g.quadraticCurveTo(-6,-8,0,-14);g.fill();
       g.fillStyle='#ffe28a';g.beginPath();g.moveTo(0,-10);g.quadraticCurveTo(3,-6,2,-3.5);g.lineTo(-2,-3.5);g.quadraticCurveTo(-3,-6,0,-10);g.fill();g.restore()},
-    silk:g=>{g.strokeStyle='#f2f2f6';g.lineWidth=2;for(let i=0;i<3;i++){g.beginPath();g.ellipse(16,17,11-i*3,8-i*2,.3,0,7);g.stroke()}circ(g,16,17,2,'#fff')},
+    silk:g=>{   // 巻いた糸の玉（白い背景でも見えるよう、灰色のふちと影をつける）
+      ell(g,16,27,9,2,'rgba(0,0,0,.15)');const q=g.createRadialGradient(13,12,1,16,16,10);q.addColorStop(0,'#ffffff');q.addColorStop(1,'#cfd3dc');circ(g,16,16,9.5,'#8a8f9c');circ(g,16,16,8.8,q);
+      g.strokeStyle='rgba(120,126,140,.75)';g.lineWidth=.8;for(let i=0;i<5;i++){g.beginPath();g.ellipse(16,16,8.4,3+i*1.2,-.6+i*.3,0,7);g.stroke()}
+      g.strokeStyle='#9aa0ad';g.lineWidth=1;g.beginPath();g.moveTo(23,21);g.quadraticCurveTo(28,24,27,29);g.stroke()},
     shroom:g=>{g.fillStyle='#f6ead6';g.fillRect(13,16,6,11);ell(g,16,15,11,7,'#d9534f');circ(g,12,13,2,'#fff');circ(g,19,11,1.6,'#fff');circ(g,21,16,1.4,'#fff')},
     scale:g=>{g.fillStyle='#d64b3a';g.beginPath();g.moveTo(16,4);g.quadraticCurveTo(28,14,16,28);g.quadraticCurveTo(4,14,16,4);g.fill();g.fillStyle='rgba(255,220,150,.6)';g.beginPath();g.moveTo(16,8);g.quadraticCurveTo(22,14,16,22);g.quadraticCurveTo(12,14,16,8);g.fill()},
   }[id];
@@ -6797,9 +6800,12 @@ const EQUIP_TABS=[['weapon','武器'],['top','服'],['hat','帽子'],['acc','小
 function equipPreview(){
   const c=document.createElement('canvas');c.width=360;c.height=150;c.className='eqprev';
   const g=c.getContext('2d'),keepD=RT.diag;RT.diag=null;
+  const pnow=performance.now;performance.now=()=>0;   // 立っているときの上下の動き（時刻で変わる）を止めて、いつも同じ位置に描く
   const bg=g.createLinearGradient(0,0,0,150);bg.addColorStop(0,'#cfe9c0');bg.addColorStop(1,'#9fd08a');g.fillStyle=bg;g.fillRect(0,0,360,150);
   const keepT=S.tool,keepDir=S.dir;
+  try{
   [['down',75],['right',180],['up',285]].forEach(([d,x])=>{S.tool=d==='right'&&hasWeapon()?'sword':'hand';g.save();g.translate(x,138);g.scale(2.4,2.4);drawHuman(g,0,0,d,0,{});if(S.tool==='sword'){S.dir='right';drawToolInHand(g,0,0)}g.restore()});
+  }finally{performance.now=pnow}
   S.tool=keepT;S.dir=keepDir;RT.diag=keepD;return c;
 }
 // 小物そのものの絵（装備の画面用）。持ち物の絵は「付けた姿」だが、装備の画面は上に姿が出るので、物だけを描く。32×32 の座標
@@ -6848,6 +6854,9 @@ function drawAccItem(c,id){
     circ(g,16,20.2,1.5,'#e6c45a');g.fillStyle='rgba(255,255,255,.3)';g.fillRect(9,16,1.2,8)}
   g.restore();
 }
+// 持ち物・お店・装備のどこでも、小物の絵は物だけの絵にする（付けた姿の絵だと、頭やマントが切れて見えるため）
+const _drawIconEquip=drawIcon;
+drawIcon=function(c,id){const it=ITEMS[id];if(it&&it.kind==='acc')return drawAccItem(c,id);return _drawIconEquip(c,id)};
 function equipIcon(id){if(ITEMS[id]&&ITEMS[id].kind==='acc'){const c=document.createElement('canvas');c.width=c.height=88;drawAccItem(c,id);return c}return iconCanvas(id)}
 function equipRows(t){
   if(t==='weapon')return ownWeapons().map(w=>({id:w,icon:w==='sword'?'sword':'w_'+w,name:w==='sword'?toolName('sword',S.tools.sword||1):WEAPONS[w].name,note:WEAPONS[w].note||'近くの敵を切る',on:curWeapon()===w,
