@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.036";</script>
+<script>const GAME_VERSION="1.037";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7650,6 +7650,28 @@ cv.addEventListener('pointermove',e=>{
   const self=Math.abs(wx-S.px)<14&&wy<S.py+4&&wy>S.py-42&&hintText();
   cv.style.cursor=self||RT.fishing||clickTarget(wx,wy).act?'pointer':'default';
 });
+// PC（マウス）：左ボタンを長押しすると、カーソルの方へ走りつづける。左ダブルクリックで、カーソルの方へジャンプ
+const MOUSE_HOLD_MS=300;
+let mHold=null;
+cv.addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse'||e.button!==0||RT.title||RT.panel||RT.dlg||RT.catchShow||!S)return;mHold={id:e.pointerId,cx:e.clientX,cy:e.clientY,t0:performance.now(),on:false}});
+addEventListener('pointermove',e=>{if(mHold&&e.pointerId===mHold.id){mHold.cx=e.clientX;mHold.cy=e.clientY}});
+const endHold=e=>{if(mHold&&e.pointerId===mHold.id){if(mHold.on){RT.goal=null;RT.approach=null;RT.walk=0;RT.running=false}mHold=null}};
+addEventListener('pointerup',endHold);addEventListener('pointercancel',endHold);addEventListener('blur',()=>{mHold=null});
+function mouseRunVec(){   // 長押し中なら、走る向き（カーソル－主人公）を返す
+  if(!mHold)return null;
+  if(!mHold.on){if(performance.now()-mHold.t0<MOUSE_HOLD_MS)return null;mHold.on=true;RT.goal=null;RT.approach=null}
+  const [wx,wy]=screenToWorld({clientX:mHold.cx,clientY:mHold.cy}),dx=wx-S.px,dy=wy-(S.py-12);
+  return Math.hypot(dx,dy)>12?[dx,dy]:[0,0];
+}
+cv.addEventListener('dblclick',e=>{
+  if(RT.title||RT.panel||RT.dlg||RT.catchShow||RT.layout||!S||RT.jump||RT.fishing)return;
+  e.preventDefault();RT.goal=null;RT.approach=null;mHold=null;
+  const [wx,wy]=screenToWorld(e),dx=wx-S.px,dy=wy-(S.py-12);
+  if(Math.hypot(dx,dy)>4){if(Math.abs(dx)>Math.abs(dy))S.dir=dx>0?'right':'left';else S.dir=dy>0?'down':'up'}
+  const [x,y]=ptile(),[ux,uy]=DIRV[S.dir];let tx=x,ty=y;
+  for(const k of [2,1])if(walkable(x+ux*k,y+uy*k)){tx=x+ux*k;ty=y+uy*k;break}   // 2マス先（1マス先の物や水はとびこえる）→1マス先→その場
+  RT.diag=null;startJump(tx,ty);
+});
 </script>
 <script>
 // ===================== 入力 =====================
@@ -7709,6 +7731,7 @@ function loop(ts){
       let mx=0,my=0;if(keys.has('l'))mx--;if(keys.has('r'))mx++;if(keys.has('u'))my--;if(keys.has('d'))my++;
       let run=keys.has('run');
       if(!mx&&!my&&(Math.abs(pad.x)>.2||Math.abs(pad.y)>.2)){mx=pad.x;my=pad.y;run=Math.hypot(pad.x,pad.y)>.9}
+      if(!mx&&!my){const mv=mouseRunVec();if(mv){mx=mv[0];my=mv[1];run=true;if(!mx&&!my){RT.walk=0;RT.running=false}}}   // マウスの長押しで走る（p9.js）
       if(RT.jump)updateJump(dt);
       else if(mx||my){RT.goal=null;RT.approach=null;movePlayer(mx,my,run,dt)}else if(RT.goal)followGoal(dt);else{movePlayer(0,0,false,dt);RT.running=false}
       if(inHome())homeTick();
