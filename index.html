@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.037";</script>
+<script>const GAME_VERSION="1.038";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7453,6 +7453,98 @@ shopPool=function(){const L=[];for(const g of ['top','hat','acc','furn'])for(con
 .genbtn{border:2px solid var(--leaf,#8cc878);background:#fff;color:#3a5a2a;border-radius:999px;padding:4px 12px;font-weight:700;font-size:13px;cursor:pointer}
 .genbtn.on{background:var(--leaf-deep,#4f9a68);border-color:var(--leaf-deep,#4f9a68);color:#fff}
 .cell.soldout{opacity:.5;filter:grayscale(.6)}
+`;document.head.append(st)}
+</script>
+<script>
+// ===================== エモーション（気持ちのマーク） =====================
+// PC：ゲーム画面を右クリックすると、カーソルのまわりに 8つのマークの輪（エモーションリング）が出る。
+// 選ぶと、主人公の頭の上の吹き出しに、そのマークが少しのあいだ出る。近くにいる住民も、ときどき気持ちを返してくれる
+const EMOTES=[['smile','にっこり'],['heart','ハート'],['music','ごきげん'],['wow','びっくり'],['what','はてな'],['angry','おこる'],['cry','なく'],['sleepy','ねむい']];
+const EMOTE_SEC=2.6;
+function drawEmote(g,id,t){   // 32×32 の中にマークを描く（t＝出てからの時間。小さな動きに使う）
+  g.save();g.lineCap='round';g.lineJoin='round';
+  const face=(c)=>{const q=g.createRadialGradient(13,12,2,16,16,13);q.addColorStop(0,'#fff3b0');q.addColorStop(1,c);circ(g,16,16,12.5,q);g.strokeStyle='rgba(120,80,20,.6)';g.lineWidth=1;g.beginPath();g.arc(16,16,12.5,0,7);g.stroke()};
+  const ln=(c,w)=>{g.strokeStyle=c;g.lineWidth=w};
+  switch(id){
+    case 'smile':face('#f6c84a');ln('#5a3a14',1.8);for(const x of [11,21]){g.beginPath();g.arc(x,15,2.6,Math.PI*1.1,Math.PI*1.9);g.stroke()}g.beginPath();g.arc(16,18,5.5,Math.PI*.15,Math.PI*.85);g.stroke();circ(g,8.5,20,2.4,'rgba(240,120,120,.5)');circ(g,23.5,20,2.4,'rgba(240,120,120,.5)');break;
+    case 'heart':{const s=1+Math.sin(t*9)*.08;g.translate(16,17);g.scale(s,s);g.fillStyle='#e8486a';g.beginPath();g.moveTo(0,10);g.bezierCurveTo(-15,0,-9,-13,0,-5);g.bezierCurveTo(9,-13,15,0,0,10);g.fill();g.fillStyle='rgba(255,255,255,.55)';g.beginPath();g.ellipse(-5,-4,2.6,1.6,-.6,0,7);g.fill();break}
+    case 'music':{const b=Math.sin(t*7)*1.5;g.fillStyle='#3a6ab8';g.strokeStyle='#3a6ab8';g.lineWidth=2;g.beginPath();g.ellipse(10,23+b,4,3,-.4,0,7);g.fill();g.beginPath();g.ellipse(22,20-b,4,3,-.4,0,7);g.fill();
+      g.beginPath();g.moveTo(13.5,22+b);g.lineTo(13.5,7+b);g.lineTo(25.5,4-b);g.lineTo(25.5,19-b);g.stroke();g.lineWidth=3;g.beginPath();g.moveTo(13.5,8+b);g.lineTo(25.5,5-b);g.stroke();break}
+    case 'wow':g.fillStyle='#e8504a';g.beginPath();g.moveTo(12.5,4);g.lineTo(19.5,4);g.lineTo(17.5,20);g.lineTo(14.5,20);g.closePath();g.fill();circ(g,16,25.5,3,'#e8504a');ln('rgba(232,80,74,.6)',1.5);for(const [a,b,c,d] of [[5,8,8,10],[27,8,24,10],[4,16,7,16],[28,16,25,16]]){g.beginPath();g.moveTo(a,b);g.lineTo(c,d);g.stroke()}break;
+    case 'what':ln('#3a7bd5',4);g.beginPath();g.arc(16,11,6,Math.PI*1.1,Math.PI*2.4);g.quadraticCurveTo(16,17,16,19.5);g.stroke();circ(g,16,26,2.6,'#3a7bd5');break;
+    case 'angry':{const s=1+Math.abs(Math.sin(t*10))*.12;g.translate(16,16);g.scale(s,s);g.translate(-16,-16);ln('#e0303a',3.4);
+      for(const [cx,cy,a] of [[11,11,0],[21,11,1],[11,21,3],[21,21,2]]){g.save();g.translate(cx,cy);g.rotate(a*Math.PI/2);g.beginPath();g.moveTo(-1,-5);g.quadraticCurveTo(-1,-1,-5,-1);g.stroke();g.restore()}break}
+    case 'cry':face('#9fd0f0');ln('#2a4a6a',1.8);for(const x of [11,21]){g.beginPath();g.moveTo(x-3,14);g.lineTo(x+3,14);g.stroke()}g.beginPath();g.arc(16,23,4,Math.PI*1.15,Math.PI*1.85);g.stroke();
+      const d=(t*14)%6;g.fillStyle='#3a9ad9';for(const x of [10,22]){g.beginPath();g.moveTo(x,16+d);g.quadraticCurveTo(x-2.4,20+d,x,22+d);g.quadraticCurveTo(x+2.4,20+d,x,16+d);g.fill()}break;
+    case 'sleepy':g.fillStyle='#6a5ac8';g.font='bold 13px "Zen Maru Gothic",sans-serif';g.textAlign='center';const k=(t*1.5)%1;g.globalAlpha=.6+.4*k;g.fillText('Z',22,12-k*2);g.globalAlpha=1;g.font='bold 10px "Zen Maru Gothic",sans-serif';g.fillText('z',14,20);g.font='bold 8px "Zen Maru Gothic",sans-serif';g.fillText('z',9,27);break;
+  }
+  g.restore();
+}
+// 頭の上の吹き出し（ふくらんで出て、最後はうすくなって消える）
+function drawEmoteBubble(g,x,y,id,age){
+  const pop=Math.min(1,age/.18),fade=Math.min(1,(EMOTE_SEC-age)/.35),sc=(.6+.4*pop)*(pop<1?1:1+Math.sin(age*3)*.03);
+  g.save();g.globalAlpha=Math.max(0,fade);g.translate(x,y-Math.sin(age*2.4)*1.2);g.scale(sc,sc);
+  g.fillStyle='rgba(0,0,0,.12)';g.beginPath();g.roundRect(-13,-27,28,25,9);g.fill();
+  g.fillStyle='#ffffff';g.beginPath();g.roundRect(-14,-28,28,25,9);g.fill();g.beginPath();g.moveTo(-4,-4);g.lineTo(0,3);g.lineTo(4,-4);g.fill();
+  g.strokeStyle='rgba(90,70,50,.45)';g.lineWidth=1;g.beginPath();g.roundRect(-14,-28,28,25,9);g.stroke();
+  g.translate(-11,-26.5);g.scale(22/32,22/32);drawEmote(g,id,age);g.restore();
+}
+function showEmote(id){RT.emote={id,t0:performance.now()/1000};sfx('get')}
+// 主人公の上に描く（drawToolInHand は主人公を描いたすぐあとに呼ばれる）
+const _drawToolEmote=drawToolInHand;
+drawToolInHand=function(g,x,y){
+  _drawToolEmote(g,x,y);
+  const E=RT.emote;if(!E)return;const age=performance.now()/1000-E.t0;if(age>EMOTE_SEC){RT.emote=null;return}
+  drawEmoteBubble(g,x,y-PC_H-2,E.id,age);
+};
+// 住民の気持ちの返事：近くの住民の頭の上に、少しおくれて出す（drawAnimal のあとで描く）
+const VEMO={};   // 住民id → {id,t0}
+const EMO_REPLY={smile:'smile',heart:'heart',music:'music',wow:'wow',what:'what',angry:'cry',cry:'what',sleepy:'sleepy'};
+function villagerReply(id){
+  if(S.loc!=='island'||!RT.vill||(typeof villagersOut==='function'&&!villagersOut()))return;
+  const list=RT.vill.filter(a=>Math.hypot(a.x-S.px,a.y-S.py)<120).sort((p,q)=>Math.hypot(p.x-S.px,p.y-S.py)-Math.hypot(q.x-S.px,q.y-S.py));
+  list.slice(0,2).forEach((a,i)=>{setTimeout(()=>{VEMO[a.v.id]={id:EMO_REPLY[id]||'smile',t0:performance.now()/1000}},450+i*250)});
+}
+const _drawAnimalEmo=drawAnimal;
+drawAnimal=function(g,x,y,dir,frame,v){
+  _drawAnimalEmo(g,x,y,dir,frame,v);
+  const E=v&&VEMO[v.id];if(!E)return;const age=performance.now()/1000-E.t0;if(age>EMOTE_SEC){delete VEMO[v.id];return}
+  drawEmoteBubble(g,x,y-(typeof VW_H!=='undefined'?VW_H:46)-2,E.id,age);
+};
+// ---- エモーションリング ----
+function closeEmoRing(){const r=$('emoRing');if(r)r.remove()}
+function openEmoRing(cx,cy){
+  closeEmoRing();
+  const ring=document.createElement('div');ring.id='emoRing';
+  const R=74,vw=innerWidth,vh=innerHeight;cx=Math.max(R+34,Math.min(vw-R-34,cx));cy=Math.max(R+34,Math.min(vh-R-34,cy));
+  ring.style.cssText=`left:${cx}px;top:${cy}px`;
+  const mid=document.createElement('div');mid.className='emoMid';mid.textContent='気持ち';ring.append(mid);
+  EMOTES.forEach(([id,name],i)=>{
+    const a=-Math.PI/2+i*Math.PI*2/EMOTES.length,b=document.createElement('button');b.className='emoBtn';b.title=name;b.setAttribute('aria-label',name);
+    b.style.cssText=`left:${Math.cos(a)*R}px;top:${Math.sin(a)*R}px`;
+    const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.scale(2,2);drawEmote(g,id,0);
+    const lb=document.createElement('span');lb.textContent=name;b.append(c,lb);
+    b.onclick=ev=>{ev.stopPropagation();closeEmoRing();showEmote(id);villagerReply(id)};
+    ring.append(b);
+  });
+  document.body.append(ring);
+}
+cv.addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  if(RT.title||RT.panel||RT.dlg||RT.layout||!S)return;
+  if($('emoRing')){closeEmoRing();return}
+  openEmoRing(e.clientX,e.clientY);
+});
+addEventListener('pointerdown',e=>{if($('emoRing')&&!e.target.closest('#emoRing'))closeEmoRing()},true);
+addEventListener('keydown',e=>{if(e.code==='Escape'&&$('emoRing')){closeEmoRing();e.stopPropagation()}},true);
+{const st=document.createElement('style');st.textContent=`
+#emoRing{position:fixed;z-index:60;width:0;height:0}
+#emoRing .emoMid{position:absolute;left:-30px;top:-30px;width:60px;height:60px;border-radius:50%;background:rgba(246,250,243,.92);border:2px solid var(--leaf,#8cc878);display:grid;place-items:center;font:700 12px "Zen Maru Gothic",sans-serif;color:#3a5a2a;box-shadow:0 3px 0 var(--leaf-deep,#4f9a68)}
+#emoRing .emoBtn{position:absolute;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;border:2px solid var(--leaf,#8cc878);background:#fff;box-shadow:0 3px 0 var(--leaf-deep,#4f9a68);cursor:pointer;padding:0;display:grid;place-items:center;animation:emoIn .16s ease-out}
+#emoRing .emoBtn canvas{width:34px;height:34px;margin-top:-6px}
+#emoRing .emoBtn span{position:absolute;bottom:3px;left:0;right:0;font:700 9px "Zen Maru Gothic",sans-serif;color:#4a3a2a;text-align:center}
+#emoRing .emoBtn:hover{transform:scale(1.12);background:#fff8e0}
+@keyframes emoIn{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
 `;document.head.append(st)}
 </script>
 <script>
