@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.041";</script>
+<script>const GAME_VERSION="1.042";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7557,12 +7557,16 @@ function closeEmoRing(){const r=$('emoRing');if(r)r.remove()}
 function openEmoRing(cx,cy){
   closeEmoRing();
   const ring=document.createElement('div');ring.id='emoRing';
-  const L=emoList(),R=Math.max(74,L.length*9.5),vw=innerWidth,vh=innerHeight;cx=Math.max(R+34,Math.min(vw-R-34,cx));cy=Math.max(R+34,Math.min(vh-R-34,cy));
-  ring.style.cssText=`left:${cx}px;top:${cy}px`;
+  // スマホ（指で操作）で 9個以上あるときは二重の輪：内側に最初の 8個、外側に教わった気持ち（ボタンも少し小さく）
+  const L=emoList(),touchUI=(typeof lastPtr!=='undefined'&&lastPtr!=='mouse')||matchMedia('(pointer: coarse)').matches,two=touchUI&&L.length>8;
+  const R1=two?58:Math.max(74,L.length*9.5),R2=two?108:R1,R=R2,vw=innerWidth,vh=innerHeight;
+  const pos=i=>{if(!two||i<8){const n=two?8:L.length;return [-Math.PI/2+i*Math.PI*2/n,R1]}const n2=L.length-8;return [-Math.PI/2+(i-8+.5)*Math.PI*2/n2,R2]};
+  cx=Math.max(R+30,Math.min(vw-R-30,cx));cy=Math.max(R+30,Math.min(vh-R-30,cy));
+  ring.style.cssText=`left:${cx}px;top:${cy}px`;if(two)ring.classList.add('two');
   const mid=document.createElement('div');mid.className='emoMid';mid.textContent='気持ち';ring.append(mid);
   L.forEach(([id,name],i)=>{
-    const a=-Math.PI/2+i*Math.PI*2/L.length,b=document.createElement('button');b.className='emoBtn';b.title=name;b.setAttribute('aria-label',name);
-    b.style.cssText=`left:${Math.cos(a)*R}px;top:${Math.sin(a)*R}px`;
+    const [a,rr]=pos(i),b=document.createElement('button');b.className='emoBtn'+(two&&i>=8?' outer':'');b.title=name;b.setAttribute('aria-label',name);
+    b.style.cssText=`left:${Math.cos(a)*rr}px;top:${Math.sin(a)*rr}px`;
     const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.scale(2,2);drawEmote(g,id,0);
     const lb=document.createElement('span');lb.textContent=name==='ガッツポーズ'?'ガッツ':name;b.append(c,lb);
     b.onclick=ev=>{ev.stopPropagation();closeEmoRing();showEmote(id);villagerReply(id)};
@@ -7612,7 +7616,7 @@ function placeEmoBtn(){const a=$('abtn'),t=$('touch');if(!a||!t)return;const ar=
   const sz=Math.round(ar.width*.62);Object.assign(ebtn.style,{width:sz+'px',height:sz+'px',left:(ar.left-tr.left-sz*.55)+'px',top:(ar.top-tr.top-sz*.85)+'px'})}
 addEventListener('resize',()=>setTimeout(placeEmoBtn,50));setTimeout(placeEmoBtn,300);setInterval(placeEmoBtn,2000);
 ebtn.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(RT.title||RT.panel||RT.dlg||!S)return;
-  if($('emoRing')){closeEmoRing();return}const r=ebtn.getBoundingClientRect();openEmoRing(r.left+r.width/2,r.top-90)});
+  if($('emoRing')){closeEmoRing();return}const r=ebtn.getBoundingClientRect();openEmoRing(r.left+r.width/2-60,r.top-150)});
 setTimeout(drawEmoBtn,500);
 {const st=document.createElement('style');st.textContent=`
 #emoRing{position:fixed;z-index:60;width:0;height:0}
@@ -7620,6 +7624,11 @@ setTimeout(drawEmoBtn,500);
 #emoRing .emoBtn{position:absolute;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;border:2px solid var(--leaf,#8cc878);background:#fff;box-shadow:0 3px 0 var(--leaf-deep,#4f9a68);cursor:pointer;padding:0;display:grid;place-items:center;animation:emoIn .16s ease-out}
 #emoRing .emoBtn canvas{width:34px;height:34px;margin-top:-6px}
 #emoRing .emoBtn span{position:absolute;bottom:3px;left:0;right:0;font:700 9px "Zen Maru Gothic",sans-serif;color:#4a3a2a;text-align:center}
+#emoRing.two .emoMid{left:-24px;top:-24px;width:48px;height:48px;font-size:10px}
+#emoRing.two .emoBtn{width:46px;height:46px;margin:-23px 0 0 -23px}
+#emoRing.two .emoBtn canvas{width:28px;height:28px;margin-top:-6px}
+#emoRing.two .emoBtn span{font-size:8px;bottom:2px}
+#emoRing.two .emoBtn.outer{border-color:#f0b860;box-shadow:0 3px 0 #c8851c}
 #emoRing .emoBtn:hover,#emoRing .emoBtn.hot{transform:scale(1.15);background:#fff8e0}
 @keyframes emoIn{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
 #ebtn{position:absolute;border-radius:50%;background:#fff;border:3px solid var(--leaf,#8cc878);box-shadow:0 3px 0 var(--leaf-deep,#4f9a68);pointer-events:auto;padding:0;display:grid;place-items:center;touch-action:none}
