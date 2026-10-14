@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.038";</script>
+<script>const GAME_VERSION="1.039";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7529,13 +7529,40 @@ function openEmoRing(cx,cy){
   });
   document.body.append(ring);
 }
+let lastPtr='mouse';
 cv.addEventListener('contextmenu',e=>{
   e.preventDefault();
+  if(lastPtr!=='mouse'||emoPress)return;   // スマホの長押しで出る右クリックは使わない（下の長押しで開く）
   if(RT.title||RT.panel||RT.dlg||RT.layout||!S)return;
   if($('emoRing')){closeEmoRing();return}
   openEmoRing(e.clientX,e.clientY);
 });
-addEventListener('pointerdown',e=>{if($('emoRing')&&!e.target.closest('#emoRing'))closeEmoRing()},true);
+addEventListener('pointerdown',e=>{lastPtr=e.pointerType;if($('emoRing')&&!e.target.closest('#emoRing'))closeEmoRing()},true);
+// ---- スマホ：自分のキャラを長押しすると、キャラのまわりにリングが出る ----
+// 指を離さずにマークまで滑らせて離すと、そのマークを出せる（離した所がマークでなければ、リングは開いたまま。タップで選べる）
+const EMO_HOLD_MS=450;
+let emoPress=null;
+const selfHit=(wx,wy)=>Math.abs(wx-S.px)<20&&wy<S.py+8&&wy>S.py-48;
+function emoBtnAt(x,y){const el=document.elementFromPoint(x,y);return el&&el.closest&&el.closest('.emoBtn')}
+cv.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse'||RT.title||RT.panel||RT.dlg||RT.layout||RT.catchShow||!S||RT.fishing)return;
+  const [wx,wy]=screenToWorld(e);if(!selfHit(wx,wy))return;
+  e.stopImmediatePropagation();e.preventDefault();   // 自分のタップは、離したときに「調べる」をする（長押しと見分けるため）
+  const P=emoPress={id:e.pointerId,x:e.clientX,y:e.clientY,open:false};
+  P.timer=setTimeout(()=>{if(emoPress!==P)return;P.open=true;const r=cv.getBoundingClientRect(),c=RT.cam||{cx:0,cy:0},z=RT.camZ||Z;
+    openEmoRing(r.left+(S.px-c.cx)*z,r.top+(S.py-22-c.cy)*z);if(navigator.vibrate)try{navigator.vibrate(12)}catch(_){}},EMO_HOLD_MS);
+},true);
+addEventListener('pointermove',e=>{
+  const P=emoPress;if(!P||e.pointerId!==P.id)return;
+  if(!P.open){if(Math.hypot(e.clientX-P.x,e.clientY-P.y)>14){clearTimeout(P.timer);emoPress=null}return}
+  const b=emoBtnAt(e.clientX,e.clientY);document.querySelectorAll('#emoRing .emoBtn').forEach(x=>x.classList.toggle('hot',x===b));
+});
+const emoUp=e=>{
+  const P=emoPress;if(!P||e.pointerId!==P.id)return;clearTimeout(P.timer);emoPress=null;
+  if(!P.open){if(e.type==='pointerup'&&hintText())pressA();return}   // 短いタップ：これまでどおり「調べる」
+  const b=emoBtnAt(e.clientX,e.clientY);if(b)b.click();
+};
+addEventListener('pointerup',emoUp);addEventListener('pointercancel',emoUp);
 addEventListener('keydown',e=>{if(e.code==='Escape'&&$('emoRing')){closeEmoRing();e.stopPropagation()}},true);
 {const st=document.createElement('style');st.textContent=`
 #emoRing{position:fixed;z-index:60;width:0;height:0}
@@ -7543,7 +7570,7 @@ addEventListener('keydown',e=>{if(e.code==='Escape'&&$('emoRing')){closeEmoRing(
 #emoRing .emoBtn{position:absolute;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;border:2px solid var(--leaf,#8cc878);background:#fff;box-shadow:0 3px 0 var(--leaf-deep,#4f9a68);cursor:pointer;padding:0;display:grid;place-items:center;animation:emoIn .16s ease-out}
 #emoRing .emoBtn canvas{width:34px;height:34px;margin-top:-6px}
 #emoRing .emoBtn span{position:absolute;bottom:3px;left:0;right:0;font:700 9px "Zen Maru Gothic",sans-serif;color:#4a3a2a;text-align:center}
-#emoRing .emoBtn:hover{transform:scale(1.12);background:#fff8e0}
+#emoRing .emoBtn:hover,#emoRing .emoBtn.hot{transform:scale(1.15);background:#fff8e0}
 @keyframes emoIn{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
 `;document.head.append(st)}
 </script>
