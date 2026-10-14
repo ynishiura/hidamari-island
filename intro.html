@@ -31,7 +31,7 @@
 
 <style>
 :root{
-  --bg:#fbf7ec; --bg2:#f3efe0; --panel:#ffffff; --ink:#3c4b3a; --mute:#71806a; --faint:#9aa690;
+  --bg:#fbf7ec; --bg2:#f1f7ea; --bg3:#eef9f4; --panel:#ffffff; --ink:#3c4b3a; --mute:#71806a; --faint:#9aa690;
   --line:#e7decb; --green:#5aa870; --green-d:#3f8a58; --sky:#7cc4e4; --pink:#f29bb6; --gold:#f2c36b;
   --round:'Zen Maru Gothic','Hiragino Maru Gothic ProN',sans-serif;
   --body:'Zen Kaku Gothic New','Hiragino Kaku Gothic ProN','Noto Sans JP',system-ui,sans-serif;
@@ -56,14 +56,12 @@ h1,h2,h3{margin:0;line-height:1.3;font-family:var(--round)}
 .btn:focus-visible{outline:3px solid #2f6b43;outline-offset:3px}
 .btn small{font-size:.72em;font-weight:500;opacity:.92}
 .btn.big{font-size:clamp(17px,4.6vw,21px);padding:17px clamp(24px,7vw,42px)}
-.btn.ghost{background:transparent;color:var(--green-d);border:2px solid var(--green);box-shadow:none}
-.btn.ghost:hover{background:rgba(90,168,112,.1)}
 
 /* 上の帯 */
 .top{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
   padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top));
   background:linear-gradient(180deg,rgba(251,247,236,.9),rgba(251,247,236,0));transition:background .3s}
-.top.solid{background:rgba(251,247,236,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top.solid{background:rgba(251,247,236,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .top .mark{display:flex;align-items:center;gap:8px;font-family:var(--round);font-weight:900;font-size:16px;color:var(--green-d)}
 .top .mark img{width:28px;height:28px;border-radius:8px}
 .top .mini{font-size:14px;padding:9px 18px}
@@ -91,7 +89,7 @@ h1,h2,h3{margin:0;line-height:1.3;font-family:var(--round)}
 @keyframes drip{0%{transform:scaleY(0);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}51%{transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
 
 /* セクション共通 */
-section{position:relative;padding:72px 0}
+section{position:relative;padding:68px 0}
 .head{text-align:center;margin-bottom:38px}
 .head .en{display:block;font-family:var(--round);font-weight:700;font-size:12px;letter-spacing:.4em;padding-left:.4em;color:var(--green)}
 .head h2{margin:8px 0 0;font-size:clamp(24px,6.4vw,34px);font-weight:900;letter-spacing:.06em;color:var(--ink)}
@@ -101,24 +99,33 @@ section{position:relative;padding:72px 0}
 .rule::after{transform:scaleX(-1)}
 .rule i{width:9px;height:9px;border-radius:50%;background:var(--pink);box-shadow:0 0 0 4px rgba(242,155,182,.25)}
 
-/* 概要（島の写真＋リード） */
-.about{background:linear-gradient(180deg,var(--bg),var(--bg2))}
-.shot{border-radius:22px;overflow:hidden;box-shadow:0 18px 40px rgba(60,75,58,.18),0 0 0 6px #fff,0 0 0 7px var(--line);margin:0 auto;max-width:900px}
-.shot img{width:100%;height:auto}
-.lead{max-width:30em;margin:30px auto 0;text-align:center;font-size:clamp(15px,4.2vw,17px);color:#4a5a46}
-.lead strong{color:var(--green-d);font-weight:700}
+/* できること：画面＋説明を交互に */
+.things{background:linear-gradient(180deg,var(--bg),var(--bg2))}
+.ftr{display:grid;gap:22px;align-items:center;margin-bottom:clamp(44px,8vw,76px)}
+.ftr:last-child{margin-bottom:0}
+.ftr .pic{position:relative;border-radius:22px;overflow:hidden;
+  box-shadow:0 18px 40px rgba(60,75,58,.2),0 0 0 6px #fff,0 0 0 7px var(--line)}
+.ftr .pic img{width:100%;display:block;transition:transform .6s}
+.ftr .pic:hover img{transform:scale(1.04)}
+.ftr .tag{display:inline-flex;align-items:center;gap:8px;font-family:var(--round);font-weight:700;font-size:13.5px;
+  color:var(--green-d);background:#eafbee;border:1px solid #cfe9d4;border-radius:999px;padding:7px 16px;margin-bottom:12px}
+.ftr .tag .em{font-size:18px}
+.ftr h3{font-size:clamp(21px,5.4vw,27px);font-weight:900;letter-spacing:.04em;margin-bottom:8px;color:var(--ink)}
+.ftr p{margin:0;color:#4a5a46;font-size:15.5px;line-height:1.9}
+@media (min-width:820px){
+  .ftr{grid-template-columns:1.12fr .88fr;gap:46px}
+  .ftr.rev .pic{order:2}
+}
 
-/* 特徴カード */
-.feats{display:grid;gap:16px;grid-template-columns:1fr}
-.feat{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px 22px;box-shadow:0 8px 22px rgba(60,75,58,.07);
-  transition:transform .3s,box-shadow .3s}
-.feat:hover{transform:translateY(-4px);box-shadow:0 16px 32px rgba(60,75,58,.14)}
-.feat .ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;margin-bottom:14px;font-size:26px;
-  background:radial-gradient(circle at 30% 25%,#eafbee,#d7f0dd);border:1px solid #cfe9d4}
-.feat h3{font-size:19px;font-weight:700;letter-spacing:.04em;margin-bottom:6px}
-.feat p{margin:0;color:var(--mute);font-size:14.5px;line-height:1.8}
+/* ギャラリー */
+.gallery{background:linear-gradient(180deg,var(--bg2),var(--bg3))}
+.gal{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.gal figure{margin:0;border-radius:14px;overflow:hidden;box-shadow:0 10px 24px rgba(60,75,58,.12),0 0 0 4px #fff,0 0 0 5px var(--line)}
+.gal img{width:100%;display:block;transition:transform .5s}
+.gal figure:hover img{transform:scale(1.05)}
+@media (min-width:640px){.gal{grid-template-columns:repeat(3,1fr);gap:16px}}
 
-/* 遊び方 */
+/* はじめかた */
 .howto{background:linear-gradient(180deg,#eef6ea,#f6f2e6)}
 .steps{display:grid;gap:16px;grid-template-columns:1fr}
 .step{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:26px 22px;text-align:center;box-shadow:0 8px 20px rgba(60,75,58,.06)}
@@ -126,9 +133,7 @@ section{position:relative;padding:72px 0}
 .step .em{font-size:40px;margin:8px 0 6px}
 .step h3{font-size:20px;font-weight:700;letter-spacing:.06em;margin-bottom:6px}
 .step p{margin:0;color:var(--mute);font-size:14.5px}
-
-/* 情報 */
-.info{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:8px}
+.info{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:26px}
 .info span{background:#fff;border:1px solid var(--line);border-radius:999px;padding:9px 18px;font-size:13.5px;color:#4a5a46;font-weight:500}
 .info b{color:var(--green-d)}
 
@@ -147,14 +152,8 @@ footer small{display:block;font-family:var(--round);letter-spacing:.14em;font-si
 .js .reveal{opacity:0;transform:translateY(22px);transition:opacity .8s ease,transform .8s cubic-bezier(.2,.8,.2,1)}
 .js .reveal.on{opacity:1;transform:none}
 
-@media (min-width:640px){
-  .feats{grid-template-columns:repeat(2,1fr);gap:18px}
-  .steps{grid-template-columns:repeat(3,1fr);gap:18px}
-}
-@media (min-width:900px){
-  section{padding:96px 0}
-  .feats{grid-template-columns:repeat(3,1fr);gap:20px}
-}
+@media (min-width:640px){.steps{grid-template-columns:repeat(3,1fr);gap:18px}}
+@media (min-width:900px){section{padding:92px 0}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.js .reveal{opacity:1;transform:none}}
 </style>
 </head>
@@ -178,42 +177,86 @@ footer small{display:block;font-family:var(--round);letter-spacing:.14em;font-si
         <span class="note">ブラウザですぐ始められます ／ スマホ・パソコン対応</span>
       </div>
     </div>
-    <a class="scroll" href="#about">SCROLL</a>
+    <a class="scroll" href="#things">SCROLL</a>
   </section>
 
-  <!-- 概要 -->
-  <section class="about" id="about">
+  <!-- できること（画面＋説明を交互に） -->
+  <section class="things" id="things">
     <div class="wrap">
       <div class="head reveal">
-        <span class="en">ABOUT</span>
-        <h2>こんな島ぐらし</h2>
-        <div class="rule"><i></i></div>
-      </div>
-      <figure class="shot reveal"><img src="img/intro-hero.jpg" alt="ひだまり島のながめ" loading="lazy" width="1600" height="900"></figure>
-      <p class="lead reveal">虫をとり、魚を釣り、花を育て、道具をつくる。<br>のんびり暮らすほど、<strong>自分も島も少しずつ育っていく</strong>。<br>時間に追われない、あなただけのひだまり島へ。</p>
-    </div>
-  </section>
-
-  <!-- 特徴 -->
-  <section id="features">
-    <div class="wrap">
-      <div class="head reveal">
-        <span class="en">FEATURES</span>
+        <span class="en">WHAT YOU CAN DO</span>
         <h2>島でできること</h2>
         <div class="rule"><i></i></div>
+        <p>のんびり過ごすほど、できることが増えていく。あなたの島ぐらしを、のぞいてみましょう。</p>
       </div>
-      <div class="feats">
-        <article class="feat reveal"><div class="ic">🦋</div><h3>採集・虫とり</h3><p>野山をめぐって、虫や木の実、きのこを集めよう。季節ごとに出会えるものが変わります。</p></article>
-        <article class="feat reveal"><div class="ic">🎣</div><h3>釣り</h3><p>川や海で魚釣り。小魚から大物まで、何が釣れるかはお楽しみ。のんびり糸を垂らす時間も心地よい。</p></article>
-        <article class="feat reveal"><div class="ic">🌷</div><h3>栽培・ガーデニング</h3><p>花や作物を植えて、水をあげて育てる。島が少しずつ、あなたの色に染まっていきます。</p></article>
-        <article class="feat reveal"><div class="ic">🔨</div><h3>クラフト・道具づくり</h3><p>集めた素材で道具や家具をクラフト。できることが増えて、暮らしがどんどん広がります。</p></article>
-        <article class="feat reveal"><div class="ic">🏡</div><h3>島づくり・模様替え</h3><p>家具を置いて、飾って、自分だけの空間に。住むほどに愛着のわく、わが家とわが島を。</p></article>
-        <article class="feat reveal"><div class="ic">🌿</div><h3>のんびりマイペース</h3><p>やることは、あなたが決める。急がなくていい。今日できることを、ひとつずつ。</p></article>
+
+      <div class="ftr reveal">
+        <div class="pic"><img src="img/g-island.jpg" alt="ひだまり島で暮らすゲーム画面" loading="lazy" width="800" height="438"></div>
+        <div class="txt">
+          <span class="tag"><span class="em">🌿</span>のんびり暮らす</span>
+          <h3>自分のペースで、島ぐらし</h3>
+          <p>朝がきて、夜がくる。木をゆすって、道を歩いて。急がなくていい、あなたのリズムで島での毎日を過ごしましょう。やることリストは、気が向いたときに。</p>
+        </div>
+      </div>
+
+      <div class="ftr rev reveal">
+        <div class="pic"><img src="img/g-zukan.jpg" alt="虫・魚・化石・花をあつめる図鑑画面" loading="lazy" width="800" height="438"></div>
+        <div class="txt">
+          <span class="tag"><span class="em">🦋</span>採集・虫とり・釣り</span>
+          <h3>虫・魚・化石・花をあつめる</h3>
+          <p>あみと釣りざおを手に、島のいきものをコレクション。季節ごとに出会えるものが変わります。島の図鑑を、少しずつ埋めていく楽しさを。</p>
+        </div>
+      </div>
+
+      <div class="ftr reveal">
+        <div class="pic"><img src="img/g-craft.jpg" alt="道具や家具をつくるクラフト画面" loading="lazy" width="800" height="438"></div>
+        <div class="txt">
+          <span class="tag"><span class="em">🔨</span>クラフト・道具づくり</span>
+          <h3>素材を集めて、道具づくり</h3>
+          <p>木や石を集めて、オノやスコップ、家具をクラフト。できることがどんどん広がります。腕が上がると、新しいレシピもひらめくかも。</p>
+        </div>
+      </div>
+
+      <div class="ftr rev reveal">
+        <div class="pic"><img src="img/g-villager.jpg" alt="島の住民クルミと話すゲーム画面" loading="lazy" width="800" height="438"></div>
+        <div class="txt">
+          <span class="tag"><span class="em">🐿️</span>住民との出会い</span>
+          <h3>島の仲間と、ふれあう</h3>
+          <p>個性ゆたかな住民たちが、あなたの島で暮らしています。話しかけたり、手紙が届いたり。ちょっと心があたたまる、そんな交流を。</p>
+        </div>
+      </div>
+
+      <div class="ftr reveal">
+        <div class="pic"><img src="img/g-map.jpg" alt="ひだまり島の地図画面" loading="lazy" width="800" height="438"></div>
+        <div class="txt">
+          <span class="tag"><span class="em">🗺️</span>探索・島づくり</span>
+          <h3>広い島を、自分の色に</h3>
+          <p>海も川も、丘も浜辺も。島をめぐって、花を植えて、家具をかざって。住むほどに、あなただけのひだまり島になっていきます。</p>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- 遊び方 -->
+  <!-- ギャラリー -->
+  <section class="gallery" id="gallery">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="en">GALLERY</span>
+        <h2>ゲーム画面</h2>
+        <div class="rule"><i></i></div>
+      </div>
+      <div class="gal reveal">
+        <figure><img src="img/g-island.jpg" alt="島で暮らす" loading="lazy" width="800" height="438"></figure>
+        <figure><img src="img/g-villager.jpg" alt="住民との会話" loading="lazy" width="800" height="438"></figure>
+        <figure><img src="img/g-craft.jpg" alt="クラフト" loading="lazy" width="800" height="438"></figure>
+        <figure><img src="img/g-zukan.jpg" alt="図鑑" loading="lazy" width="800" height="438"></figure>
+        <figure><img src="img/g-map.jpg" alt="島の地図" loading="lazy" width="800" height="438"></figure>
+        <figure><img src="img/intro-hero.jpg" alt="ひだまり島のながめ" loading="lazy" width="1600" height="900"></figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- はじめかた -->
   <section class="howto" id="howto">
     <div class="wrap">
       <div class="head reveal">
@@ -222,7 +265,7 @@ footer small{display:block;font-family:var(--round);letter-spacing:.14em;font-si
         <div class="rule"><i></i></div>
       </div>
       <div class="steps">
-        <div class="step reveal"><div class="no">STEP 1</div><div class="em">🌅</div><h3>島にわたる</h3><p>ボタンひとつで、あなたの島ぐらしがスタート。登録もインストールも不要です。</p></div>
+        <div class="step reveal"><div class="no">STEP 1</div><div class="em">🌅</div><h3>島にわたる</h3><p>名前を決めて、ボタンひとつで島ぐらしがスタート。登録もインストールも不要です。</p></div>
         <div class="step reveal"><div class="no">STEP 2</div><div class="em">🧺</div><h3>のんびり暮らす</h3><p>採集・釣り・栽培・クラフト。好きなことから、マイペースにどうぞ。</p></div>
         <div class="step reveal"><div class="no">STEP 3</div><div class="em">🌳</div><h3>島を育てる</h3><p>暮らすほどに、できることが増え、島も自分も育っていきます。</p></div>
       </div>
