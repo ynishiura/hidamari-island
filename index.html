@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.045";</script>
+<script>const GAME_VERSION="1.046";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2820,7 +2820,6 @@ function openGrowth(tab){
       const st=[['捕まえた虫',S.stats.bug],['釣った魚',S.stats.fish],['掘った化石',S.stats.fossil],['摘んだ花',S.stats.flower],['たおした敵',S.stats.defeat],['クラフト',S.stats.craft],['稼いだお金',S.stats.earned.toLocaleString()+'円'],['図鑑',Object.keys(S.dex).length+'種']];
       const ri=h('input',{id:'renameIn',maxlength:'8',value:S.name,style:'font:inherit;font-size:14px;padding:6px 10px;border-radius:10px;border:2px solid var(--line);width:9em;color:var(--ink);background:#fff'});
       body.append(h('div',{class:'rowline',style:'margin:10px 0 0'},h('span',{class:'muted'},'名前'),ri,h('button',{class:'btn',on:()=>{const v=ri.value.trim().slice(0,8);if(!v||v==='あなた'){toast('名前を入れてください');return}S.name=v;save();$('pTitle').textContent=`${S.name}の能力`;toast(`これからは「${S.name}」と呼ばれるよ`)}},'名前を変える')));
-      body.append(h('div',{class:'rowline',style:'margin:8px 0 0'},h('span',{class:'muted'},'見た目'),...[['m','男の子'],['f','女の子']].map(([gd,l])=>h('button',{class:'btn'+(pcGender()===gd?'':' sub'),on:()=>{S.gender=gd;save();refresh();toast(`見た目を「${l}」にした`)}},l))));
       body.append(h('div',{class:'grid',style:'margin-top:10px'},st.map(([k,v])=>h('div',{class:'cell'},h('div',{class:'meta'},k),h('div',{class:'nm prog',style:'font-size:16px'},String(v))))));
     }
     if(t==='skills'){
@@ -7849,6 +7848,7 @@ function openSetup(mode){
   $('goBtn').textContent=mode==='new'?'島へ行く':'つづきから';
   $('goBtn').onclick=mode==='new'?()=>startNew(nameFromInput()):()=>{const n=nameFromInput();if(!n)return;S.name=n;RT.needName=false;continueGame()};
   selGender=mode==='new'?null:(S.gender||null);renderGenderSel();
+  $('genderSel').hidden=mode!=='new'&&!!S.gender;   // つづきから遊ぶときは、性別をえらび直せない（最初に決めた性別のまま）
   showTitlePane('titleSetup');setTimeout(()=>$('nameIn').focus(),60);
 }
 // 左右に立つ主人公たち
@@ -8135,7 +8135,7 @@ function continueGame(){
   if(typeof ensureAudio==='function')ensureAudio();
   if(!S.gender&&needGender())return;
   if(RT.needName){const n=nameFromInput();if(!n)return;S.name=n;RT.needName=false}
-  if(selGender)S.gender=selGender;save();
+  if(selGender&&!S.gender)S.gender=selGender;save();   // 性別は最初に決めたら変えない（決めていない古いセーブだけ、ここで決める）
   RT.title=false;$('title').hidden=true;updateHud();renderTasks();
   welcomeBanner(`${SEASONS[season()]} ${dayInSeason()}日目`,'おかえりなさい');   // ログインのあいさつを画面のまん中に
   setTimeout(xferRemind,3500);                                                   // あいさつが消えたら、引継ぎコードのお知らせ（7日ごと。xfer.js）
