@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.043";</script>
+<script>const GAME_VERSION="1.044";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7649,6 +7649,165 @@ setTimeout(drawEmoBtn,500);
 #ebtn{position:absolute;border-radius:50%;background:#fff;border:3px solid var(--leaf,#8cc878);box-shadow:0 3px 0 var(--leaf-deep,#4f9a68);pointer-events:auto;padding:0;display:grid;place-items:center;touch-action:none}
 #ebtn canvas{width:70%;height:70%}
 `;document.head.append(st)}
+</script>
+<script>
+// ===================== 毎日のおまけ・今日のできごと（本当の日付で1日1回） =====================
+// ゲームの中の日付ではなく、遊んでいる人の本当の日付で数える（毎日ひらく楽しみ）。
+// ・毎日のおまけ：1日1回、スタンプが1つ進み、おまけがもらえる。7日目は特別なおまけ。1日でも休むと1日目から
+// ・今日のできごと：その日だけの小さな出来事（住民からの手紙・住民どうしのおしゃべり・旅の商人）
+const realDay=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const realYesterday=()=>{const d=new Date();d.setDate(d.getDate()-1);return realDay(d)};
+const LOGIN_REWARDS=[
+  {bells:500,txt:'500円'},{item:'apple',n:3,txt:'リンゴ ×3'},{bells:1000,txt:'1,000円'},{item:'sapling',n:1,txt:'木の苗'},
+  {item:'starbit',n:1,txt:'星のかけら'},{bells:2000,txt:'2,000円'},{special:true,txt:'めずらしい家具か服'},
+];
+function loginSpecial(){   // 7日目：まだ持っていない家具か服・帽子・小物から1つ
+  const r=seeded(+realDay().replace(/-/g,'')^(S.seed||1)),cand=[];
+  for(const [k,d] of Object.entries(FURN_DEF))if(d.price>=4000&&!S.furnInv[k]&&!(S.homeFurn||[]).some(f=>f.type===k))cand.push({furn:k,name:d.name});
+  for(const it of Object.values(ITEMS))if((it.kind==='top'||it.kind==='hat'||it.kind==='acc')&&(it.price||0)>=1500&&!S.bag[it.id])cand.push({id:it.id,name:it.name});
+  return cand.length?cand[Math.floor(r()*cand.length)]:{bells:5000,name:'5,000円'};
+}
+function giveLogin(rw){
+  if(rw.bells){S.bells+=rw.bells;return rw.txt}
+  if(rw.item){S.bag[rw.item]=(S.bag[rw.item]||0)+rw.n;return rw.txt}
+  const sp=loginSpecial();if(sp.furn){S.furnInv[sp.furn]=(S.furnInv[sp.furn]||0)+1;return `家具「${sp.name}」`}if(sp.id){S.bag[sp.id]=(S.bag[sp.id]||0)+1;return `「${sp.name}」`}S.bells+=sp.bells;return sp.name;
+}
+function openLoginBonus(){
+  const L=S.login||(S.login={last:'',streak:0,total:0}),today=realDay();
+  if(L.last===today)return;
+  const streak=L.last===realYesterday()?L.streak+1:1,idx=(streak-1)%7,rw=LOGIN_REWARDS[idx];
+  openPanel('毎日のおまけ',null,null,body=>{
+    body.append(h('p',{class:'muted',style:'margin:0 0 10px'},`島に来てくれてありがとう！ 毎日ひらくと、スタンプが1つずつ進むよ。7日目は特別なおまけ。（連続 ${streak}日目）`));
+    const card=h('div',{class:'stamps'});
+    LOGIN_REWARDS.forEach((r,i)=>{const done=i<idx,now=i===idx;card.append(h('div',{class:'stamp'+(done?' done':'')+(now?' now':'')+(r.special?' sp':'')},h('b',{},`${i+1}日目`),h('div',{class:'stx'},r.txt),done?h('div',{class:'mark'},'済'):null))});
+    body.append(card);
+    body.append(h('div',{class:'rowline',style:'justify-content:center;margin-top:12px'},h('button',{class:'btn',on:()=>{
+      const got=giveLogin(rw);S.login={last:today,streak,total:(L.total||0)+1};
+      toast(`毎日のおまけ：${got} をもらった！`,true);sfx('lv');updateHud();save();
+      if(typeof notifySync==='function')notifySync();
+      closePanel();setTimeout(startTodayEvent,600);
+    }},`受け取る（${rw.txt}）`)));
+  });
+}
+// ---- 今日のできごと ----
+const CHAT_LINES=[['ねえ、きのうの夕焼け見た？','見た見た！ まっかだったね！'],['この島、どんどんにぎやかになるね','ほんとだね。ここに住めてよかった'],['こんど、いっしょに釣りに行こうよ','いいね！ 大物を釣ろう！'],
+  ['お店の新しい服、かわいかったよ','えっ、見に行かなきゃ！'],['博物館の化石、また増えてたね','あの骨、ちょっとこわいけど好き'],['今日はなんだかいい日になりそう','きっとそうだよ！']];
+function todayEvent(){const d=realDay();if(!S.todayEv||S.todayEv.day!==d){const r=seeded(+d.replace(/-/g,'')*7+(S.seed||1)),k=['letter','chat','visitor'][Math.floor(r()*3)];S.todayEv={day:d,kind:k,done:false,pick:Math.floor(r()*1000)}}return S.todayEv}
+function startTodayEvent(){
+  if(!S||S.loc!=='island')return;
+  const E=todayEvent();if(E.done)return;const rs=residents();if(!rs.length)return;
+  if(E.kind==='letter'){
+    const v=rs[E.pick%rs.length],gift=[{item:'apple',n:2},{item:'sapling',n:1},{bells:800},{item:'starbit',n:1}][E.pick%4];
+    const lines=[`${S.name||'あなた'}へ。いつも島をすてきにしてくれて、ありがとう。`,'ささやかだけど、おくり物をどうぞ。これからもよろしくね。'];
+    E.done=true;let got;if(gift.bells){S.bells+=gift.bells;got=`${gift.bells}円`}else{S.bag[gift.item]=(S.bag[gift.item]||0)+gift.n;got=`${ITEMS[gift.item].name}${gift.n>1?' ×'+gift.n:''}`}
+    showDialog(`${v.name}からの手紙`,[...lines,`（${got} が入っていた）`]);if(S.friends[v.id])S.friends[v.id].pts+=1;updateHud();save();
+  }else if(E.kind==='chat'){
+    toast('広場のほうで、住民どうしが楽しそうにおしゃべりしているみたい',true);
+  }else if(E.kind==='visitor'){
+    if(!S.merchant){const PZ=W.plaza||ISL.plaza,x=PZ.x0+8,y=PZ.y0+2;if(!W.block[ti(x,y)]){const pool=MERCHANT_POOL.slice();for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
+      S.merchant={x,y,stock:pool.slice(0,4).map(o=>({...o,sold:false}))};W.block[ti(x,y)]=1}}
+    E.done=true;toast('今日は特別に、広場に旅の商人が来ているよ！',true);save();
+  }
+}
+// おしゃべり：近くにいる住民2人が、ときどき気持ちマークを出し合う。そばに行くと会話が聞こえる
+let _chatT=0;
+function tickTodayChat(dt){
+  if(!S||S.loc!=='island'||!RT.vill||RT.vill.length<2)return;const E=S.todayEv;if(!E||E.kind!=='chat'||E.day!==realDay())return;
+  _chatT-=dt;if(_chatT>0)return;_chatT=6;
+  const rs=RT.vill,a=rs[E.pick%rs.length],b=rs[(E.pick+1)%rs.length];if(!a||!b||a===b)return;
+  if(typeof VEMO!=='undefined'){const t=performance.now()/1000;VEMO[a.v.id]={id:['music','smile','wow'][Math.floor(t)%3],t0:t};setTimeout(()=>{VEMO[b.v.id]={id:['smile','heart','music'][Math.floor(t)%3],t0:performance.now()/1000}},900)}
+  if(!E.done&&(Math.hypot(a.x-S.px,a.y-S.py)<90||Math.hypot(b.x-S.px,b.y-S.py)<90)&&!RT.dlg&&!RT.panel){
+    E.done=true;const ln=CHAT_LINES[E.pick%CHAT_LINES.length];showDialog(`${a.v.name}と${b.v.name}`,[`${a.v.name}「${ln[0]}」`,`${b.v.name}「${ln[1]}」`,`（ふたりの仲よしな様子に、なんだか心があたたかくなった）`]);
+    for(const v of [a.v,b.v])if(S.friends[v.id])S.friends[v.id].pts+=1;save();
+  }
+}
+// 起動したとき・日付が変わったときに、1日1回だけ出す
+let _dailyLast=0;
+setInterval(()=>{
+  if(!S||RT.title||RT.dlg||RT.panel||RT.layout||RT.catchShow)return;
+  if((S.login||{}).last!==realDay())openLoginBonus();
+  else{const E=todayEvent();if(!E.done&&E.kind!=='chat'&&performance.now()-_dailyLast>3000){_dailyLast=performance.now();startTodayEvent()}else if(E.kind==='chat'&&!E.announced){E.announced=true;startTodayEvent()}}
+},1500);
+{let lt=performance.now();setInterval(()=>{const n=performance.now();if(S&&!RT.title&&!RT.panel&&!RT.dlg)tickTodayChat((n-lt)/1000);lt=n},500)}
+{const st=document.createElement('style');st.textContent=`
+.stamps{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.stamp{position:relative;border:2px solid #d8e6c8;border-radius:12px;background:#fff;padding:8px 2px;text-align:center;min-height:74px}
+.stamp b{display:block;font-size:12px;color:#4f9a68}
+.stamp .stx{font-size:11px;margin-top:6px;line-height:1.3}
+.stamp.done{background:#eef6e6}
+.stamp.now{border-color:#e6a93a;box-shadow:0 0 0 3px rgba(230,169,58,.35);background:#fffbe8}
+.stamp.sp{background:linear-gradient(#fff8e0,#fde8c0)}
+.stamp .mark{position:absolute;right:3px;bottom:2px;width:24px;height:24px;border-radius:50%;border:2px solid rgba(200,60,60,.75);display:grid;place-items:center;font:900 12px "Zen Maru Gothic",sans-serif;color:rgba(200,60,60,.85);transform:rotate(-12deg)}
+.stamp{padding-bottom:26px}
+@media (max-width:520px){.stamps{grid-template-columns:repeat(4,1fr)}}
+`;document.head.append(st)}
+</script>
+<script>
+// ===================== スマホのお知らせ（通知） =====================
+// ホーム画面に置いたアプリ版で使える。メニューの「お知らせ」でオンにすると、
+//  ・毎日のおまけをまだ受け取っていない日に「今日のおまけが届いているよ」と知らせる（決めた時刻のあと、1日1回）
+// 知らせる仕組み：Service Worker（sw.js）が、ときどき目を覚ましたとき（定期バックグラウンド同期）に、保存してある状態を見て知らせる。
+// 状態はブラウザの Cache に JSON で置く（Service Worker から読めるように）
+const NOTIFY_KEY='hidamari-notify',NOTIFY_CACHE='hidamari-notify',NOTIFY_URL='./__notify_state.json';
+function notifyPrefs(){try{return Object.assign({on:false,hour:19},JSON.parse(localStorage.getItem(NOTIFY_KEY)||'{}'))}catch(e){return {on:false,hour:19}}}
+function notifySave(p){try{localStorage.setItem(NOTIFY_KEY,JSON.stringify(p))}catch(e){}notifySync()}
+const notifySupport=()=>({api:'Notification' in window,sw:'serviceWorker' in navigator&&location.protocol!=='file:',
+  periodic:'serviceWorker' in navigator&&'periodicSync' in ServiceWorkerRegistration.prototype,
+  standalone:matchMedia('(display-mode: standalone)').matches||navigator.standalone===true,
+  ios:/iPhone|iPad|iPod/.test(navigator.userAgent)});
+// Service Worker が読む状態を書く
+async function notifySync(){
+  try{if(!('caches' in window))return;const p=notifyPrefs(),L=(typeof S!=='undefined'&&S&&S.login)||{};
+    const st={on:p.on&&Notification.permission==='granted',hour:p.hour,claimed:L.last||'',streak:L.streak||0,updated:Date.now()};
+    const c=await caches.open(NOTIFY_CACHE);await c.put(NOTIFY_URL,new Response(JSON.stringify(st),{headers:{'content-type':'application/json'}}));
+  }catch(e){}
+}
+async function notifyRegisterPeriodic(on){
+  try{const reg=await navigator.serviceWorker.ready;if(!reg.periodicSync)return false;
+    if(!on){await reg.periodicSync.unregister('hidamari-daily');return true}
+    const st=await navigator.permissions.query({name:'periodic-background-sync'}).catch(()=>({state:'granted'}));
+    if(st.state==='denied')return false;
+    await reg.periodicSync.register('hidamari-daily',{minInterval:4*60*60*1000});return true;   // 4時間ごとくらいに目を覚ます（間隔はブラウザが決める）
+  }catch(e){return false}
+}
+async function notifyShow(title,body,tag){
+  try{if(Notification.permission!=='granted')return;const reg=await navigator.serviceWorker.getRegistration();
+    const opt={body,tag:tag||'hidamari',icon:'icons/icon-192.png',badge:'icons/icon-192.png',renotify:true};
+    if(reg)await reg.showNotification(title,opt);else new Notification(title,opt);
+  }catch(e){}
+}
+async function notifyTurnOn(){
+  const sup=notifySupport();
+  if(!sup.api||!sup.sw){toast('この画面ではお知らせが使えない。ホーム画面に置いたアプリ版で使えるよ');return false}
+  let perm=Notification.permission;if(perm==='default')perm=await Notification.requestPermission();
+  if(perm!=='granted'){toast('お知らせが許可されなかった。端末の設定で、このアプリのお知らせを許可してね');return false}
+  const p=notifyPrefs();p.on=true;notifySave(p);const per=await notifyRegisterPeriodic(true);
+  toast(per?'お知らせをオンにした！':'お知らせをオンにした（この端末では、アプリを閉じているあいだのお知らせは届かないかもしれない）',true);return true;
+}
+function notifyTurnOff(){const p=notifyPrefs();p.on=false;notifySave(p);notifyRegisterPeriodic(false);toast('お知らせをオフにした')}
+function openNotify(){
+  openPanel('お知らせ',null,null,body=>{
+    const sup=notifySupport(),p=notifyPrefs(),perm=sup.api?Notification.permission:'none',on=p.on&&perm==='granted';
+    body.append(h('p',{class:'muted',style:'margin:0 0 10px'},'オンにすると、毎日のおまけをまだ受け取っていない日に、決めた時刻のあとでスマホにお知らせが届くよ（1日1回）。'));
+    body.append(h('div',{class:'card'},h('div',{class:'rowline',style:'margin:0'},h('b',{class:'grow'},on?'お知らせ：オン':'お知らせ：オフ'),
+      h('button',{class:on?'btn sub':'btn',on:async()=>{on?notifyTurnOff():await notifyTurnOn();refresh()}},on?'オフにする':'オンにする'))));
+    const hours=[8,12,17,19,21];
+    body.append(h('div',{class:'card'},h('b',{},'知らせる時刻（このあと、まだ受け取っていなければ）'),h('div',{class:'genbar',style:'margin-top:8px'},
+      ...hours.map(hr=>h('button',{class:'genbtn'+(p.hour===hr?' on':''),on:()=>{const q=notifyPrefs();q.hour=hr;notifySave(q);refresh()}},`${hr}時`)))));
+    body.append(h('div',{class:'rowline'},h('button',{class:'btn sub',...(on?{}:{disabled:''}),on:()=>notifyShow('ひだまり島ぐらし','これはお知らせのためしです。島で待っているよ！','test')},'ためしに知らせる')));
+    const notes=[];
+    if(!sup.sw)notes.push('いまは、お知らせが使えない画面で開いている。公開サイトを開いて「ホーム画面に追加」したアプリで使えるよ。');
+    else if(!sup.standalone)notes.push('お知らせをきちんと届けるには、公開サイトを「ホーム画面に追加」して、アプリとして開いてね。');
+    if(sup.ios)notes.push('iPhone・iPad では、アプリを閉じているあいだのお知らせは、まだ届かない（この仕組みに Safari が対応していないため）。');
+    else if(!sup.periodic)notes.push('この端末のブラウザは、アプリを閉じているあいだに目を覚ます仕組みがないので、お知らせが届かないことがある。');
+    else notes.push('アプリを閉じているあいだのお知らせは、ブラウザが決めた間隔（数時間に1回くらい）で確かめて届く。少しおくれることがあるよ。');
+    body.append(h('div',{class:'card'},h('b',{},'この端末で使えること'),...notes.map(t=>h('p',{class:'muted',style:'margin:6px 0 0'},t))));
+  });
+}
+// メニューのボタン（引継ぎの上）
+{const b=document.createElement('button');b.className='mbtn';b.id='bNotify';b.textContent='お知らせ';const x=$('bXfer');x.before(b);b.onclick=()=>RT.title||openNotify()}
+addEventListener('load',()=>setTimeout(notifySync,2000));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')notifySync()});
 </script>
 <script>
 // ===================== タイトル画面 =====================
