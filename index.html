@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.042";</script>
+<script>const GAME_VERSION="1.043";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7554,24 +7554,38 @@ drawAnimal=function(g,x,y,dir,frame,v){
 };
 // ---- エモーションリング ----
 function closeEmoRing(){const r=$('emoRing');if(r)r.remove()}
-function openEmoRing(cx,cy){
+// スマホ（指で操作）で 9個以上あるときは、輪は1つのまま 8個ずつのページに分ける。輪を横にフリック（または ◀ ▶）でページを切りかえる
+let emoPage=0;
+function openEmoRing(cx,cy,page){
   closeEmoRing();
   const ring=document.createElement('div');ring.id='emoRing';
-  // スマホ（指で操作）で 9個以上あるときは二重の輪：内側に最初の 8個、外側に教わった気持ち（ボタンも少し小さく）
-  const L=emoList(),touchUI=(typeof lastPtr!=='undefined'&&lastPtr!=='mouse')||matchMedia('(pointer: coarse)').matches,two=touchUI&&L.length>8;
-  const R1=two?58:Math.max(74,L.length*9.5),R2=two?108:R1,R=R2,vw=innerWidth,vh=innerHeight;
-  const pos=i=>{if(!two||i<8){const n=two?8:L.length;return [-Math.PI/2+i*Math.PI*2/n,R1]}const n2=L.length-8;return [-Math.PI/2+(i-8+.5)*Math.PI*2/n2,R2]};
-  cx=Math.max(R+30,Math.min(vw-R-30,cx));cy=Math.max(R+30,Math.min(vh-R-30,cy));
-  ring.style.cssText=`left:${cx}px;top:${cy}px`;if(two)ring.classList.add('two');
-  const mid=document.createElement('div');mid.className='emoMid';mid.textContent='気持ち';ring.append(mid);
-  L.forEach(([id,name],i)=>{
-    const [a,rr]=pos(i),b=document.createElement('button');b.className='emoBtn'+(two&&i>=8?' outer':'');b.title=name;b.setAttribute('aria-label',name);
-    b.style.cssText=`left:${Math.cos(a)*rr}px;top:${Math.sin(a)*rr}px`;
+  const L=emoList(),touchUI=(typeof lastPtr!=='undefined'&&lastPtr!=='mouse')||matchMedia('(pointer: coarse)').matches,paged=touchUI&&L.length>8;
+  const pages=paged?[L.slice(0,8),L.slice(8)]:[L];
+  emoPage=Math.max(0,Math.min(pages.length-1,page===undefined?0:page));
+  const P=pages[emoPage],R=paged?66:Math.max(74,L.length*9.5),vw=innerWidth,vh=innerHeight;
+  cx=Math.max(R+34,Math.min(vw-R-34,cx));cy=Math.max(R+40,Math.min(vh-R-40,cy));
+  ring.style.cssText=`left:${cx}px;top:${cy}px`;ring.dataset.cx=cx;ring.dataset.cy=cy;if(paged)ring.classList.add('paged');
+  if(paged){   // フリックを受けとる、輪の大きさの透明な台
+    const pad=document.createElement('div');pad.className='emoPad';pad.style.cssText=`left:${-R-34}px;top:${-R-34}px;width:${2*R+68}px;height:${2*R+68}px`;ring.append(pad)}
+  const mid=document.createElement('div');mid.className='emoMid';mid.textContent=paged?(emoPage?'教わった':'気持ち'):'気持ち';ring.append(mid);
+  P.forEach(([id,name],i)=>{
+    const a=-Math.PI/2+i*Math.PI*2/P.length,b=document.createElement('button');b.className='emoBtn'+(emoPage?' outer':'');b.title=name;b.setAttribute('aria-label',name);
+    b.style.cssText=`left:${Math.cos(a)*R}px;top:${Math.sin(a)*R}px`;
     const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.scale(2,2);drawEmote(g,id,0);
     const lb=document.createElement('span');lb.textContent=name==='ガッツポーズ'?'ガッツ':name;b.append(c,lb);
-    b.onclick=ev=>{ev.stopPropagation();closeEmoRing();showEmote(id);villagerReply(id)};
+    b.onclick=ev=>{ev.stopPropagation();if(ring.dataset.swiped){delete ring.dataset.swiped;return}closeEmoRing();showEmote(id);villagerReply(id)};
     ring.append(b);
   });
+  if(paged){
+    const flip=d=>openEmoRing(+ring.dataset.cx,+ring.dataset.cy,(emoPage+d+pages.length)%pages.length);
+    const dots=document.createElement('div');dots.className='emoDots';dots.style.top=(R+38)+'px';
+    pages.forEach((_,k)=>{const d=document.createElement('i');if(k===emoPage)d.className='on';dots.append(d)});ring.append(dots);
+    for(const [d,t] of [[-1,'◀'],[1,'▶']]){const a=document.createElement('button');a.className='emoArrow';a.textContent=t;a.setAttribute('aria-label',d<0?'前の気持ち':'次の気持ち');a.style.left=(d*(R+40)-14)+'px';a.onclick=ev=>{ev.stopPropagation();flip(d)};ring.append(a)}
+    let sx=null,sy=0,sid=null;
+    ring.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY;sid=e.pointerId});
+    ring.addEventListener('pointerup',e=>{if(sx===null||e.pointerId!==sid)return;const dx=e.clientX-sx,dy=e.clientY-sy;sx=null;
+      if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)*1.3){ring.dataset.swiped='1';e.preventDefault();e.stopPropagation();flip(dx<0?1:-1)}});
+  }
   document.body.append(ring);
 }
 let lastPtr='mouse';
@@ -7624,11 +7638,12 @@ setTimeout(drawEmoBtn,500);
 #emoRing .emoBtn{position:absolute;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;border:2px solid var(--leaf,#8cc878);background:#fff;box-shadow:0 3px 0 var(--leaf-deep,#4f9a68);cursor:pointer;padding:0;display:grid;place-items:center;animation:emoIn .16s ease-out}
 #emoRing .emoBtn canvas{width:34px;height:34px;margin-top:-6px}
 #emoRing .emoBtn span{position:absolute;bottom:3px;left:0;right:0;font:700 9px "Zen Maru Gothic",sans-serif;color:#4a3a2a;text-align:center}
-#emoRing.two .emoMid{left:-24px;top:-24px;width:48px;height:48px;font-size:10px}
-#emoRing.two .emoBtn{width:46px;height:46px;margin:-23px 0 0 -23px}
-#emoRing.two .emoBtn canvas{width:28px;height:28px;margin-top:-6px}
-#emoRing.two .emoBtn span{font-size:8px;bottom:2px}
-#emoRing.two .emoBtn.outer{border-color:#f0b860;box-shadow:0 3px 0 #c8851c}
+#emoRing .emoPad{position:absolute;border-radius:50%;background:rgba(255,255,255,.18);touch-action:none}
+#emoRing .emoBtn.outer{border-color:#f0b860;box-shadow:0 3px 0 #c8851c}
+#emoRing .emoDots{position:absolute;left:-30px;width:60px;display:flex;justify-content:center;gap:6px}
+#emoRing .emoDots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.7);border:1.5px solid #4f9a68}
+#emoRing .emoDots i.on{background:#4f9a68}
+#emoRing .emoArrow{position:absolute;top:-14px;width:28px;height:28px;border-radius:50%;border:2px solid var(--leaf,#8cc878);background:#fff;color:#3a5a2a;font-size:12px;padding:0;cursor:pointer}
 #emoRing .emoBtn:hover,#emoRing .emoBtn.hot{transform:scale(1.15);background:#fff8e0}
 @keyframes emoIn{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
 #ebtn{position:absolute;border-radius:50%;background:#fff;border:3px solid var(--leaf,#8cc878);box-shadow:0 3px 0 var(--leaf-deep,#4f9a68);pointer-events:auto;padding:0;display:grid;place-items:center;touch-action:none}
