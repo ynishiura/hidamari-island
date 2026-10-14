@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.040";</script>
+<script>const GAME_VERSION="1.041";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7443,8 +7443,8 @@ function renderShopBuy(body){
   if(gk==='seed')for(const tl of TOOLS.filter(t=>t.buy&&!S.tools[t.id]))g1.append(h('div',{class:'cell'},iconCanvas(tl.id),h('div',{class:'nm'},tl.name),h('div',{class:'meta'},tl.id==='shovel'?'化石を掘ったり、岩をたたける':'花に水をあげて育てる'),
     h('button',{on:()=>{if(S.bells<tl.buy){toast('お金が足りない');return}S.bells-=tl.buy;S.tools[tl.id]=1;S.tool=tl.id;toast(`${tl.name}を買った！`,true);sfx('get');updateHud();buildToolbar();refresh()}},`${tl.buy}円`)));
   for(const x of st.on)g1.append(cell(x,true));
-  body.append(rot?h('b',{},`いま売っている物（${st.on.length}）`):null,g1);
-  if(st.off.length){const g2=h('div',{class:'grid'});for(const x of st.off)g2.append(cell(x,false));body.append(h('b',{style:'display:block;margin-top:14px'},`いまは売っていない物（${st.off.length}）`),g2)}
+  body.append(g1);
+  // いま買えない物（入れかえで外れている物・季節がちがう物）は出さない
 }
 // 日替わりの台（shopin.js）も、いま売っている物から選ぶ
 shopPool=function(){const L=[];for(const g of ['top','hat','acc','furn'])for(const x of shopStock(g).on)L.push(x.furn?{furn:x.furn,price:x.price}:{id:x.id,price:x.price});return L};
