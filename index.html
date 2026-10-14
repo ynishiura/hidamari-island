@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.039";</script>
+<script>const GAME_VERSION="1.040";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7461,6 +7461,10 @@ shopPool=function(){const L=[];for(const g of ['top','hat','acc','furn'])for(con
 // 選ぶと、主人公の頭の上の吹き出しに、そのマークが少しのあいだ出る。近くにいる住民も、ときどき気持ちを返してくれる
 const EMOTES=[['smile','にっこり'],['heart','ハート'],['music','ごきげん'],['wow','びっくり'],['what','はてな'],['angry','おこる'],['cry','なく'],['sleepy','ねむい']];
 const EMOTE_SEC=2.6;
+// 住民から教わる気持ち（はじめは持っていない。住民の「好きな気持ち」を見せて喜ばせると、1つずつ教わる）
+const EMO_EXTRA=[['clap','はくしゅ'],['power','ガッツポーズ'],['shy','てれる'],['sparkle','キラキラ'],['sweat','あせ'],['idea','ひらめき']];
+const emoList=()=>[...EMOTES,...EMO_EXTRA.filter(([id])=>(S.emoLearned||[]).includes(id))];
+const emoName=id=>([...EMOTES,...EMO_EXTRA].find(e=>e[0]===id)||[0,''])[1];
 function drawEmote(g,id,t){   // 32×32 の中にマークを描く（t＝出てからの時間。小さな動きに使う）
   g.save();g.lineCap='round';g.lineJoin='round';
   const face=(c)=>{const q=g.createRadialGradient(13,12,2,16,16,13);q.addColorStop(0,'#fff3b0');q.addColorStop(1,c);circ(g,16,16,12.5,q);g.strokeStyle='rgba(120,80,20,.6)';g.lineWidth=1;g.beginPath();g.arc(16,16,12.5,0,7);g.stroke()};
@@ -7476,6 +7480,18 @@ function drawEmote(g,id,t){   // 32×32 の中にマークを描く（t＝出て
       for(const [cx,cy,a] of [[11,11,0],[21,11,1],[11,21,3],[21,21,2]]){g.save();g.translate(cx,cy);g.rotate(a*Math.PI/2);g.beginPath();g.moveTo(-1,-5);g.quadraticCurveTo(-1,-1,-5,-1);g.stroke();g.restore()}break}
     case 'cry':face('#9fd0f0');ln('#2a4a6a',1.8);for(const x of [11,21]){g.beginPath();g.moveTo(x-3,14);g.lineTo(x+3,14);g.stroke()}g.beginPath();g.arc(16,23,4,Math.PI*1.15,Math.PI*1.85);g.stroke();
       const d=(t*14)%6;g.fillStyle='#3a9ad9';for(const x of [10,22]){g.beginPath();g.moveTo(x,16+d);g.quadraticCurveTo(x-2.4,20+d,x,22+d);g.quadraticCurveTo(x+2.4,20+d,x,16+d);g.fill()}break;
+    case 'clap':{const k=Math.abs(Math.sin(t*10))*2.5;for(const sx of [-1,1]){g.save();g.translate(16+sx*(4+k),18);g.rotate(sx*.35);g.fillStyle='#f6d5b8';g.beginPath();g.roundRect(-4,-7,8,13,4);g.fill();g.strokeStyle='rgba(150,100,70,.7)';g.lineWidth=1;g.stroke();g.restore()}
+      ln('#f2b818',1.6);for(const [a,b,c,d] of [[16,3,16,7],[8,5,10,8],[24,5,22,8]]){g.beginPath();g.moveTo(a,b);g.lineTo(c,d);g.stroke()}break}
+    case 'power':{const b=Math.sin(t*8)*1.2;g.fillStyle='#f6d5b8';g.strokeStyle='rgba(150,100,70,.8)';g.lineWidth=1;g.beginPath();g.roundRect(12,15+b,7,13,3);g.fill();g.stroke();g.beginPath();g.roundRect(9,5+b,13,11,4.5);g.fill();g.stroke();
+      ln('rgba(150,100,70,.6)',.8);for(const y of [8,11]){g.beginPath();g.moveTo(12,y+b);g.lineTo(20,y+b);g.stroke()}ln('#e8504a',1.6);for(const [a,c,d,e] of [[5,6,2,4],[26,6,29,4],[4,13,1,13],[27,13,30,13]]){g.beginPath();g.moveTo(a,c+b);g.lineTo(d,e+b);g.stroke()}break}
+    case 'shy':face('#f6c84a');circ(g,9,19,3.6,'rgba(240,90,110,.65)');circ(g,23,19,3.6,'rgba(240,90,110,.65)');ln('#5a3a14',1.6);for(const x of [11,21]){g.beginPath();g.arc(x,14,2.4,Math.PI*1.15,Math.PI*1.85);g.stroke()}
+      g.beginPath();g.moveTo(12,22);g.quadraticCurveTo(14,20,16,22);g.quadraticCurveTo(18,24,20,22);g.stroke();ln('rgba(240,90,110,.8)',.8);for(const x of [7,9,23,25]){g.beginPath();g.moveTo(x,17);g.lineTo(x+1,18.5);g.stroke()}break;
+    case 'sparkle':for(const [x,y,r,ph] of [[16,15,9,0],[7,7,4,1.5],[25,24,4.5,3]]){const k=.75+.25*Math.sin(t*6+ph);g.fillStyle='#f6c84a';g.beginPath();g.moveTo(x,y-r*k);g.quadraticCurveTo(x,y,x+r*k,y);g.quadraticCurveTo(x,y,x,y+r*k);g.quadraticCurveTo(x,y,x-r*k,y);g.quadraticCurveTo(x,y,x,y-r*k);g.fill()}circ(g,16,15,1.8,'#fffbe0');break;
+    case 'sweat':{const d=(t*6)%4;g.fillStyle='#5fb0e8';g.beginPath();g.moveTo(17,4+d);g.quadraticCurveTo(26,16+d,22,22+d);g.quadraticCurveTo(17,27+d,12,22+d);g.quadraticCurveTo(9,16+d,17,4+d);g.fill();g.fillStyle='rgba(255,255,255,.7)';g.beginPath();g.ellipse(14,18+d,1.8,3,-.3,0,7);g.fill();
+      g.fillStyle='#8fcaf0';g.beginPath();g.moveTo(7,14);g.quadraticCurveTo(10,19,8,21);g.quadraticCurveTo(5,21,5,18);g.closePath();g.fill();break}
+    case 'idea':{const gl=.5+.5*Math.sin(t*6);const r=g.createRadialGradient(16,12,1,16,12,14);r.addColorStop(0,'rgba(255,240,150,'+(.6*gl)+')');r.addColorStop(1,'rgba(255,240,150,0)');g.fillStyle=r;g.fillRect(0,0,32,32);
+      circ(g,16,12,7.5,'#ffe066');g.strokeStyle='#c99a28';g.lineWidth=1;g.beginPath();g.arc(16,12,7.5,0,7);g.stroke();rrect(g,12.5,18,7,6,1.5,'#9aa3ab');g.fillStyle='#6b737b';g.fillRect(12.5,20,7,1);g.fillRect(12.5,22,7,1);
+      ln('#e6a817',1.5);for(const [a,b,c,d] of [[16,1,16,-1],[6,4,4,2],[26,4,28,2],[4,12,2,12],[28,12,30,12]]){g.beginPath();g.moveTo(a,b);g.lineTo(c,d);g.stroke()}g.strokeStyle='rgba(255,255,255,.8)';g.lineWidth=1.2;g.beginPath();g.arc(14,10,3,3.4,4.4);g.stroke();break}
     case 'sleepy':g.fillStyle='#6a5ac8';g.font='bold 13px "Zen Maru Gothic",sans-serif';g.textAlign='center';const k=(t*1.5)%1;g.globalAlpha=.6+.4*k;g.fillText('Z',22,12-k*2);g.globalAlpha=1;g.font='bold 10px "Zen Maru Gothic",sans-serif';g.fillText('z',14,20);g.font='bold 8px "Zen Maru Gothic",sans-serif';g.fillText('z',9,27);break;
   }
   g.restore();
@@ -7489,7 +7505,7 @@ function drawEmoteBubble(g,x,y,id,age){
   g.strokeStyle='rgba(90,70,50,.45)';g.lineWidth=1;g.beginPath();g.roundRect(-14,-28,28,25,9);g.stroke();
   g.translate(-11,-26.5);g.scale(22/32,22/32);drawEmote(g,id,age);g.restore();
 }
-function showEmote(id){RT.emote={id,t0:performance.now()/1000};sfx('get')}
+function showEmote(id){RT.emote={id,t0:performance.now()/1000};S.emoLast=id;sfx('get');if(typeof drawEmoBtn==='function')drawEmoBtn()}
 // 主人公の上に描く（drawToolInHand は主人公を描いたすぐあとに呼ばれる）
 const _drawToolEmote=drawToolInHand;
 drawToolInHand=function(g,x,y){
@@ -7500,10 +7516,35 @@ drawToolInHand=function(g,x,y){
 // 住民の気持ちの返事：近くの住民の頭の上に、少しおくれて出す（drawAnimal のあとで描く）
 const VEMO={};   // 住民id → {id,t0}
 const EMO_REPLY={smile:'smile',heart:'heart',music:'music',wow:'wow',what:'what',angry:'cry',cry:'what',sleepy:'sleepy'};
+// 住民の「好きな気持ち」：住民ごとに決まっている（一番近くの住民に見せると、仲よし度が上がる）
+const EMO_FAV_POOL=['smile','heart','music','wow','what','sleepy'];
+const emoFav=vid=>{let h=0;for(const ch of vid)h=(h*31+ch.charCodeAt(0))>>>0;return EMO_FAV_POOL[h%EMO_FAV_POOL.length]};
+const EMO_GOOD=new Set(['smile','heart','music','clap','power','sparkle','shy','idea']);
 function villagerReply(id){
   if(S.loc!=='island'||!RT.vill||(typeof villagersOut==='function'&&!villagersOut()))return;
   const list=RT.vill.filter(a=>Math.hypot(a.x-S.px,a.y-S.py)<120).sort((p,q)=>Math.hypot(p.x-S.px,p.y-S.py)-Math.hypot(q.x-S.px,q.y-S.py));
-  list.slice(0,2).forEach((a,i)=>{setTimeout(()=>{VEMO[a.v.id]={id:EMO_REPLY[id]||'smile',t0:performance.now()/1000}},450+i*250)});
+  if(!list.length)return;
+  const near=list[0],v=near.v,f=S.friends&&S.friends[v.id],fav=emoFav(v.id),close=Math.hypot(near.x-S.px,near.y-S.py)<80;
+  const reply=id===fav?'heart':(EMO_REPLY[id]||(EMO_GOOD.has(id)?'smile':'wow'));
+  list.slice(0,2).forEach((a,i)=>{setTimeout(()=>{VEMO[a.v.id]={id:i===0?reply:(EMO_REPLY[id]||'smile'),t0:performance.now()/1000}},450+i*250)});
+  if(!close||!f)return;
+  // 仲よし度：1人につき1日1回まで
+  if(!S.emoDay||S.emoDay.day!==S.day)S.emoDay={day:S.day,ids:{}};
+  const first=!S.emoDay.ids[v.id];
+  setTimeout(()=>{
+    if(id===fav){
+      if(first){S.emoDay.ids[v.id]=true;f.pts+=2}
+      toast(`${v.name}はとてもうれしそう！（${v.name}の好きな気持ち：「${emoName(fav)}」）`,true);
+      S.emoFav=S.emoFav||{};
+      if(!S.emoFav[v.id]){S.emoFav[v.id]=true;const nx=EMO_EXTRA.find(([e])=>!(S.emoLearned||[]).includes(e));
+        if(nx){S.emoLearned=[...(S.emoLearned||[]),nx[0]];setTimeout(()=>{toast(`${v.name}から 新しい気持ち「${nx[1]}」を教わった！`,true);sfx('lv')},1200)}}
+    }else if(EMO_GOOD.has(id)){
+      if(first){S.emoDay.ids[v.id]=true;f.pts+=1}
+      S.emoHint=S.emoHint||{};
+      if(!S.emoHint[v.id]){S.emoHint[v.id]=true;toast(`${v.name}もにっこり。…「${emoName(fav)}」の気持ちを見せると、もっと喜びそう`)}else toast(`${v.name}もにっこり`);
+    }else if(id==='angry')toast(`${v.name}はびっくりして、しょんぼりしてしまった…`);
+    updateHud();
+  },700);
 }
 const _drawAnimalEmo=drawAnimal;
 drawAnimal=function(g,x,y,dir,frame,v){
@@ -7516,14 +7557,14 @@ function closeEmoRing(){const r=$('emoRing');if(r)r.remove()}
 function openEmoRing(cx,cy){
   closeEmoRing();
   const ring=document.createElement('div');ring.id='emoRing';
-  const R=74,vw=innerWidth,vh=innerHeight;cx=Math.max(R+34,Math.min(vw-R-34,cx));cy=Math.max(R+34,Math.min(vh-R-34,cy));
+  const L=emoList(),R=Math.max(74,L.length*9.5),vw=innerWidth,vh=innerHeight;cx=Math.max(R+34,Math.min(vw-R-34,cx));cy=Math.max(R+34,Math.min(vh-R-34,cy));
   ring.style.cssText=`left:${cx}px;top:${cy}px`;
   const mid=document.createElement('div');mid.className='emoMid';mid.textContent='気持ち';ring.append(mid);
-  EMOTES.forEach(([id,name],i)=>{
-    const a=-Math.PI/2+i*Math.PI*2/EMOTES.length,b=document.createElement('button');b.className='emoBtn';b.title=name;b.setAttribute('aria-label',name);
+  L.forEach(([id,name],i)=>{
+    const a=-Math.PI/2+i*Math.PI*2/L.length,b=document.createElement('button');b.className='emoBtn';b.title=name;b.setAttribute('aria-label',name);
     b.style.cssText=`left:${Math.cos(a)*R}px;top:${Math.sin(a)*R}px`;
     const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.scale(2,2);drawEmote(g,id,0);
-    const lb=document.createElement('span');lb.textContent=name;b.append(c,lb);
+    const lb=document.createElement('span');lb.textContent=name==='ガッツポーズ'?'ガッツ':name;b.append(c,lb);
     b.onclick=ev=>{ev.stopPropagation();closeEmoRing();showEmote(id);villagerReply(id)};
     ring.append(b);
   });
@@ -7537,7 +7578,7 @@ cv.addEventListener('contextmenu',e=>{
   if($('emoRing')){closeEmoRing();return}
   openEmoRing(e.clientX,e.clientY);
 });
-addEventListener('pointerdown',e=>{lastPtr=e.pointerType;if($('emoRing')&&!e.target.closest('#emoRing'))closeEmoRing()},true);
+addEventListener('pointerdown',e=>{lastPtr=e.pointerType;if($('emoRing')&&!e.target.closest('#emoRing,#ebtn'))closeEmoRing()},true);
 // ---- スマホ：自分のキャラを長押しすると、キャラのまわりにリングが出る ----
 // 指を離さずにマークまで滑らせて離すと、そのマークを出せる（離した所がマークでなければ、リングは開いたまま。タップで選べる）
 const EMO_HOLD_MS=450;
@@ -7564,6 +7605,15 @@ const emoUp=e=>{
 };
 addEventListener('pointerup',emoUp);addEventListener('pointercancel',emoUp);
 addEventListener('keydown',e=>{if(e.code==='Escape'&&$('emoRing')){closeEmoRing();e.stopPropagation()}},true);
+const ebtn=document.createElement('button');ebtn.id='ebtn';ebtn.setAttribute('aria-label','気持ち');ebtn.innerHTML='<canvas width="64" height="64"></canvas>';
+$('touch').append(ebtn);
+function drawEmoBtn(){const c=ebtn.querySelector('canvas'),g=c.getContext('2d');g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,64,64);g.scale(2,2);drawEmote(g,(S&&S.emoLast)||'smile',0)}
+function placeEmoBtn(){const a=$('abtn'),t=$('touch');if(!a||!t)return;const ar=a.getBoundingClientRect(),tr=t.getBoundingClientRect();if(!ar.width)return;
+  const sz=Math.round(ar.width*.62);Object.assign(ebtn.style,{width:sz+'px',height:sz+'px',left:(ar.left-tr.left-sz*.55)+'px',top:(ar.top-tr.top-sz*.85)+'px'})}
+addEventListener('resize',()=>setTimeout(placeEmoBtn,50));setTimeout(placeEmoBtn,300);setInterval(placeEmoBtn,2000);
+ebtn.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(RT.title||RT.panel||RT.dlg||!S)return;
+  if($('emoRing')){closeEmoRing();return}const r=ebtn.getBoundingClientRect();openEmoRing(r.left+r.width/2,r.top-90)});
+setTimeout(drawEmoBtn,500);
 {const st=document.createElement('style');st.textContent=`
 #emoRing{position:fixed;z-index:60;width:0;height:0}
 #emoRing .emoMid{position:absolute;left:-30px;top:-30px;width:60px;height:60px;border-radius:50%;background:rgba(246,250,243,.92);border:2px solid var(--leaf,#8cc878);display:grid;place-items:center;font:700 12px "Zen Maru Gothic",sans-serif;color:#3a5a2a;box-shadow:0 3px 0 var(--leaf-deep,#4f9a68)}
@@ -7572,6 +7622,8 @@ addEventListener('keydown',e=>{if(e.code==='Escape'&&$('emoRing')){closeEmoRing(
 #emoRing .emoBtn span{position:absolute;bottom:3px;left:0;right:0;font:700 9px "Zen Maru Gothic",sans-serif;color:#4a3a2a;text-align:center}
 #emoRing .emoBtn:hover,#emoRing .emoBtn.hot{transform:scale(1.15);background:#fff8e0}
 @keyframes emoIn{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+#ebtn{position:absolute;border-radius:50%;background:#fff;border:3px solid var(--leaf,#8cc878);box-shadow:0 3px 0 var(--leaf-deep,#4f9a68);pointer-events:auto;padding:0;display:grid;place-items:center;touch-action:none}
+#ebtn canvas{width:70%;height:70%}
 `;document.head.append(st)}
 </script>
 <script>
