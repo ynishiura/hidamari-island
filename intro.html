@@ -103,9 +103,9 @@ section{position:relative;padding:68px 0}
 .things{background:linear-gradient(180deg,var(--bg),var(--bg2))}
 .ftr{display:grid;gap:22px;align-items:center;margin-bottom:clamp(44px,8vw,76px)}
 .ftr:last-child{margin-bottom:0}
-.ftr .pic{position:relative;border-radius:22px;overflow:hidden;
+.ftr .pic{position:relative;border-radius:22px;overflow:hidden;aspect-ratio:800/438;
   box-shadow:0 18px 40px rgba(60,75,58,.2),0 0 0 6px #fff,0 0 0 7px var(--line)}
-.ftr .pic img{width:100%;display:block;transition:transform .6s}
+.ftr .pic img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s}
 .ftr .pic:hover img{transform:scale(1.04)}
 .ftr .tag{display:inline-flex;align-items:center;gap:8px;font-family:var(--round);font-weight:700;font-size:13.5px;
   color:var(--green-d);background:#eafbee;border:1px solid #cfe9d4;border-radius:999px;padding:7px 16px;margin-bottom:12px}
@@ -120,8 +120,8 @@ section{position:relative;padding:68px 0}
 /* ギャラリー */
 .gallery{background:linear-gradient(180deg,var(--bg2),var(--bg3))}
 .gal{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-.gal figure{margin:0;border-radius:14px;overflow:hidden;box-shadow:0 10px 24px rgba(60,75,58,.12),0 0 0 4px #fff,0 0 0 5px var(--line)}
-.gal img{width:100%;display:block;transition:transform .5s}
+.gal figure{margin:0;border-radius:14px;overflow:hidden;aspect-ratio:16/9;box-shadow:0 10px 24px rgba(60,75,58,.12),0 0 0 4px #fff,0 0 0 5px var(--line)}
+.gal img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s}
 .gal figure:hover img{transform:scale(1.05)}
 @media (min-width:640px){.gal{grid-template-columns:repeat(3,1fr);gap:16px}}
 
