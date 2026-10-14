@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.044";</script>
+<script>const GAME_VERSION="1.045";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7692,7 +7692,12 @@ function openLoginBonus(){
 // ---- 今日のできごと ----
 const CHAT_LINES=[['ねえ、きのうの夕焼け見た？','見た見た！ まっかだったね！'],['この島、どんどんにぎやかになるね','ほんとだね。ここに住めてよかった'],['こんど、いっしょに釣りに行こうよ','いいね！ 大物を釣ろう！'],
   ['お店の新しい服、かわいかったよ','えっ、見に行かなきゃ！'],['博物館の化石、また増えてたね','あの骨、ちょっとこわいけど好き'],['今日はなんだかいい日になりそう','きっとそうだよ！']];
-function todayEvent(){const d=realDay();if(!S.todayEv||S.todayEv.day!==d){const r=seeded(+d.replace(/-/g,'')*7+(S.seed||1)),k=['letter','chat','visitor'][Math.floor(r()*3)];S.todayEv={day:d,kind:k,done:false,pick:Math.floor(r()*1000)}}return S.todayEv}
+// 旅の商人は「たまに来るからうれしい」ように：今日のできごとで来るのは 1割ほど。この前 商人に会ってから、本当の日付で 5日以上たっているときだけ
+const daysSince=d=>d?Math.round((new Date(realDay())-new Date(d))/864e5):999;
+function todayEvent(){const d=realDay();if(!S.todayEv||S.todayEv.day!==d){const r=seeded(+d.replace(/-/g,'')*7+(S.seed||1)),x=r();
+  const k=x<.1&&daysSince(S.merchantMet)>=5?'visitor':(r()<.5?'letter':'chat');S.todayEv={day:d,kind:k,done:false,pick:Math.floor(r()*1000)}}return S.todayEv}
+// 島に商人がいる日（ゲームの中の朝に来たときも）を覚えておく
+setInterval(()=>{if(S&&S.merchant&&S.merchantMet!==realDay())S.merchantMet=realDay()},3000);
 function startTodayEvent(){
   if(!S||S.loc!=='island')return;
   const E=todayEvent();if(E.done)return;const rs=residents();if(!rs.length)return;
