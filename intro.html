@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ひだまり島ぐらし｜のんびり島ぐらしシム - ブラウザで無料プレイ</title>
+<meta name="description" content="虫をとり、魚を釣り、花を育て、道具をつくる。のんびり暮らすほど、自分も島も少しずつ育っていく――ブラウザで遊べる、やさしい島ぐらしシミュレーション。登録不要・無料。">
+<meta name="theme-color" content="#5f9e6e">
+<link rel="canonical" href="https://hidamari-island.onrender.com/intro.html">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ひだまり島ぐらし">
+<meta property="og:title" content="ひだまり島ぐらし｜のんびり島ぐらしシム">
+<meta property="og:description" content="くらすほど、じぶんも島も育っていく。採集・釣り・栽培・クラフト――ブラウザで遊べる、やさしい島ぐらし。登録不要・無料。">
+<meta property="og:url" content="https://hidamari-island.onrender.com/intro.html">
+<meta property="og:image" content="https://hidamari-island.onrender.com/ogp.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="ひだまり島ぐらし のんびり島ぐらしシム">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ひだまり島ぐらし｜のんびり島ぐらしシム">
+<meta name="twitter:description" content="くらすほど、じぶんも島も育っていく。ブラウザで遊べる、やさしい島ぐらし。">
+<meta name="twitter:image" content="https://hidamari-island.onrender.com/ogp.jpg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#fbf7ec; --bg2:#f3efe0; --panel:#ffffff; --ink:#3c4b3a; --mute:#71806a; --faint:#9aa690;
+  --line:#e7decb; --green:#5aa870; --green-d:#3f8a58; --sky:#7cc4e4; --pink:#f29bb6; --gold:#f2c36b;
+  --round:'Zen Maru Gothic','Hiragino Maru Gothic ProN',sans-serif;
+  --body:'Zen Kaku Gothic New','Hiragino Kaku Gothic ProN','Noto Sans JP',system-ui,sans-serif;
+  --maxw:1080px;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:400;line-height:1.85;
+  overflow-x:hidden;-webkit-font-smoothing:antialiased}
+img,video{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+h1,h2,h3{margin:0;line-height:1.3;font-family:var(--round)}
+.wrap{width:100%;max-width:var(--maxw);margin:0 auto;padding:0 20px}
+
+/* ボタン */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;font-family:var(--round);font-weight:700;
+  color:#fff;border-radius:999px;padding:15px 32px;font-size:17px;letter-spacing:.04em;
+  background:linear-gradient(180deg,#6fc187,#4a9d64 70%,#3f8a58);
+  box-shadow:0 8px 20px rgba(79,160,90,.35),0 0 0 4px rgba(111,193,135,.18);
+  transition:transform .2s,box-shadow .2s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(79,160,90,.45),0 0 0 4px rgba(111,193,135,.28)}
+.btn:focus-visible{outline:3px solid #2f6b43;outline-offset:3px}
+.btn small{font-size:.72em;font-weight:500;opacity:.92}
+.btn.big{font-size:clamp(17px,4.6vw,21px);padding:17px clamp(24px,7vw,42px)}
+.btn.ghost{background:transparent;color:var(--green-d);border:2px solid var(--green);box-shadow:none}
+.btn.ghost:hover{background:rgba(90,168,112,.1)}
+
+/* 上の帯 */
+.top{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top));
+  background:linear-gradient(180deg,rgba(251,247,236,.9),rgba(251,247,236,0));transition:background .3s}
+.top.solid{background:rgba(251,247,236,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top .mark{display:flex;align-items:center;gap:8px;font-family:var(--round);font-weight:900;font-size:16px;color:var(--green-d)}
+.top .mark img{width:28px;height:28px;border-radius:8px}
+.top .mini{font-size:14px;padding:9px 18px}
+
+/* ヒーロー */
+.hero{position:relative;min-height:100svh;min-height:100vh;display:flex;align-items:flex-end;justify-content:center;text-align:center;
+  padding:120px 20px 56px;overflow:hidden;isolation:isolate}
+.hero-bg{position:absolute;inset:-3%;z-index:-2;background:url(img/intro-hero.jpg) center 42%/cover no-repeat;animation:kb 32s ease-in-out infinite alternate}
+@keyframes kb{to{transform:scale(1.07) translateY(-1.5%)}}
+.hero::before{content:'';position:absolute;inset:0;z-index:-1;
+  background:linear-gradient(180deg,rgba(40,70,60,.28) 0%,rgba(40,70,60,.05) 30%,rgba(40,70,60,.28) 64%,rgba(30,55,46,.78) 100%)}
+.hero-in{max-width:760px;animation:rise 1.4s cubic-bezier(.2,.8,.2,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}}
+.eyebrow{font-family:var(--round);font-weight:700;letter-spacing:.34em;padding-left:.34em;font-size:clamp(10px,2.8vw,13px);
+  color:#fff;text-shadow:0 2px 8px rgba(20,40,30,.7);margin:0}
+.hero h1{margin:.14em 0 .1em;font-family:var(--round);font-weight:900;letter-spacing:.04em;font-size:clamp(38px,11vw,76px);
+  color:#fff;text-shadow:0 3px 14px rgba(20,45,32,.6),0 1px 2px rgba(20,45,32,.8)}
+.hero .tagline{margin:.3em auto 0;max-width:28em;font-size:clamp(15px,4vw,19px);font-weight:500;color:#fff;
+  text-shadow:0 2px 10px rgba(20,45,32,.75)}
+.hero .cta{margin-top:26px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.hero .note{font-size:13px;color:#eafff0;text-shadow:0 1px 6px rgba(20,45,32,.8)}
+.scroll{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);font-family:var(--round);font-size:10px;letter-spacing:.4em;
+  color:#fff;opacity:.85;padding-left:.4em;text-shadow:0 1px 6px rgba(20,45,32,.7)}
+.scroll::after{content:'';display:block;width:1px;height:26px;margin:7px auto 0;background:linear-gradient(#fff,transparent);animation:drip 2s ease-in-out infinite}
+@keyframes drip{0%{transform:scaleY(0);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}51%{transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+
+/* セクション共通 */
+section{position:relative;padding:72px 0}
+.head{text-align:center;margin-bottom:38px}
+.head .en{display:block;font-family:var(--round);font-weight:700;font-size:12px;letter-spacing:.4em;padding-left:.4em;color:var(--green)}
+.head h2{margin:8px 0 0;font-size:clamp(24px,6.4vw,34px);font-weight:900;letter-spacing:.06em;color:var(--ink)}
+.head p{margin:12px auto 0;max-width:32em;color:var(--mute);font-size:15px}
+.rule{display:flex;align-items:center;justify-content:center;gap:10px;margin:14px auto 0}
+.rule::before,.rule::after{content:'';width:48px;height:2px;border-radius:2px;background:linear-gradient(90deg,transparent,var(--green))}
+.rule::after{transform:scaleX(-1)}
+.rule i{width:9px;height:9px;border-radius:50%;background:var(--pink);box-shadow:0 0 0 4px rgba(242,155,182,.25)}
+
+/* 概要（島の写真＋リード） */
+.about{background:linear-gradient(180deg,var(--bg),var(--bg2))}
+.shot{border-radius:22px;overflow:hidden;box-shadow:0 18px 40px rgba(60,75,58,.18),0 0 0 6px #fff,0 0 0 7px var(--line);margin:0 auto;max-width:900px}
+.shot img{width:100%;height:auto}
+.lead{max-width:30em;margin:30px auto 0;text-align:center;font-size:clamp(15px,4.2vw,17px);color:#4a5a46}
+.lead strong{color:var(--green-d);font-weight:700}
+
+/* 特徴カード */
+.feats{display:grid;gap:16px;grid-template-columns:1fr}
+.feat{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px 22px;box-shadow:0 8px 22px rgba(60,75,58,.07);
+  transition:transform .3s,box-shadow .3s}
+.feat:hover{transform:translateY(-4px);box-shadow:0 16px 32px rgba(60,75,58,.14)}
+.feat .ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;margin-bottom:14px;font-size:26px;
+  background:radial-gradient(circle at 30% 25%,#eafbee,#d7f0dd);border:1px solid #cfe9d4}
+.feat h3{font-size:19px;font-weight:700;letter-spacing:.04em;margin-bottom:6px}
+.feat p{margin:0;color:var(--mute);font-size:14.5px;line-height:1.8}
+
+/* 遊び方 */
+.howto{background:linear-gradient(180deg,#eef6ea,#f6f2e6)}
+.steps{display:grid;gap:16px;grid-template-columns:1fr}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:26px 22px;text-align:center;box-shadow:0 8px 20px rgba(60,75,58,.06)}
+.step .no{font-family:var(--round);font-weight:900;font-size:12px;letter-spacing:.28em;color:var(--green)}
+.step .em{font-size:40px;margin:8px 0 6px}
+.step h3{font-size:20px;font-weight:700;letter-spacing:.06em;margin-bottom:6px}
+.step p{margin:0;color:var(--mute);font-size:14.5px}
+
+/* 情報 */
+.info{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:8px}
+.info span{background:#fff;border:1px solid var(--line);border-radius:999px;padding:9px 18px;font-size:13.5px;color:#4a5a46;font-weight:500}
+.info b{color:var(--green-d)}
+
+/* 最後の案内 */
+.final{position:relative;text-align:center;padding:92px 0;overflow:hidden;isolation:isolate;color:#fff}
+.final::before{content:'';position:absolute;inset:0;z-index:-2;background:url(img/intro-hero.jpg) center 38%/cover no-repeat}
+.final::after{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(40,70,60,.5),rgba(30,55,46,.72))}
+.final h2{font-size:clamp(28px,9vw,54px);font-weight:900;letter-spacing:.04em;text-shadow:0 3px 14px rgba(20,45,32,.6)}
+.final p{margin:10px 0 26px;text-shadow:0 2px 10px rgba(20,45,32,.7)}
+footer{background:#2f4537;color:#d7e4d3;padding:28px 20px calc(30px + env(safe-area-inset-bottom));text-align:center;font-size:13px}
+footer nav{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 22px;margin-bottom:10px}
+footer a{color:#eafff0;border-bottom:1px solid rgba(234,255,240,.35)}
+footer a:hover{color:var(--gold);border-color:var(--gold)}
+footer small{display:block;font-family:var(--round);letter-spacing:.14em;font-size:11px;opacity:.75;margin-top:8px}
+
+.js .reveal{opacity:0;transform:translateY(22px);transition:opacity .8s ease,transform .8s cubic-bezier(.2,.8,.2,1)}
+.js .reveal.on{opacity:1;transform:none}
+
+@media (min-width:640px){
+  .feats{grid-template-columns:repeat(2,1fr);gap:18px}
+  .steps{grid-template-columns:repeat(3,1fr);gap:18px}
+}
+@media (min-width:900px){
+  section{padding:96px 0}
+  .feats{grid-template-columns:repeat(3,1fr);gap:20px}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.js .reveal{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<header class="top" id="top">
+  <a class="mark" href="#hero"><img src="icons/icon-192.png" alt="">ひだまり島ぐらし</a>
+  <a class="btn mini" href="/">あそぶ</a>
+</header>
+
+<main>
+  <!-- ヒーロー -->
+  <section class="hero" id="hero">
+    <div class="hero-bg" role="img" aria-label="桜の咲く、緑ゆたかなひだまり島のながめ"></div>
+    <div class="hero-in">
+      <p class="eyebrow">HIDAMARI ISLAND LIFE</p>
+      <h1>ひだまり島ぐらし</h1>
+      <p class="tagline">くらすほど、じぶんも島も育っていく。<br>のんびり時間の、やさしい島ぐらし。</p>
+      <div class="cta">
+        <a class="btn big" href="/">今すぐ遊ぶ<small>（無料・登録不要）</small></a>
+        <span class="note">ブラウザですぐ始められます ／ スマホ・パソコン対応</span>
+      </div>
+    </div>
+    <a class="scroll" href="#about">SCROLL</a>
+  </section>
+
+  <!-- 概要 -->
+  <section class="about" id="about">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="en">ABOUT</span>
+        <h2>こんな島ぐらし</h2>
+        <div class="rule"><i></i></div>
+      </div>
+      <figure class="shot reveal"><img src="img/intro-hero.jpg" alt="ひだまり島のながめ" loading="lazy" width="1600" height="900"></figure>
+      <p class="lead reveal">虫をとり、魚を釣り、花を育て、道具をつくる。<br>のんびり暮らすほど、<strong>自分も島も少しずつ育っていく</strong>。<br>時間に追われない、あなただけのひだまり島へ。</p>
+    </div>
+  </section>
+
+  <!-- 特徴 -->
+  <section id="features">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="en">FEATURES</span>
+        <h2>島でできること</h2>
+        <div class="rule"><i></i></div>
+      </div>
+      <div class="feats">
+        <article class="feat reveal"><div class="ic">🦋</div><h3>採集・虫とり</h3><p>野山をめぐって、虫や木の実、きのこを集めよう。季節ごとに出会えるものが変わります。</p></article>
+        <article class="feat reveal"><div class="ic">🎣</div><h3>釣り</h3><p>川や海で魚釣り。小魚から大物まで、何が釣れるかはお楽しみ。のんびり糸を垂らす時間も心地よい。</p></article>
+        <article class="feat reveal"><div class="ic">🌷</div><h3>栽培・ガーデニング</h3><p>花や作物を植えて、水をあげて育てる。島が少しずつ、あなたの色に染まっていきます。</p></article>
+        <article class="feat reveal"><div class="ic">🔨</div><h3>クラフト・道具づくり</h3><p>集めた素材で道具や家具をクラフト。できることが増えて、暮らしがどんどん広がります。</p></article>
+        <article class="feat reveal"><div class="ic">🏡</div><h3>島づくり・模様替え</h3><p>家具を置いて、飾って、自分だけの空間に。住むほどに愛着のわく、わが家とわが島を。</p></article>
+        <article class="feat reveal"><div class="ic">🌿</div><h3>のんびりマイペース</h3><p>やることは、あなたが決める。急がなくていい。今日できることを、ひとつずつ。</p></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 遊び方 -->
+  <section class="howto" id="howto">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="en">HOW TO PLAY</span>
+        <h2>はじめかた</h2>
+        <div class="rule"><i></i></div>
+      </div>
+      <div class="steps">
+        <div class="step reveal"><div class="no">STEP 1</div><div class="em">🌅</div><h3>島にわたる</h3><p>ボタンひとつで、あなたの島ぐらしがスタート。登録もインストールも不要です。</p></div>
+        <div class="step reveal"><div class="no">STEP 2</div><div class="em">🧺</div><h3>のんびり暮らす</h3><p>採集・釣り・栽培・クラフト。好きなことから、マイペースにどうぞ。</p></div>
+        <div class="step reveal"><div class="no">STEP 3</div><div class="em">🌳</div><h3>島を育てる</h3><p>暮らすほどに、できることが増え、島も自分も育っていきます。</p></div>
+      </div>
+      <div class="info reveal">
+        <span><b>対応</b>：Web / スマホ・パソコン</span>
+        <span><b>価格</b>：無料で遊べる</span>
+        <span><b>登録</b>：不要・すぐ遊べる</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 最後の案内 -->
+  <section class="final" id="play">
+    <div class="wrap reveal">
+      <p class="eyebrow">YOUR ISLAND AWAITS</p>
+      <h2>ひだまり島ぐらし</h2>
+      <p>あなたの島が、待っています。</p>
+      <a class="btn big" href="/">今すぐ遊ぶ<small>（無料・登録不要）</small></a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <nav>
+    <a href="/">ゲームを遊ぶ</a>
+  </nav>
+  <small>© ひだまり島ぐらし ／ LEGENDCOG</small>
+</footer>
+
+<script>
+(function () {
+  var top = document.getElementById('top');
+  function onScroll() { top.classList.toggle('solid', window.scrollY > 40); }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+  if (!('IntersectionObserver' in window)) return;
+  document.documentElement.classList.add('js');
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target); } });
+  }, { rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+})();
+</script>
+</body>
+</html>
