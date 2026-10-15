@@ -3,7 +3,8 @@
 
 1. 合言葉の部屋：合言葉ごとに「部屋」を作り、同じ部屋にいる人どうしのメッセージを中継する（島の持ち主が出ると部屋はなくなる）
      島の持ち主  {"t":"host","code":合言葉,"name":名前}      遊びに行く人 {"t":"join","code":合言葉,"name":名前}
-     そのあと {"t":"st"|"emo"|"look"|"snap"|"time", ...} を部屋の人に配る（snap・time は持ち主だけ。snap は "to" の相手だけ）
+     そのあと {"t":"st"|"emo"|"look"|"snap"|"time"|"isl", ...} を部屋の人に配る（snap・time・isl は持ち主だけ。snap は "to" の相手だけ）
+     isl は島の変化（木を切った・花を植えたなど、変わった項目だけ）
 2. フレンドとメール（store.py に保存。DATABASE_URL があれば Neon）
      {"t":"register","name"} → {"t":"acct","id","secret"}       はじめての人に友だちIDを作る
      {"t":"auth","id","secret","name"} → {"t":"authed","id"}    つなぐたびに名のる（ここからフレンドの操作ができる）
@@ -223,11 +224,11 @@ async def handler(ws):
             room = rooms.get(code)
             if not room:
                 break
-            if t in ("snap", "time") and not is_host:
+            if t in ("snap", "time", "isl") and not is_host:
                 continue
-            if t != "snap" and len(raw) > MAX_SMALL:
+            if t not in ("snap", "isl") and len(raw) > MAX_SMALL:
                 continue
-            if t not in ("st", "emo", "look", "snap", "time"):
+            if t not in ("st", "emo", "look", "snap", "time", "isl"):
                 continue
             m["from"] = me
             if t == "snap":
