@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.058";</script>
+<script>const GAME_VERSION="1.059";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -8210,7 +8210,7 @@ setTimeout(function wait(){if(!S||RT.title){setTimeout(wait,3000);return}if(S.ne
 <script>
 // ===================== 家の前のポスト =====================
 // 自分の家の玄関の右どなりに、赤いポストが立っている。フレンドからのメールは、メニューではなくこのポストで読んだり送ったりする（friends.js の renderMail）。
-// メールが届いているときは、ポストの旗が上がり、手紙のマークがふわふわ浮かんで、ポストが光る（夜はまわりも明るくなる）。
+// メールが届いているときは、箱にメールのマーク（未読の数つき）が付いて、マークが光る。無いときは、ただの赤いポスト。
 // 友だちの島に遊びに来ているときは、その島の持ち主のポストなので、見るだけで開けない。
 function postTile(){const hb=ISL&&ISL.bld&&ISL.bld.find(b=>b.type==='house');return hb?[hb.door.x+1,hb.door.y]:null}
 const postAt=(x,y)=>{const p=postTile();return !!p&&onIsland()&&p[0]===x&&p[1]===y};
@@ -8230,28 +8230,25 @@ function openPost(){
 {const _hint=hintText;hintText=function(){if(!RT.fishing&&!RT.layout&&onIsland()){const [fx,fy]=facingTile();if(postAt(fx,fy))return RT.visiting?'友だちのポスト':postHasMail()?'メールを読む':'ポストを見る'}return _hint()}}
 {const _pressA=pressA;pressA=function(){if(S&&!RT.dlg&&!RT.panel&&!RT.jump&&!RT.fishing&&!RT.catchShow&&onIsland()){const [fx,fy]=facingTile();if(postAt(fx,fy)){openPost();return}}return _pressA()}}
 {const _click=surpriseClick;surpriseClick=function(tx,ty){if(postAt(tx,ty))return {act:true,tx,ty,stands:n4(tx,ty)};return _click(tx,ty)}}
-// 描く
+// 描く：メールが無いときは、ただの赤いポスト。届いているときは、箱にメールのマークが付いて、マークが光る
 function drawPost(g,t){
   const p=postTile();if(!p)return;const x=(p[0]+.5)*T,y=(p[1]+1)*T-4,mail=postHasMail();
   shadow(g,x,y,6);
-  if(mail){const a=.3+.15*Math.sin(t*4);const gl=g.createRadialGradient(x,y-38,2,x,y-38,26);gl.addColorStop(0,`rgba(255,225,120,${a})`);gl.addColorStop(1,'rgba(255,225,120,0)');g.fillStyle=gl;g.fillRect(x-26,y-64,52,52)}   // 届いているときの光
   rrect(g,x-2,y-30,4,30,1,'#8a5a34');rrect(g,x-5,y-3,10,3,1,'#6a4224');   // 柱と足もと
   rrect(g,x-9,y-46,18,16,3,'#d9534f');g.fillStyle='rgba(255,255,255,.18)';g.fillRect(x-8,y-45,16,2);   // 箱
   poly(g,[[x-11,y-46],[x,y-53],[x+11,y-46]],'#a83a36');   // 屋根
   rrect(g,x-6,y-42,12,3,1,'#3a2a2a');   // 入れ口
-  rrect(g,x-4.5,y-37.5,9,6,1,'#fff6ea');g.strokeStyle='#c8a080';g.lineWidth=.8;g.beginPath();g.moveTo(x-4.5,y-37.5);g.lineTo(x,y-34);g.lineTo(x+4.5,y-37.5);g.stroke();   // 手紙の印
-  // 旗：届いていれば上がる
-  rrect(g,x+9,mail?y-54:y-44,2,mail?12:8,1,'#55585c');
-  if(mail)poly(g,[[x+11,y-54],[x+19,y-50],[x+11,y-46]],'#f6d860');else poly(g,[[x+11,y-40],[x+17,y-40],[x+11,y-36]],'#f6d860');
-  if(mail){   // 浮かぶ手紙のマーク
-    const cy=y-64+Math.sin(t*3)*2.5,cx=x;
-    rrect(g,cx-8,cy-6,16,12,2,'#fff');g.strokeStyle='#d9534f';g.lineWidth=1.2;g.beginPath();g.roundRect(cx-8,cy-6,16,12,2);g.stroke();
-    g.beginPath();g.moveTo(cx-8,cy-6);g.lineTo(cx,cy+1);g.lineTo(cx+8,cy-6);g.stroke();
-    const n=ACC.unread;circ(g,cx+8,cy-6,5,'#e0383c');g.fillStyle='#fff';g.font='bold 7px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(n>9?'9+':String(n),cx+8,cy-5.5);g.textBaseline='alphabetic';
-  }
+  if(!mail)return;
+  // メールのマーク：光りながら少しふくらむ
+  const pl=.5+.5*Math.sin(t*4),cx=x,cy=y-35.5;
+  const gl=g.createRadialGradient(cx,cy,2,cx,cy,16+pl*4);gl.addColorStop(0,`rgba(255,240,150,${.55+pl*.3})`);gl.addColorStop(1,'rgba(255,240,150,0)');g.fillStyle=gl;g.fillRect(cx-22,cy-22,44,44);
+  g.save();g.translate(cx,cy);g.scale(1+pl*.06,1+pl*.06);
+  rrect(g,-6.5,-4.5,13,9,1.5,'#fffdf5');g.strokeStyle='#e09a30';g.lineWidth=1;g.beginPath();g.roundRect(-6.5,-4.5,13,9,1.5);g.stroke();
+  g.beginPath();g.moveTo(-6.5,-4.5);g.lineTo(0,1);g.lineTo(6.5,-4.5);g.stroke();   // 封筒の折り目
+  g.restore();
+  const n=ACC.unread;circ(g,cx+7,cy-5,4.2,'#e0383c');g.fillStyle='#fff';g.font='bold 6px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(n>9?'9+':String(n),cx+7,cy-4.8);g.textBaseline='alphabetic';g.textAlign='left';
 }
 {const _obj=surpriseObjects;surpriseObjects=function(D,ctx,t){_obj(D,ctx,t);if(W===ISL&&onIsland()){const p=postTile();if(p)D.push([(p[1]+1)*T-4,()=>drawPost(ctx,t)])}}}
-{const _lights=decoLights;decoLights=function(glow,night){_lights(glow,night);if(postHasMail()){const p=postTile();if(p)glow((p[0]+.5)*T,(p[1]+1)*T-42,70,.5*night*2)}}}   // 夜：届いていればまわりも明るい
 </script>
 <script>
 // ===================== タイトル画面 =====================
