@@ -15,7 +15,7 @@
 <meta property="og:title" content="ひだまり島ぐらし｜のんびり島ぐらしシム">
 <meta property="og:description" content="くらすほど、じぶんも島も育っていく。採集・釣り・栽培・クラフト――ブラウザで遊べる、やさしい島ぐらし。登録不要・無料。">
 <meta property="og:url" content="https://hidamari-island.onrender.com/intro.html">
-<meta property="og:image" content="https://hidamari-island.onrender.com/ogp.jpg">
+<meta property="og:image" content="https://hidamari-island.onrender.com/ogp.jpg?v=2">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="ひだまり島ぐらし のんびり島ぐらしシム">
@@ -23,7 +23,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="ひだまり島ぐらし｜のんびり島ぐらしシム">
 <meta name="twitter:description" content="くらすほど、じぶんも島も育っていく。ブラウザで遊べる、やさしい島ぐらし。">
-<meta name="twitter:image" content="https://hidamari-island.onrender.com/ogp.jpg">
+<meta name="twitter:image" content="https://hidamari-island.onrender.com/ogp.jpg?v=2">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -69,7 +69,7 @@ h1,h2,h3{margin:0;line-height:1.3;font-family:var(--round)}
 /* ヒーロー */
 .hero{position:relative;min-height:100svh;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;
   padding:100px 20px 84px;overflow:hidden;isolation:isolate}
-.hero-bg{position:absolute;inset:-3%;z-index:-2;background:url(img/intro-hero.jpg) center 42%/cover no-repeat;animation:kb 32s ease-in-out infinite alternate}
+.hero-bg{position:absolute;inset:-3%;z-index:-2;background:url(img/intro-hero.jpg?v=2) center 50%/cover no-repeat;animation:kb 32s ease-in-out infinite alternate}
 @keyframes kb{to{transform:scale(1.07) translateY(-1.5%)}}
 .hero::before{content:'';position:absolute;inset:0;z-index:-1;
   background:linear-gradient(180deg,rgba(40,70,60,.28) 0%,rgba(40,70,60,.05) 30%,rgba(40,70,60,.28) 64%,rgba(30,55,46,.78) 100%)}
@@ -191,6 +191,18 @@ footer small{display:block;font-family:var(--round);letter-spacing:.14em;font-si
 @media (max-width:1180px){.fl.hide-sp{display:none}}   /* 横の余白がせまいときは、文字や写真にかからないよう、横の飾りを出さない */
 @media (max-width:640px){.peek.hide-sp,.bub.hide-sp{display:none}.parade img:nth-child(5),.parade img:nth-child(7),.parade img:nth-child(9),.parade img:nth-child(10),.parade img:nth-child(11){display:none}}
 @media (min-width:640px){.steps{grid-template-columns:repeat(3,1fr);gap:18px}}
+.movie-sec{position:relative;overflow:hidden;isolation:isolate;background:linear-gradient(180deg,var(--bg2),#eef6ea)}
+.movie{display:grid;gap:32px;align-items:center;justify-items:center}
+.phone{width:min(100%,320px);aspect-ratio:9/16;border-radius:30px;padding:8px;background:#fff;box-shadow:0 14px 34px rgba(60,75,58,.18),0 0 0 1px var(--line)}
+.phone video{width:100%;height:100%;object-fit:cover;background:#e9f1e3;border-radius:23px;display:block}
+.movie-text{max-width:440px}
+.movie-text h3{margin:0 0 10px;font-family:var(--round);font-weight:900;font-size:clamp(20px,5.4vw,26px);color:var(--green-d)}
+.movie-text h3 span{display:inline-block}
+.movie-text p{margin:0 0 14px}
+.movie-text ul{margin:0;padding:0;list-style:none;display:grid;gap:8px}
+.movie-text li{position:relative;padding-left:1.5em}
+.movie-text li::before{content:'🌸';position:absolute;left:0;font-size:.9em}
+@media (min-width:860px){.movie{grid-template-columns:320px minmax(0,1fr);justify-items:start;gap:56px;max-width:860px;margin:0 auto}}
 @media (min-width:900px){section{padding:92px 0}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.js .reveal{opacity:1;transform:none}}
 </style>
@@ -230,7 +242,7 @@ footer small{display:block;font-family:var(--round);letter-spacing:.14em;font-si
       </div>
 
       <div class="ftr reveal">
-        <div class="pic"><img src="img/g-island.jpg" alt="ひだまり島で暮らすゲーム画面" loading="lazy" width="800" height="438"></div>
+        <div class="pic"><img src="img/g2-island.webp" alt="ひだまり島で暮らすゲーム画面" loading="lazy" width="800" height="438"></div>
         <div class="txt">
           <span class="tag"><span class="em">🌿</span>のんびり暮らす</span>
           <h3>自分のペースで、島ぐらし</h3>
@@ -239,7 +251,7 @@ footer small{display:block;font-family:var(--round);letter-spacing:.14em;font-si
       </div>
 
       <div class="ftr rev reveal">
-        <div class="pic"><img src="img/g-zukan.jpg" alt="虫・魚・化石・花をあつめる図鑑画面" loading="lazy" width="800" height="438"></div>
+        <div class="pic"><img src="img/g2-zukan.webp" alt="虫・魚・化石・花をあつめる図鑑画面" loading="lazy" width="800" height="438"></div>
         <div class="txt">
           <span class="tag"><span class="em">🦋</span>採集・虫とり・釣り</span>
           <h3>虫・魚・化石・花をあつめる</h3>
@@ -248,7 +260,7 @@ footer small{display:block;font-family:var(--round);letter-spacing:.14em;font-si
       </div>
 
       <div class="ftr reveal">
-        <div class="pic"><img src="img/g-craft.jpg" alt="道具や家具をつくるクラフト画面" loading="lazy" width="800" height="438"></div>
+        <div class="pic"><img src="img/g2-craft.webp" alt="道具や家具をつくるクラフト画面" loading="lazy" width="800" height="438"></div>
         <div class="txt">
           <span class="tag"><span class="em">🔨</span>クラフト・道具づくり</span>
           <h3>素材を集めて、道具づくり</h3>
@@ -257,7 +269,7 @@ footer small{display:block;font-family:var(--round);letter-spacing:.14em;font-si
       </div>
 
       <div class="ftr rev reveal">
-        <div class="pic"><img src="img/g-villager.jpg" alt="島の住民クルミと話すゲーム画面" loading="lazy" width="800" height="438"></div>
+        <div class="pic"><img src="img/g2-villager.webp" alt="島の住民クルミと話すゲーム画面" loading="lazy" width="800" height="438"></div>
         <div class="txt">
           <span class="tag"><span class="em">🐿️</span>住民との出会い</span>
           <h3>島の仲間と、ふれあう</h3>
@@ -266,11 +278,37 @@ footer small{display:block;font-family:var(--round);letter-spacing:.14em;font-si
       </div>
 
       <div class="ftr reveal">
-        <div class="pic"><img src="img/g-map.jpg" alt="ひだまり島の地図画面" loading="lazy" width="800" height="438"></div>
+        <div class="pic"><img src="img/g2-map.webp" alt="ひだまり島の地図画面" loading="lazy" width="800" height="438"></div>
         <div class="txt">
           <span class="tag"><span class="em">🗺️</span>探索・島づくり</span>
           <h3>広い島を、自分の色に</h3>
           <p>海も川も、丘も浜辺も。島をめぐって、花を植えて、家具をかざって。住むほどに、あなただけのひだまり島になっていきます。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 紹介ムービー -->
+  <section class="movie-sec" id="movie">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="en">MOVIE</span>
+        <h2>紹介ムービー</h2>
+        <div class="rule"><i></i></div>
+        <p>30秒で、ひだまり島のくらしをのぞいてみましょう。</p>
+      </div>
+      <div class="movie">
+        <div class="phone reveal">
+          <video src="video/intro.mp4?v=2" controls playsinline muted preload="metadata" poster="img/intro-poster.jpg" aria-label="ひだまり島ぐらし 紹介ムービー（BGMあり・既定はミュート・約28秒）"></video>
+        </div>
+        <div class="movie-text reveal">
+          <h3><span>のんびり時間の、</span><span>やさしい島ぐらし</span></h3>
+          <p>虫とり、釣り、木こり、畑しごと。あつめて、つくって、島の仲間とふれあう。<br>ひだまり島の一日を、ちょっとだけごらんください。</p>
+          <ul>
+            <li>ブラウザですぐ遊べる（無料・登録不要）</li>
+            <li>スマホでもパソコンでも。ホーム画面に追加してアプリのように</li>
+            <li>合言葉で友だちの島へ。家の前のポストでメールのやりとり</li>
+          </ul>
         </div>
       </div>
     </div>
@@ -286,11 +324,15 @@ footer small{display:block;font-family:var(--round);letter-spacing:.14em;font-si
         <div class="rule"><i></i></div>
       </div>
       <div class="gal reveal">
-        <figure><img src="img/g-island.jpg" alt="島で暮らす" loading="lazy" width="800" height="438"></figure>
-        <figure><img src="img/g-villager.jpg" alt="住民との会話" loading="lazy" width="800" height="438"></figure>
-        <figure><img src="img/g-craft.jpg" alt="クラフト" loading="lazy" width="800" height="438"></figure>
-        <figure><img src="img/g-zukan.jpg" alt="図鑑" loading="lazy" width="800" height="438"></figure>
-        <figure><img src="img/g-map.jpg" alt="島の地図" loading="lazy" width="800" height="438"></figure>
+        <figure><img src="img/g2-island.webp" alt="島で暮らす" loading="lazy" width="800" height="438"></figure>
+        <figure><img src="img/g2-villager.webp" alt="住民との会話" loading="lazy" width="800" height="438"></figure>
+        <figure><img src="img/g2-craft.webp" alt="クラフト" loading="lazy" width="800" height="438"></figure>
+        <figure><img src="img/g2-zukan.webp" alt="図鑑" loading="lazy" width="800" height="438"></figure>
+        <figure><img src="img/g2-map.webp" alt="島の地図" loading="lazy" width="800" height="438"></figure>
+        <figure><img src="img/g2-home.webp" alt="家の中" loading="lazy" width="800" height="438"></figure>
+        <figure><img src="img/g2-shop.webp" alt="お店の中" loading="lazy" width="800" height="438"></figure>
+        <figure><img src="img/g2-post.webp" alt="家の前のポスト" loading="lazy" width="800" height="438"></figure>
+        <figure><img src="img/g2-night.webp" alt="夜の島" loading="lazy" width="800" height="438"></figure>
       </div>
       <div class="parade reveal" aria-hidden="true"><div class="grass"></div><div class="row"><img src="deco/m.webp" alt="" loading="lazy"><img src="deco/mugi.webp" alt="" loading="lazy"><img src="deco/popo.webp" alt="" loading="lazy"><img src="deco/kuro.webp" alt="" loading="lazy"><img src="deco/ponta.webp" alt="" loading="lazy"><img src="deco/merry.webp" alt="" loading="lazy"><img src="deco/chuta.webp" alt="" loading="lazy"><img src="deco/komachi.webp" alt="" loading="lazy"><img src="deco/tanta.webp" alt="" loading="lazy"><img src="deco/yuuka.webp" alt="" loading="lazy"><img src="deco/kero.webp" alt="" loading="lazy"><img src="deco/f.webp" alt="" loading="lazy"></div></div>
     </div>
