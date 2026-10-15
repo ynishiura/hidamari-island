@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.051";</script>
+<script>const GAME_VERSION="1.052";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7997,7 +7997,7 @@ setInterval(()=>{document.getElementById('app').classList.toggle('visiting',!!RT
 // ---- 右のメニューの並び：持ち物・能力・装備・図鑑・友だち ／ お知らせ・引継ぎ・セーブ・終了 ----
 // 地図はミニマップを押すと見られ、クラフトはクラフト台に近づくと使えるので、メニューのボタンは出さない（キー M・C はそのまま）
 {const mb=$('menubtns');for(const id of ['bMap','bCraft']){const b=$(id);if(b)b.remove()}
- const order=['bBag','bGrow','bEquip','bDex','bOnline','bSnd','bNotify','bXfer','bSave','bQuit'];
+ const order=['bBag','bGrow','bEquip','bDex','bOnline','bNotify','bXfer','bSave','bQuit','bSnd'];   // 音のボタン（スマホだけ出る）は、終了の下・音量バーの上
  const vol=mb.querySelector('.mvol');for(const id of order){const b=$(id);if(b)mb.insertBefore(b,vol||null)}}
 </script>
 <script>
