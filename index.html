@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.053";</script>
+<script>const GAME_VERSION="1.054";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7971,9 +7971,9 @@ function openOnline(){
     const inp=(ph)=>h('input',{maxlength:'20',placeholder:ph,style:'font:inherit;font-size:15px;padding:8px 12px;border-radius:10px;border:2px solid var(--line);width:12em;color:var(--ink);background:#fff'});
     const hi=inp('合言葉（3〜20文字）'),gi2=inp('友だちの合言葉');
     const busy=!!NET.status;
-    body.append(h('div',{class:'card'},h('b',{},'友だちを呼ぶ'),h('p',{class:'muted',style:'margin:4px 0 8px'},'合言葉を決めて門をひらき、その合言葉を友だちに伝えてね。門がひらくまで、1分ほどかかるよ。'),h('div',{class:'rowline',style:'margin:0;gap:8px;flex-wrap:wrap'},hi,
+    body.append(h('div',{class:'card'},h('b',{},'友だちを呼ぶ'),h('p',{class:'muted',style:'margin:4px 0 8px'},'合言葉を決めて門をひらき、その合言葉を友だちに伝えてね。合言葉は、3文字以上にしてね（20文字まで）。門がひらくまで、1分ほどかかるよ。'),h('div',{class:'rowline',style:'margin:0;gap:8px;flex-wrap:wrap'},hi,
       h('button',{class:'btn',...(busy?{disabled:''}:{}),on:()=>{const c=hi.value.trim();if(c.length<3){toast('合言葉は3文字以上にしてね');return}if(S.loc!=='island'){toast('島の外に出てから、門をひらいてね')}netConnect('host',c)}},'門をひらく'))));
-    body.append(h('div',{class:'card'},h('b',{},'遊びに行く'),h('p',{class:'muted',style:'margin:4px 0 8px'},'友だちが決めた合言葉を入れてね。島に着くまで、1分ほどかかるよ。遊びに行っているあいだは、見て歩くだけ（自分の島のセーブはそのまま）。'),h('div',{class:'rowline',style:'margin:0;gap:8px;flex-wrap:wrap'},gi2,
+    body.append(h('div',{class:'card'},h('b',{},'遊びに行く'),h('p',{class:'muted',style:'margin:4px 0 8px'},'友だちが決めた合言葉を入れてね（合言葉は3文字以上）。島に着くまで、1分ほどかかるよ。遊びに行っているあいだは、見て歩くだけ（自分の島のセーブはそのまま）。'),h('div',{class:'rowline',style:'margin:0;gap:8px;flex-wrap:wrap'},gi2,
       h('button',{class:'btn',...(busy?{disabled:''}:{}),on:()=>{const c=gi2.value.trim();if(c.length<3){toast('合言葉を入れてね');return}netConnect('guest',c)}},'遊びに行く'))));
   });
 }
