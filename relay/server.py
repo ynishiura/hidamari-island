@@ -8,7 +8,9 @@
 2. フレンドとメール（store.py に保存。DATABASE_URL があれば Neon）
      {"t":"register","name"} → {"t":"acct","id","secret"}       はじめての人に友だちIDを作る
      {"t":"auth","id","secret","name"} → {"t":"authed","id"}    つなぐたびに名のる（ここからフレンドの操作ができる）
-     friends / freq{to} / faccept{id} / fdecline{id} / fcancel{id} / fremove{id}
+     friends / freq{to} / faccept{id} / fdecline{id} / fcancel{id} / fremove{id} / rename{name}
+     {"t":"namecheck","name","id"} → {"t":"name","ok"}        その名前をほかの人が使っていないか（名のらなくても聞ける）
+   名前は 7文字まで。同じ名前はほかの人が使えない（register・auth・rename で確かめる。auth で重なっていたら前の名前のまま）
      mail{to,body} / mailbox / mailread{ids} / invite{to,code}
    相手がつないでいれば、すぐに知らせる（friends・mailnew・invite）。招待は 10分で消える
 起動： python server.py （PORT は環境変数。無ければ 8787）
@@ -40,7 +42,7 @@ def norm_code(s):
 
 def clean_name(s):
     s = unicodedata.normalize("NFKC", str(s or "")).strip()
-    s = s[:8] or "だれか"
+    s = s[:7] or "だれか"          # 名前は 7文字まで
     return "だれか" if ngfilter.has_ng_name(s) else s
 
 
@@ -79,6 +81,12 @@ async def account_op(ws, me, m):
     t = m.get("t")
     if t == "friends":
         await send(ws, await friends_msg(me)); return
+    if t == "rename":
+        nm = clean_name(m.get("name"))
+        if await run(db.name_taken, nm, me):
+            await send(ws, {"t": "err", "why": "nametaken"}); return
+        await run(db.touch, me, nm)
+        await send(ws, {"t": "info", "why": "renamed", "name": nm}); return
     if t == "mailbox":
         inbox, outbox = await run(db.mailbox, me, MAIL_MAX)
         await send(ws, {"t": "mailbox", "inbox": inbox, "outbox": outbox}); return
@@ -173,8 +181,15 @@ async def handler(ws):
                 continue
             t = m.get("t")
             # ---- フレンド・メール ----
+            if t == "namecheck":
+                nm = clean_name(m.get("name"))
+                ok = not (db and await run(db.name_taken, nm, norm_id(m.get("id"))))
+                await send(ws, {"t": "name", "ok": ok}); continue
             if t == "register" and db and not acct:
-                pid, sec = await run(db.create, clean_name(m.get("name")))
+                nm = clean_name(m.get("name"))
+                if await run(db.name_taken, nm, None):
+                    await send(ws, {"t": "err", "why": "nametaken"}); continue
+                pid, sec = await run(db.create, nm)
                 acct = pid; online.setdefault(acct, set()).add(ws)
                 await send(ws, {"t": "acct", "id": pid, "secret": sec}); continue
             if t == "auth" and db and not acct:
@@ -182,13 +197,18 @@ async def handler(ws):
                 if not pid or not await run(db.check, pid, str(m.get("secret") or "")):
                     await send(ws, {"t": "err", "why": "auth"}); continue
                 acct = pid; online.setdefault(acct, set()).add(ws)
-                await run(db.touch, pid, clean_name(m.get("name")))
-                await send(ws, {"t": "authed", "id": pid, "unread": await run(db.unread, pid)})
+                nm = clean_name(m.get("name"))
+                if await run(db.name_taken, nm, pid):      # 名前がほかの人と重なっていたら、前の名前のまま（返事で知らせる）
+                    await run(db.touch, pid)
+                else:
+                    await run(db.touch, pid, nm)
+                cur = await run(db.get, pid)
+                await send(ws, {"t": "authed", "id": pid, "unread": await run(db.unread, pid), "name": cur["name"] if cur else nm})
                 inv = invites.get(pid)
                 if inv and time.time() - inv["at"] < INVITE_TTL and inv["code"] in rooms:
                     await send(ws, {"t": "invite", "from": inv["from"], "name": inv["name"], "code": inv["code"]})
                 continue
-            if t in ("friends", "freq", "faccept", "fdecline", "fcancel", "fremove", "mail", "mailbox", "mailread", "invite"):
+            if t in ("friends", "freq", "faccept", "fdecline", "fcancel", "fremove", "mail", "mailbox", "mailread", "invite", "rename"):
                 if acct and len(raw) <= MAX_SMALL:
                     try:
                         await account_op(ws, acct, m)

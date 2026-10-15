@@ -502,7 +502,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
     </div>
     <div id="titleSetup" class="tpane box" hidden>
       <h2 id="setupHead">あなたのことを教えてね</h2>
-      <input id="nameIn" maxlength="8" placeholder="あなたの名前（8文字まで）" value="">
+      <input id="nameIn" maxlength="7" placeholder="あなたの名前（7文字まで）" value="">
       <p id="nameHint" hidden class="thint">島のみんなが呼ぶ名前を入れてください</p>
       <div id="genderSel" role="group" aria-label="主人公をえらぶ"></div>
       <p id="genderHint" hidden class="thint">男の子か女の子をえらんでください</p>
@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.061";</script>
+<script>const GAME_VERSION="1.062";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -1324,6 +1324,7 @@ function migrate(s){
     for(let i=rest.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[rest[i],rest[j]]=[rest[j],rest[i]]}
     s.residents=s.residents.map(id=>vById(id)?id:rest.shift())}}
   if(s.friends)for(const id of Object.keys(s.friends))if(!vById(id))delete s.friends[id];
+  if(s.name&&[...s.name].length>7)s.name=[...s.name].slice(0,7).join('');   // 名前は 7文字まで（8文字だったころのセーブ）
   if(s.dex)for(const id of Object.keys(s.dex))if(id.startsWith('ph_')&&!vById(id.slice(3)))delete s.dex[id];
   if(!s.residents)s.residents=pickResidents(['mugi','popo','kuro']);   // 住民が3人だったころのセーブは、今の3人＋ランダムに2人
   if(!('homeFurn' in s)){s.homeFurn=null;s.furnLegacy=true}   // 家具を手に入れる仕組みより前のセーブ
@@ -2821,8 +2822,8 @@ function openGrowth(tab){
         h('div',{class:'bar',style:'width:100%'},h('i',{style:`width:${S.lv>=MAX_LV?100:S.xp/need*100}%`})),
         h('div',{class:'muted prog'},S.lv>=MAX_LV?'最高レベル！':`次のレベルまで ${need-S.xp}　（次の称号：${(TITLES.find(t=>t[0]>S.lv)||['','—'])[1]}）`)));
       const st=[['捕まえた虫',S.stats.bug],['釣った魚',S.stats.fish],['掘った化石',S.stats.fossil],['摘んだ花',S.stats.flower],['たおした敵',S.stats.defeat],['クラフト',S.stats.craft],['稼いだお金',S.stats.earned.toLocaleString()+'円'],['図鑑',Object.keys(S.dex).length+'種']];
-      const ri=h('input',{id:'renameIn',maxlength:'8',value:S.name,style:'font:inherit;font-size:14px;padding:6px 10px;border-radius:10px;border:2px solid var(--line);width:9em;color:var(--ink);background:#fff'});
-      body.append(h('div',{class:'rowline',style:'margin:10px 0 0'},h('span',{class:'muted'},'名前'),ri,h('button',{class:'btn',on:()=>{const v=ri.value.trim().slice(0,8);if(!v||v==='あなた'){toast('名前を入れてください');return}S.name=v;save();$('pTitle').textContent=`${S.name}の能力`;toast(`これからは「${S.name}」と呼ばれるよ`)}},'名前を変える')));
+      const ri=h('input',{id:'renameIn',maxlength:'7',value:S.name,style:'font:inherit;font-size:14px;padding:6px 10px;border-radius:10px;border:2px solid var(--line);width:9em;color:var(--ink);background:#fff'});
+      body.append(h('div',{class:'rowline',style:'margin:10px 0 0'},h('span',{class:'muted'},'名前'),ri,h('button',{class:'btn',on:async function(){const v=ri.value.trim();if(v===S.name)return;if(!await nameOk(v,this))return;S.name=v;save();$('pTitle').textContent=`${S.name}の能力`;toast(`これからは「${S.name}」と呼ばれるよ`);if(typeof ACC!=='undefined'&&ACC.authed)accSend({t:'rename',name:v})}},'名前を変える')));
       body.append(h('div',{class:'grid',style:'margin-top:10px'},st.map(([k,v])=>h('div',{class:'cell'},h('div',{class:'meta'},k),h('div',{class:'nm prog',style:'font-size:16px'},String(v))))));
     }
     if(t==='skills'){
@@ -8089,13 +8090,16 @@ function accRetry(){   // 切れたら、ゲームを開いているあいだは
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&!ACC.ws)accConnect(false)});
 const FERR={fid:'友だちIDの形がちがうよ（例：HD-ABC234）',nofriend:'その友だちIDの人が見つからない',already:'もうフレンドだよ',fmax:'フレンドがいっぱい（50人まで）',
   notfriend:'フレンドにだけ送れるよ',mlen:'メールは1〜50文字で書いてね',ng:'使えない言葉が入っているので、送れなかった（悪口や、電話番号・住所・年齢などは送れないよ）',
-  mday:'今日はもう送れない（1日50通まで）',server:'うまくいかなかった。もう一度ためしてね'};
+  mday:'今日はもう送れない（1日50通まで）',server:'うまくいかなかった。もう一度ためしてね',
+  nametaken:'その名前は、もうほかの人が使っているよ。能力の画面で別の名前にしてから、もう一度ためしてね',nlen:'名前は1〜7文字にしてね'};
 function accOnMsg(m){
   switch(m.t){
     case 'acct':{const net={id:m.id,secret:m.secret};if(RT.visiting&&OWN_KEEP)OWN_KEEP.net=net;else S.net=net;
       if(RT.visiting){const sv=load();if(sv){sv.net=net;try{localStorage.setItem(SAVE_KEY,JSON.stringify(sv))}catch(e){}}}else save();
       ACC.id=m.id;ACC.authed=true;toast(`友だちIDができた！ ${m.id}`,true);accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();break}
-    case 'authed':ACC.id=m.id;ACC.authed=true;ACC.unread=m.unread||0;accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();break;
+    case 'authed':ACC.id=m.id;ACC.authed=true;ACC.unread=m.unread||0;
+      if(m.name&&!RT.visiting&&m.name!==accName()){toast(`「${accName()}」は、もうほかの人が使っている名前なので、名前は「${m.name}」のまま。別の名前にしたいときは、能力の画面で変えてね`,true);S.name=m.name;save();updateHud&&updateHud()}   // 名前がほかの人と重なっていた
+      accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();break;
     case 'friends':ACC.friends={list:m.list||[],reqIn:m.reqIn||[],reqOut:m.reqOut||[]};accRefresh();break;
     case 'mailbox':ACC.inbox=m.inbox||[];ACC.outbox=m.outbox||[];ACC.unread=ACC.inbox.filter(x=>!x.read).length;accRefresh();break;
     case 'mailnew':ACC.unread=m.unread||ACC.unread+1;toast(`📮 ${m.name}からメールが届いた！ 家の前のポストを見てみよう`,true);sfx('get');accSend({t:'mailbox'});accRefresh();break;
@@ -8105,7 +8109,7 @@ function accOnMsg(m){
       ACC.invite=m;break;
     case 'info':{const n=m.name||'';const w={reqsent:`${n}にフレンド申請を送った`,reqin:`${n}からフレンド申請が届いた！`,friended:`${n}とフレンドになった！`,mailsent:`${n}にメールを送った`,
       invited:m.online?`${n}を島に誘った！`:`${n}を誘った（いまゲームを開いていないので、10分以内に開いたら届くよ）`}[m.why];if(w)toast(w,true);
-      if(m.why==='mailsent'){ACC.draft='';accSend({t:'mailbox'})}if(m.why==='reqin'||m.why==='friended')sfx('get');accRefresh();break}
+      if(m.why==='mailsent'){ACC.draft='';accSend({t:'mailbox'})}if(m.why==='reqin'||m.why==='friended')sfx('get');if(m.why==='renamed')accSend({t:'friends'});accRefresh();break}
     case 'err':if(m.why==='auth'){ACC.bad=true;ACC.authed=false;toast('友だちIDの確認ができなかった');accRefresh();break}
       toast(FERR[m.why]||'うまくいかなかった');break;
   }
@@ -8208,6 +8212,35 @@ setTimeout(function wait(){if(!S||RT.title){setTimeout(wait,3000);return}if(S.ne
 `;document.head.append(st)}
 </script>
 <script>
+// ===================== 名前の決まり =====================
+// 名前は 7文字まで。同じ名前は、ほかの人が使えない（中継サーバーに預けた名前と見くらべる。大文字小文字・全角半角のちがいは同じ名前とみなす）。
+// 名前を決めるとき（はじめから・つづきから・能力の画面で変えるとき）に、サーバーに「使えるか」を聞く。
+// サーバーが眠っていて答えがもらえないときは、いったん通して、友だちIDを作るとき（register）にもう一度確かめる。
+const NAME_MAX=7;
+function nameValid(v){v=(v||'').trim();if(!v||v==='あなた')return '名前を入れてください';if([...v].length>NAME_MAX)return `名前は${NAME_MAX}文字までにしてね`;return null}
+// 中継サーバーに聞く。答え：true（使える）／ false（ほかの人が使っている）／ null（確かめられなかった）
+async function nameFree(name){
+  const own=(typeof RT!=='undefined'&&RT.visiting&&typeof OWN_KEEP!=='undefined'&&OWN_KEEP)?OWN_KEEP.net:(S&&S.net);
+  const id=(own&&own.id)||null;
+  const ws=await tryOpen(10000);if(!ws)return null;
+  return new Promise(res=>{let done=false;const end=v=>{if(done)return;done=true;clearTimeout(tm);try{ws.close()}catch(e){}res(v)};
+    const tm=setTimeout(()=>end(null),8000);
+    ws.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}if(m.t==='name')end(!!m.ok)};
+    ws.onclose=()=>end(null);
+    try{ws.send(JSON.stringify({t:'namecheck',name,id}))}catch(e){end(null)}});
+}
+// 名前を決めるときの共通の確かめ（長さ → 重なり）。使えるなら true。btn は確かめているあいだ押せなくするボタン
+async function nameOk(name,btn){
+  const w=nameValid(name);if(w){toast(w);return false}
+  if(btn){btn.disabled=true;btn.dataset.t=btn.textContent;btn.textContent='名前を確かめています…'}
+  try{const f=await nameFree(name);
+    if(f===false){toast(`「${name}」は、もうほかの人が使っている名前。別の名前にしてね`);return false}
+    if(f===null)toast('名前の重なりを確かめられなかった（友だちIDを作るときに、もう一度確かめるよ）');
+    return true}
+  finally{if(btn){btn.disabled=false;btn.textContent=btn.dataset.t}}
+}
+</script>
+<script>
 // ===================== 家の前のポスト =====================
 // 自分の家の玄関の右どなりに、赤いポストが立っている。フレンドからのメールは、メニューではなくこのポストで読んだり送ったりする（friends.js の renderMail）。
 // メールが届いているときは、旗が立ち、箱にメールのマーク（未読の数つき）が付いて、マークが光る。無いときは、ただの赤いポスト。
@@ -8287,7 +8320,8 @@ function openSetup(mode){
   $('nameIn').disabled=false;$('nameIn').value=mode==='continue'&&!RT.needName?S.name:'';
   $('nameHint').hidden=true;$('genderHint').hidden=true;
   $('goBtn').textContent=mode==='new'?'島へ行く':'つづきから';
-  $('goBtn').onclick=mode==='new'?()=>startNew(nameFromInput()):()=>{const n=nameFromInput();if(!n)return;S.name=n;RT.needName=false;continueGame()};
+  // 名前は 7文字まで・ほかの人と同じ名前は不可（name.js の nameOk がサーバーに確かめる）
+  $('goBtn').onclick=mode==='new'?async()=>{const n=nameFromInput();if(!n||needGender())return;if(!await nameOk(n,$('goBtn')))return;startNew(n)}:async()=>{const n=nameFromInput();if(!n)return;if(!await nameOk(n,$('goBtn')))return;S.name=n;RT.needName=false;continueGame()};
   selGender=mode==='new'?null:(S.gender||null);renderGenderSel();
   $('genderSel').hidden=mode!=='new'&&!!S.gender;   // つづきから遊ぶときは、性別をえらび直せない（最初に決めた性別のまま）
   showTitlePane('titleSetup');setTimeout(()=>$('nameIn').focus(),60);
@@ -8561,7 +8595,7 @@ function placeAtHome(){if(!onIsland()){W=ISL;S.loc='island';resetMapRT();updateH
 function nameFromInput(){
   const v=$('nameIn').value.trim();
   if(!v||v==='あなた'){$('nameHint').hidden=false;$('nameIn').focus();return null}
-  $('nameHint').hidden=true;return v.slice(0,8);
+  $('nameHint').hidden=true;return [...v].slice(0,NAME_MAX).join('');
 }
 function startNew(name){
   if(needGender())return;

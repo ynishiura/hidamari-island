@@ -122,6 +122,18 @@ class Store:
         else:
             self.q('UPDATE hd_players SET seen_at=? WHERE id=?', (int(time.time()), pid))
 
+    def name_taken(self, name, except_id=None):
+        """その名前を、ほかの人（except_id 以外）が使っていたら True。大文字小文字・全角半角のちがいは同じ名前とみなす。"""
+        import unicodedata
+        key = unicodedata.normalize('NFKC', str(name or '')).strip().casefold()
+        if not key:
+            return False
+        rows = self.q('SELECT id, name FROM hd_players WHERE name IS NOT NULL', many=True) or []
+        for pid, nm in rows:
+            if pid != except_id and unicodedata.normalize('NFKC', nm or '').strip().casefold() == key:
+                return True
+        return False
+
     def names(self, ids):
         out = {}
         for i in ids:
