@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.052";</script>
+<script>const GAME_VERSION="1.053";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7967,12 +7967,13 @@ function openOnline(){
         h('button',{class:'btn sub',on:()=>{netClose();refresh()}},'門をしめる')));return}
     if(netOn()&&NET.role==='guest'){body.append(h('div',{class:'card'},h('b',{},'友だちの島に遊びに来ています'),h('button',{class:'btn sub',style:'margin-top:8px',on:()=>{netClose();closePanel()}},'自分の島に帰る')));return}
     body.append(h('p',{class:'muted',style:'margin:0 0 10px'},'合言葉を決めて、友だちを自分の島に呼んだり、友だちの島に遊びに行ったりできるよ。いっしょに島を歩いて、気持ちマークを見せ合おう（4人まで）。'));
+    body.append(h('div',{class:'netnote'},'⏳ 門をひらく・遊びに行くには、1分ほどかかるよ。「島の門をひらいています…」と出ているあいだは、そのまま待っていてね。'));
     const inp=(ph)=>h('input',{maxlength:'20',placeholder:ph,style:'font:inherit;font-size:15px;padding:8px 12px;border-radius:10px;border:2px solid var(--line);width:12em;color:var(--ink);background:#fff'});
     const hi=inp('合言葉（3〜20文字）'),gi2=inp('友だちの合言葉');
     const busy=!!NET.status;
-    body.append(h('div',{class:'card'},h('b',{},'友だちを呼ぶ'),h('p',{class:'muted',style:'margin:4px 0 8px'},'合言葉を決めて門をひらき、その合言葉を友だちに伝えてね。'),h('div',{class:'rowline',style:'margin:0;gap:8px;flex-wrap:wrap'},hi,
+    body.append(h('div',{class:'card'},h('b',{},'友だちを呼ぶ'),h('p',{class:'muted',style:'margin:4px 0 8px'},'合言葉を決めて門をひらき、その合言葉を友だちに伝えてね。門がひらくまで、1分ほどかかるよ。'),h('div',{class:'rowline',style:'margin:0;gap:8px;flex-wrap:wrap'},hi,
       h('button',{class:'btn',...(busy?{disabled:''}:{}),on:()=>{const c=hi.value.trim();if(c.length<3){toast('合言葉は3文字以上にしてね');return}if(S.loc!=='island'){toast('島の外に出てから、門をひらいてね')}netConnect('host',c)}},'門をひらく'))));
-    body.append(h('div',{class:'card'},h('b',{},'遊びに行く'),h('p',{class:'muted',style:'margin:4px 0 8px'},'友だちが決めた合言葉を入れてね。遊びに行っているあいだは、見て歩くだけ（自分の島のセーブはそのまま）。'),h('div',{class:'rowline',style:'margin:0;gap:8px;flex-wrap:wrap'},gi2,
+    body.append(h('div',{class:'card'},h('b',{},'遊びに行く'),h('p',{class:'muted',style:'margin:4px 0 8px'},'友だちが決めた合言葉を入れてね。島に着くまで、1分ほどかかるよ。遊びに行っているあいだは、見て歩くだけ（自分の島のセーブはそのまま）。'),h('div',{class:'rowline',style:'margin:0;gap:8px;flex-wrap:wrap'},gi2,
       h('button',{class:'btn',...(busy?{disabled:''}:{}),on:()=>{const c=gi2.value.trim();if(c.length<3){toast('合言葉を入れてね');return}netConnect('guest',c)}},'遊びに行く'))));
   });
 }
@@ -7987,6 +7988,7 @@ function updateNetBar(){
 setInterval(updateNetBar,2000);
 addEventListener('beforeunload',()=>{try{NET.ws&&NET.ws.close()}catch(e){}});
 {const st=document.createElement('style');st.textContent=`
+#app .netnote,.netnote{background:#fff6e0;border:2px solid #f0c060;border-radius:12px;padding:8px 12px;margin:0 0 12px;font-weight:700;font-size:13px;color:#7a4a10}
 #netBar{position:absolute;left:50%;top:calc(8px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:8;display:flex;align-items:center;gap:10px;background:rgba(255,248,232,.95);border:2px solid #f0b860;border-radius:999px;padding:5px 6px 5px 14px;font:700 12px "Zen Maru Gothic",sans-serif;color:#7a4a10;box-shadow:0 3px 0 #c8851c;pointer-events:auto;max-width:92vw}
 #netBar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #netBar button{border:0;border-radius:999px;background:#e6a93a;color:#fff;font:700 12px "Zen Maru Gothic",sans-serif;padding:5px 12px;cursor:pointer}
