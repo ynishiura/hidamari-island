@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.055";</script>
+<script>const GAME_VERSION="1.056";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7833,6 +7833,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 // 島の持ち主が合言葉で「島の門」をひらき、友だちは同じ合言葉で遊びに行く。中継サーバー（pwa/relay/server.py）を通して、
 // おたがいの位置・向き・歩き・ジャンプ・気持ちマーク・見た目（服・帽子・小物）を、その場で見せ合う。
 // 遊びに来た人は、持ち主の島を「見て歩く」だけ（島を変えることはできない。自分の島のセーブにはさわらない）。
+// 持ち主が木を切る・花を植える・穴を掘るなどして島が変わると、変わった所だけを来た人に送り、来た人の画面にもその場で映す。
 const RELAY_URL=(()=>{try{return localStorage.getItem('hidamari-relay')||'wss://hidamari-relay.onrender.com'}catch(e){return 'wss://hidamari-relay.onrender.com'}})();
 const NET={ws:null,role:null,code:'',me:null,host:null,peers:new Map(),lastSt:'',lastStT:0,lastLook:'',lastTime:0,status:''};
 // peers: id -> {name,look,x,y,tx,ty,dir,diag,mv,run,jh,loc,walk,emote}
@@ -7879,9 +7880,10 @@ async function netOnMsg(m){
     case 'snap':if(NET.role==='guest'&&!RT.visiting){try{const s=await readXferCode(m.data);startVisit(s)}catch(e){toast('島のようすを受け取れなかった');netClose(true)}}break;
     case 'time':if(RT.visiting){S.min=m.min;S.day=m.day;S.weather=m.weather}break;
     case 'look':{const p=P.get(m.from)||{};p.look=m.look;p.name=m.look&&m.look.name||p.name;P.set(m.from,p);break}
-    case 'st':{const p=P.get(m.from)||{};const first=p.x===undefined;Object.assign(p,{tx:m.x,ty:m.y,dir:m.dir,diag:m.diag,mv:m.mv,run:m.run,jh:m.jh,loc:m.loc,tAt:performance.now()});if(first){p.x=m.x;p.y=m.y}P.set(m.from,p);
+    case 'st':{const p=P.get(m.from)||{};const first=p.x===undefined;if(m.sw&&!p.sw)p.swing=.35;Object.assign(p,{tx:m.x,ty:m.y,dir:m.dir,diag:m.diag,mv:m.mv,run:m.run,jh:m.jh,loc:m.loc,tool:m.tool,tr:m.tr,sw:m.sw,tAt:performance.now()});if(first){p.x=m.x;p.y=m.y}P.set(m.from,p);
       if(NET.role==='guest'&&RT.visiting&&!RT.visitPlaced&&m.from===NET.host)placeNearHost(m.x,m.y);break}
     case 'emo':{const p=P.get(m.from);if(p)p.emote={id:m.id,t0:performance.now()/1000};break}
+    case 'isl':if(NET.role==='guest'&&RT.visiting&&m.from===NET.host)applyIsland(m.d);break;
   }
 }
 async function sendSnap(to){
@@ -7890,6 +7892,34 @@ async function sendSnap(to){
     netSend({t:'snap',to,data});netSend({t:'time',min:S.min,day:S.day,weather:S.weather})}catch(e){}
 }
 function sendLook(force){const L=JSON.stringify(myLook());if(force||L!==NET.lastLook){NET.lastLook=L;netSend({t:'look',look:myLook()})}}
+// ---- 島の変化（持ち主 → 来た人）----
+// 島のようすが書かれている S の項目。持ち主の画面で変わった項目だけを、0.4秒ごとに来た人へ送る
+const ISL_KEYS=['flowers','stumps','stumpHits','chopHits','rockHits','fruit','dig','holes','shells','branches','decos','saplings','planted','cleared','merchant','house','residents','homeFurn','homeLayout','wall','floor','torchUntil','rainbow','starNight','visitor'];
+const ISL_WORLD=new Set(['decos','saplings','planted','cleared','merchant','house','residents']);   // 変わったら、島（通れる所・建物）を作り直す項目
+NET.islK={};
+function sendIsland(){
+  const d={};let n=0;
+  for(const k of ISL_KEYS){const v=S[k]===undefined?null:S[k],j=JSON.stringify(v);if(NET.islK[k]!==j){NET.islK[k]=j;d[k]=v;n++}}
+  if(n)netSend({t:'isl',d});
+}
+function applyIsland(d){
+  if(!d||typeof d!=='object')return;
+  const onIsl=W===ISL&&S.loc==='island';
+  // 木や岩をたたいた・木をゆすった：その木や岩を揺らす（近くにいれば音も）
+  const hit=(i,isRock,snd)=>{const o=(isRock?ISL.rocks:ISL.trees)[i];if(!o)return;RT.shake.set(isRock?'r'+i:i,.3);
+    if(onIsl&&snd&&Math.hypot((o.x+.5)*T-S.px,(o.y+.5)*T-S.py)<T*9)sfx(snd)};
+  const more=(k,isRock,snd)=>{const a=S[k]||{},b=d[k];if(!b||typeof b!=='object')return;for(const i in b)if((+b[i]||0)>(+a[i]||0))hit(+i,isRock,snd)};
+  if('chopHits' in d)more('chopHits',false,'chop');
+  if('stumpHits' in d)more('stumpHits',false,'chop');
+  if('rockHits' in d)more('rockHits',true,'rock');
+  if(d.fruit&&S.fruit)for(const i in S.fruit)if(S.fruit[i]&&!d.fruit[i]&&!(d.stumps||S.stumps||{})[i])hit(+i,false,'shake');
+  let world=false,res=false;
+  for(const k of ISL_KEYS)if(k in d){if(ISL_WORLD.has(k)&&JSON.stringify(S[k])!==JSON.stringify(d[k])){world=true;if(k==='residents')res=true}S[k]=d[k]}
+  if(world){   // 家の中や洞窟にいるときは、今いる場所はそのままで、島だけを作り直す
+    const keepW=W,keepC=CAVES;genWorld(S.seed);CAVES=keepC;
+    if(!onIsl)W=keepW;else if(res)resetVillagers();
+  }
+}
 // ---- 遊びに行く（来た人の画面）----
 let OWN_KEEP=null;
 function startVisit(hostS){
@@ -7901,7 +7931,7 @@ function startVisit(hostS){
   Object.assign(v,{gender:OWN_KEEP.gender,top:OWN_KEEP.top,hat:OWN_KEEP.hat,acc:OWN_KEEP.acc,name:OWN_KEEP.name,emoLearned:OWN_KEEP.emoLearned,emoLast:OWN_KEEP.emoLast,net:OWN_KEEP.net,tool:'hand',loc:'island',login:{last:realDay(),streak:1,total:1},todayEv:{day:realDay(),kind:'none',done:true}});
   S=v;genWorld(S.seed);fitToMap();resetVillagers();resetMapRT();W=ISL;
   RT.fade=.8;closePanel&&closePanel();updateHud();buildToolbar();updateNetBar();
-  const hn=(NET.peers.get(NET.host)||{}).name||'友だち';toast(`${hn}の島に遊びに来た！ 島を見て歩いたり、気持ちマークを見せ合ったりできるよ`,true);netStatus('');
+  const hn=(NET.peers.get(NET.host)||{}).name||'友だち';toast(`${hn}の島に遊びに来た！ 島を見て歩いたり、気持ちマークを見せ合ったりできるよ（${hn}が木を切ったり花を植えたりすると、ここにも映るよ）`,true);netStatus('');
 }
 function placeNearHost(x,y){
   RT.visitPlaced=true;
@@ -7927,18 +7957,24 @@ addEventListener('keydown',e=>{if(RT.visiting&&['KeyE','KeyR','KeyG','KeyC','Key
 setInterval(()=>{
   if(!netOn()||!S||RT.title)return;
   const now=performance.now(),mv=!!(RT.walk&&(RT.running||RT.goal||keys.size))||!!RT.jump;
-  const st={t:'st',x:Math.round(S.px),y:Math.round(S.py),dir:S.dir,diag:RT.diag||null,mv:!!(RT.walk>0&&(keys.size||RT.goal||pad.x||pad.y||(typeof mHold!=='undefined'&&mHold&&mHold.on))),run:!!RT.running,jh:Math.round(RT.jumpH||0),loc:S.loc};
+  const st={t:'st',x:Math.round(S.px),y:Math.round(S.py),dir:S.dir,diag:RT.diag||null,mv:!!(RT.walk>0&&(keys.size||RT.goal||pad.x||pad.y||(typeof mHold!=='undefined'&&mHold&&mHold.on))),run:!!RT.running,jh:Math.round(RT.jumpH||0),loc:S.loc,tool:S.tool,tr:tier(S.tool)||1,sw:RT.swing>0?1:0};
   const k=JSON.stringify(st);
   if(k!==NET.lastSt||now-NET.lastStT>1000){NET.lastSt=k;NET.lastStT=now;netSend(st)}
   if(now-(NET.lookT||0)>1000){NET.lookT=now;sendLook(false)}
   if(NET.role==='host'&&now-NET.lastTime>4000&&NET.peers.size){NET.lastTime=now;netSend({t:'time',min:S.min,day:S.day,weather:S.weather})}
+  if(NET.role==='host'&&NET.peers.size&&now-(NET.islT||0)>400){NET.islT=now;sendIsland()}
 },100);
 {const _se=showEmote;showEmote=function(id){_se(id);if(netOn())netSend({t:'emo',id})}}
 // ---- 描く：ほかの人（同じ場所にいる人だけ） ----
+const REMOTE_TOOLS=['axe','shovel','net','rod','can'];   // ほかの人の手に描く道具（島で使う道具だけ）
 function drawRemote(ctx,p,t){
-  const L=p.look||{};const keep={gender:S.gender,top:S.top,hat:S.hat,acc:S.acc,tool:S.tool},kd=RT.diag,kw=RT.walk,kr=RT.running;
-  Object.assign(S,{gender:L.gender||'m',top:L.top||null,hat:L.hat||null,acc:L.acc||null,tool:'hand'});RT.diag=p.diag||null;
-  try{const jh=p.jh||0;if(jh)shadow(ctx,p.x,p.y,8);drawHuman(ctx,p.x,p.y-jh,p.dir||'down',p.mv?p.walk:0,{})}finally{Object.assign(S,keep);RT.diag=kd;RT.walk=kw;RT.running=kr}
+  const L=p.look||{};const keep={gender:S.gender,top:S.top,hat:S.hat,acc:S.acc,tool:S.tool,dir:S.dir,tools:S.tools},kd=RT.diag,kw=RT.walk,kr=RT.running;
+  const rk=['swing','slash','thrust','slam','draw','rodTip','emote'],kRT=rk.map(k=>RT[k]);
+  const tool=REMOTE_TOOLS.includes(p.tool)?p.tool:'hand';
+  Object.assign(S,{gender:L.gender||'m',top:L.top||null,hat:L.hat||null,acc:L.acc||null,tool,dir:p.dir||'down',tools:Object.assign({},S.tools,{[tool]:p.tr||1})});RT.diag=p.diag||null;
+  for(const k of rk)RT[k]=null;RT.swing=p.swing||0;
+  try{const jh=p.jh||0;if(jh)shadow(ctx,p.x,p.y,8);drawHuman(ctx,p.x,p.y-jh,p.dir||'down',p.mv?p.walk:0,{});if(tool!=='hand')drawToolInHand(ctx,p.x,p.y-jh)}
+  finally{Object.assign(S,keep);RT.diag=kd;RT.walk=kw;RT.running=kr;rk.forEach((k,i)=>RT[k]=kRT[i])}
   // 名前
   const nm=p.name||'友だち';ctx.font='bold 10px "Zen Maru Gothic",sans-serif';const w=ctx.measureText(nm).width+10;
   ctx.fillStyle='rgba(255,255,255,.92)';ctx.beginPath();ctx.roundRect(p.x-w/2,p.y-PC_H-17-(p.jh||0),w,14,7);ctx.fill();ctx.fillStyle='#3f8a58';ctx.textAlign='center';ctx.fillText(nm,p.x,p.y-PC_H-6.5-(p.jh||0));
@@ -7953,7 +7989,7 @@ surpriseObjects=function(D,ctx,t){
     if(p.tx===undefined||p.loc!==S.loc)continue;
     // なめらかに近づける
     const k=Math.min(1,dt*12);p.x+=(p.tx-p.x)*k;p.y+=(p.ty-p.y)*k;if(Math.hypot(p.tx-p.x,p.ty-p.y)>T*6){p.x=p.tx;p.y=p.ty}
-    p.walk=(p.walk||0)+(p.mv?dt*(p.run?16:10):0);
+    p.walk=(p.walk||0)+(p.mv?dt*(p.run?16:10):0);if(p.swing>0)p.swing=Math.max(0,p.swing-dt);
     D.push([p.y,()=>drawRemote(ctx,p,t)]);
   }
 };
