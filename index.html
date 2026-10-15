@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.049";</script>
+<script>const GAME_VERSION="1.050";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -6879,8 +6879,8 @@ function equipRows(t){
   return ids.map(id=>({id,icon:id,name:ITEMS[id].name,note:ITEMS[id].note||'',on:S[key]===id,
     use:()=>{S[key]=S[key]===id?null:id;toast(`${ITEMS[id].name}を${S[key]?verb[0]:verb[1]}`)}}));
 }
-function openEquip(tab){
-  openPanel('装備',EQUIP_TABS,tab||'weapon',(body,t)=>{
+// 装備の中身（持ち物の画面のタブで出す）
+function renderEquip(body,t){{
     const now=[['武器',hasWeapon()?weaponLabel():'なし'],['服',S.top&&ITEMS[S.top]?ITEMS[S.top].name:'いつもの服'],['帽子',S.hat&&ITEMS[S.hat]?ITEMS[S.hat].name:'なし'],['小物',S.acc&&ITEMS[S.acc]?ITEMS[S.acc].name:'なし']];
     body.append(h('div',{class:'eqtop'},equipPreview(),h('div',{class:'eqnow'},...now.map(([k,v])=>h('div',{},h('span',{class:'muted'},k+'：'),h('b',{},v))))));
     const rows=equipRows(t);
@@ -6892,14 +6892,26 @@ function openEquip(tab){
       grid.append(h('div',{class:'cell'+(r.on?' eqon':'')},equipIcon(r.icon),h('div',{class:'nm'},r.name),h('div',{class:'meta'},r.on?'装備中':(r.note||'')),btn));
     }
     body.append(grid);
+  }}
+// 持ち物の画面に、装備のタブ（武器・服・帽子・小物）をまとめる。プレゼントのときは、持ち物だけ
+const BAG_TABS=[['bag','持ち物'],...EQUIP_TABS];
+const _openBagEq=openBag;
+openBag=function(mode='normal',giftTo,tab){
+  if(mode!=='normal')return _openBagEq(mode,giftTo);
+  RT.giftTo=null;
+  openPanel('持ち物',BAG_TABS,tab||'bag',(body,t)=>{
+    if(t==='bag'){
+      body.append(h('div',{class:'rowline'},h('div',{class:'grow'},h('b',{class:'prog'},`ポケット ${bagCount()}/${bagCap()}`),h('span',{class:'muted'},'　家を大きくすると、たくさん持てるようになる')),h('span',{class:'pill'},`${S.bells.toLocaleString()}円`)));
+      body.append(bagGrid('normal'));
+    }else renderEquip(body,t);
   });
-}
-// メニューのボタン（持ち物の下）とキー I
-{const b=document.createElement('button');b.className='mbtn';b.id='bEquip';b.innerHTML='装備<small>I</small>';const bag=$('bBag');bag.after(b);b.onclick=()=>RT.title||openEquip()}
+};
+function openEquip(tab){openBag('normal',null,tab||'weapon')}
+// キー I：持ち物の画面の装備タブを開く
 addEventListener('keydown',e=>{
   if(e.code!=='KeyI'||RT.title||RT.dlg||e.repeat)return;
   if(document.activeElement&&document.activeElement.tagName==='INPUT')return;
-  if(RT.panel){if(RT.panel.title==='装備')closePanel();return}
+  if(RT.panel){if(RT.panel.title==='持ち物')closePanel();return}
   openEquip();
 });
 {const st=document.createElement('style');st.textContent=`
