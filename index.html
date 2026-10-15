@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.050";</script>
+<script>const GAME_VERSION="1.051";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2621,7 +2621,7 @@ $('toolbar').addEventListener('wheel',wheelTool,{passive:false});
 
 // ===================== 会話 =====================
 function showDialog(who,lines,done,choices){
-  RT.dlg={who,lines,i:0,done,choices,sel:0};$('dialog').hidden=false;$('app').classList.add('talking');$('dWho').textContent=who;renderDialog();
+  RT.dlg={who,lines,i:0,done,choices,sel:0};RT.dlgT0=performance.now();$('dialog').hidden=false;$('app').classList.add('talking');$('dWho').textContent=who;renderDialog();
 }
 function renderDialog(){
   const d=RT.dlg;let line=d.lines[d.i];if(typeof line==='function'){line=line();d.lines[d.i]=line}
@@ -2638,6 +2638,9 @@ function advanceDialog(){
   renderDialog();
 }
 function closeDialog(){RT.dlg=null;$('dialog').hidden=true;$('app').classList.remove('talking')}
+// 会話が出た直後（0.45秒）のタップは受け付けない。スマホの横画面では A ボタンと会話の枠が重なっていて、
+// A を押した指を離したときのタップが、出たばかりの会話の枠に届いて、すぐ閉じてしまうため（選択肢のボタンも同じ）
+$('dialog').addEventListener('click',e=>{if(RT.dlg&&performance.now()-(RT.dlgT0||0)<450){e.stopImmediatePropagation();e.preventDefault()}},true);
 $('dialog').addEventListener('click',()=>{if(RT.dlg&&!(RT.dlg.i>=RT.dlg.lines.length-1&&RT.dlg.choices))advanceDialog()});
 
 // ===================== 建物 =====================
