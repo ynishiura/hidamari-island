@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.057";</script>
+<script>const GAME_VERSION="1.058";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -8098,7 +8098,7 @@ function accOnMsg(m){
     case 'authed':ACC.id=m.id;ACC.authed=true;ACC.unread=m.unread||0;accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();break;
     case 'friends':ACC.friends={list:m.list||[],reqIn:m.reqIn||[],reqOut:m.reqOut||[]};accRefresh();break;
     case 'mailbox':ACC.inbox=m.inbox||[];ACC.outbox=m.outbox||[];ACC.unread=ACC.inbox.filter(x=>!x.read).length;accRefresh();break;
-    case 'mailnew':ACC.unread=m.unread||ACC.unread+1;toast(`📮 ${m.name}からメールが届いた！`,true);sfx('get');accSend({t:'mailbox'});accRefresh();break;
+    case 'mailnew':ACC.unread=m.unread||ACC.unread+1;toast(`📮 ${m.name}からメールが届いた！ 家の前のポストを見てみよう`,true);sfx('get');accSend({t:'mailbox'});accRefresh();break;
     case 'invite':if(RT.visiting||(NET.role==='host'))break;
       setTimeout(()=>{const ask=()=>showDialog(`${m.name}からのおさそい`,[`${m.name}が、島に遊びにおいでって誘っているよ！`],null,[['遊びに行く',()=>{endTalk();netConnect('guest',m.code)}],['あとで',endTalk]]);
         if(RT.dlg||RT.panel){toast(`🌸 ${m.name}から、島へのおさそいが届いた！ 友だちの画面から行けるよ`,true);ACC.invite=m;accRefresh()}else ask()},300);
@@ -8110,9 +8110,9 @@ function accOnMsg(m){
       toast(FERR[m.why]||'うまくいかなかった');break;
   }
 }
-// ---- 友だちのボタンに、知らせの数（未読メール・申請・おさそい） ----
+// ---- 友だちのボタンに、知らせの数（申請・おさそい。未読メールは家の前のポストに出る） ----
 function updateFriendBadge(){
-  const n=(ACC.unread||0)+(ACC.friends.reqIn||[]).length+(ACC.invite?1:0);
+  const n=(ACC.friends.reqIn||[]).length+(ACC.invite?1:0);
   for(const id of ['bOnline','bMenu']){const b=$(id);if(!b)continue;let d=b.querySelector('.fbadge');if(!n){if(d)d.remove();continue}
     if(!d){d=document.createElement('span');d.className='fbadge';b.append(d)}d.textContent=n>9?'9+':String(n)}
 }
@@ -8128,11 +8128,12 @@ const fmtAt=s=>{const d=new Date(s*1000),p=n=>String(n).padStart(2,'0');return `
 // ---- 画面：友だち（フレンドと遊ぶ／メール） ----
 openOnline=function(tab){
   if(S&&(S.net||(RT.visiting&&OWN_KEEP&&OWN_KEEP.net))&&!ACC.ws)accConnect(false);
-  openPanel('友だちと遊ぶ',[['play','フレンドと遊ぶ'],['mail','メール']],tab||RT.friendTab||'play',(body,t)=>{RT.friendTab=t;t==='mail'?renderMail(body):renderFriendPlay(body)});
+  openPanel('友だちと遊ぶ',null,null,body=>renderFriendPlay(body));   // メールは家の前のポストで（post.js）
 };
 function renderFriendPlay(body){
   const net=RT.visiting?(OWN_KEEP&&OWN_KEEP.net):S.net;
   if(ACC.status)body.append(h('div',{class:'netnote'},'⏳ '+ACC.status));
+  body.append(h('p',{class:'muted',style:'margin:0 0 8px'},'📮 フレンドとのメールは、家の前のポストで読んだり送ったりできるよ。'));
   // 自分の友だちID
   if(!net||ACC.bad){
     body.append(h('div',{class:'card'},h('b',{},'友だちIDを作る'),h('p',{class:'muted',style:'margin:4px 0 8px'},'友だちIDを作ると、フレンドになったり、メールを送りあったりできるよ。友だちIDは引継ぎにも入るので、機種変更しても同じIDのまま。'),
@@ -8154,7 +8155,7 @@ function renderFriendPlay(body){
       h('button',{class:'btn',on:()=>accSend({t:'faccept',id:r.id})},'承認'),h('button',{class:'btn sub',on:()=>accSend({t:'fdecline',id:r.id})},'ことわる')))));
     body.append(h('div',{class:'card'},h('b',{},`フレンド（${F.list.length}）`),F.list.length?null:h('p',{class:'muted',style:'margin:6px 0 0'},'まだフレンドがいないよ。友だちIDを教えあって、申請してみよう。'),
       ...F.list.map(f=>h('div',{class:'frow'},h('span',{class:'dot'+(f.online?' on':'')},''),h('span',{class:'grow'},f.name,h('small',{class:'muted'},` ${f.id}${f.online?'・あそんでいる':''}`)),
-        h('button',{class:'btn',on:()=>inviteFriend(f)},'島に誘う'),h('button',{class:'btn sub',on:()=>{RT.mailTo=f.id;RT.mailTab='in';openOnline('mail')}},'メール'),
+        h('button',{class:'btn',on:()=>inviteFriend(f)},'島に誘う'),
         h('button',{class:'btn sub',title:'フレンドをやめる',on:()=>{if(confirm(`${f.name}とのフレンドをやめますか？`))accSend({t:'fremove',id:f.id})}},'✕')))));
     if(F.reqOut.length)body.append(h('div',{class:'card'},h('b',{},`申請中（${F.reqOut.length}）`),...F.reqOut.map(r=>h('div',{class:'frow'},h('span',{class:'grow'},r.name,h('small',{class:'muted'},` ${r.id}`)),h('button',{class:'btn sub',on:()=>accSend({t:'fcancel',id:r.id})},'取り消す')))));
   }
@@ -8163,7 +8164,7 @@ function renderFriendPlay(body){
 }
 function renderMail(body){
   const net=RT.visiting?(OWN_KEEP&&OWN_KEEP.net):S.net;
-  if(!net){body.append(h('p',{class:'muted'},'メールを使うには、「フレンドと遊ぶ」のタブで友だちIDを作ってね。'));return}
+  if(!net){body.append(h('p',{class:'muted'},'メールを使うには、メニューの「友だち」で友だちIDを作ってね。'));return}
   if(!ACC.authed){body.append(h('div',{class:'netnote'},'⏳ サーバーにつないでいます…（1分ほどかかることがあるよ）'));accConnect(false)}
   const F=ACC.friends.list;
   // 書く
@@ -8205,6 +8206,52 @@ setTimeout(function wait(){if(!S||RT.title){setTimeout(wait,3000);return}if(S.ne
 .dot.on{background:#4fbf6a;box-shadow:0 0 0 3px rgba(79,191,106,.25)}
 .mailc.unread{border-color:#f0b860;background:#fffaf0}
 `;document.head.append(st)}
+</script>
+<script>
+// ===================== 家の前のポスト =====================
+// 自分の家の玄関の右どなりに、赤いポストが立っている。フレンドからのメールは、メニューではなくこのポストで読んだり送ったりする（friends.js の renderMail）。
+// メールが届いているときは、ポストの旗が上がり、手紙のマークがふわふわ浮かんで、ポストが光る（夜はまわりも明るくなる）。
+// 友だちの島に遊びに来ているときは、その島の持ち主のポストなので、見るだけで開けない。
+function postTile(){const hb=ISL&&ISL.bld&&ISL.bld.find(b=>b.type==='house');return hb?[hb.door.x+1,hb.door.y]:null}
+const postAt=(x,y)=>{const p=postTile();return !!p&&onIsland()&&p[0]===x&&p[1]===y};
+const postHasMail=()=>!RT.visiting&&(ACC.unread||0)>0;
+// 島を作るたびに、ポストのマスを通れなくする
+{const _gen=genWorld;genWorld=function(seed){_gen(seed);const p=postTile();if(p&&W===ISL)W.block[ti(p[0],p[1])]=1}}
+// 開く
+function openPost(){
+  if(RT.visiting){toast('これは友だちのポスト。自分のメールは、自分の島のポストで見られるよ');return}
+  if(S.net&&!ACC.ws)accConnect(false);
+  openPanel('ポスト',null,null,body=>{
+    body.append(h('p',{class:'muted',style:'margin:0 0 10px'},'📮 家の前のポスト。フレンドからのメールを読んだり、メールを送ったりできるよ。'));
+    renderMail(body);
+  });
+}
+// 案内・Aボタン・タップ
+{const _hint=hintText;hintText=function(){if(!RT.fishing&&!RT.layout&&onIsland()){const [fx,fy]=facingTile();if(postAt(fx,fy))return RT.visiting?'友だちのポスト':postHasMail()?'メールを読む':'ポストを見る'}return _hint()}}
+{const _pressA=pressA;pressA=function(){if(S&&!RT.dlg&&!RT.panel&&!RT.jump&&!RT.fishing&&!RT.catchShow&&onIsland()){const [fx,fy]=facingTile();if(postAt(fx,fy)){openPost();return}}return _pressA()}}
+{const _click=surpriseClick;surpriseClick=function(tx,ty){if(postAt(tx,ty))return {act:true,tx,ty,stands:n4(tx,ty)};return _click(tx,ty)}}
+// 描く
+function drawPost(g,t){
+  const p=postTile();if(!p)return;const x=(p[0]+.5)*T,y=(p[1]+1)*T-4,mail=postHasMail();
+  shadow(g,x,y,6);
+  if(mail){const a=.3+.15*Math.sin(t*4);const gl=g.createRadialGradient(x,y-38,2,x,y-38,26);gl.addColorStop(0,`rgba(255,225,120,${a})`);gl.addColorStop(1,'rgba(255,225,120,0)');g.fillStyle=gl;g.fillRect(x-26,y-64,52,52)}   // 届いているときの光
+  rrect(g,x-2,y-30,4,30,1,'#8a5a34');rrect(g,x-5,y-3,10,3,1,'#6a4224');   // 柱と足もと
+  rrect(g,x-9,y-46,18,16,3,'#d9534f');g.fillStyle='rgba(255,255,255,.18)';g.fillRect(x-8,y-45,16,2);   // 箱
+  poly(g,[[x-11,y-46],[x,y-53],[x+11,y-46]],'#a83a36');   // 屋根
+  rrect(g,x-6,y-42,12,3,1,'#3a2a2a');   // 入れ口
+  rrect(g,x-4.5,y-37.5,9,6,1,'#fff6ea');g.strokeStyle='#c8a080';g.lineWidth=.8;g.beginPath();g.moveTo(x-4.5,y-37.5);g.lineTo(x,y-34);g.lineTo(x+4.5,y-37.5);g.stroke();   // 手紙の印
+  // 旗：届いていれば上がる
+  rrect(g,x+9,mail?y-54:y-44,2,mail?12:8,1,'#55585c');
+  if(mail)poly(g,[[x+11,y-54],[x+19,y-50],[x+11,y-46]],'#f6d860');else poly(g,[[x+11,y-40],[x+17,y-40],[x+11,y-36]],'#f6d860');
+  if(mail){   // 浮かぶ手紙のマーク
+    const cy=y-64+Math.sin(t*3)*2.5,cx=x;
+    rrect(g,cx-8,cy-6,16,12,2,'#fff');g.strokeStyle='#d9534f';g.lineWidth=1.2;g.beginPath();g.roundRect(cx-8,cy-6,16,12,2);g.stroke();
+    g.beginPath();g.moveTo(cx-8,cy-6);g.lineTo(cx,cy+1);g.lineTo(cx+8,cy-6);g.stroke();
+    const n=ACC.unread;circ(g,cx+8,cy-6,5,'#e0383c');g.fillStyle='#fff';g.font='bold 7px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(n>9?'9+':String(n),cx+8,cy-5.5);g.textBaseline='alphabetic';
+  }
+}
+{const _obj=surpriseObjects;surpriseObjects=function(D,ctx,t){_obj(D,ctx,t);if(W===ISL&&onIsland()){const p=postTile();if(p)D.push([(p[1]+1)*T-4,()=>drawPost(ctx,t)])}}}
+{const _lights=decoLights;decoLights=function(glow,night){_lights(glow,night);if(postHasMail()){const p=postTile();if(p)glow((p[0]+.5)*T,(p[1]+1)*T-42,70,.5*night*2)}}}   // 夜：届いていればまわりも明るい
 </script>
 <script>
 // ===================== タイトル画面 =====================
