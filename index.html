@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.060";</script>
+<script>const GAME_VERSION="1.061";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -8239,7 +8239,10 @@ function drawPost(g,t){
   poly(g,[[x-11,y-46],[x,y-53],[x+11,y-46]],'#a83a36');   // 屋根
   rrect(g,x-6,y-42,12,3,1,'#3a2a2a');   // 入れ口
   if(!mail)return;
-  rrect(g,x+9,y-55,2,13,1,'#55585c');poly(g,[[x+11,y-55],[x+20,y-51],[x+11,y-47]],'#f6d860');   // 届いているときは、右わきの旗が立つ
+  // 届いているときは、右わきに大きな赤い旗が立つ（少しゆれる）
+  {const w=Math.sin(t*5)*1.5;rrect(g,x+9,y-66,2.5,22,1,'#3e3e44');
+    g.fillStyle='#ff3d2e';g.strokeStyle='#fff';g.lineWidth=1.4;g.lineJoin='round';g.beginPath();g.moveTo(x+11.5,y-66);g.quadraticCurveTo(x+22+w,y-63,x+30+w,y-59);g.lineTo(x+11.5,y-50);g.closePath();g.fill();g.stroke();
+    g.fillStyle='#fff';g.beginPath();g.moveTo(x+15,y-61);g.lineTo(x+23,y-59.5);g.lineTo(x+15,y-55);g.closePath();g.fill()}   // 旗の中の白い印
   // メールのマーク：光りながら少しふくらむ
   const pl=.5+.5*Math.sin(t*4),cx=x,cy=y-35.5;
   const gl=g.createRadialGradient(cx,cy,2,cx,cy,16+pl*4);gl.addColorStop(0,`rgba(255,240,150,${.55+pl*.3})`);gl.addColorStop(1,'rgba(255,240,150,0)');g.fillStyle=gl;g.fillRect(cx-22,cy-22,44,44);
