@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.059";</script>
+<script>const GAME_VERSION="1.060";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -8210,7 +8210,7 @@ setTimeout(function wait(){if(!S||RT.title){setTimeout(wait,3000);return}if(S.ne
 <script>
 // ===================== 家の前のポスト =====================
 // 自分の家の玄関の右どなりに、赤いポストが立っている。フレンドからのメールは、メニューではなくこのポストで読んだり送ったりする（friends.js の renderMail）。
-// メールが届いているときは、箱にメールのマーク（未読の数つき）が付いて、マークが光る。無いときは、ただの赤いポスト。
+// メールが届いているときは、旗が立ち、箱にメールのマーク（未読の数つき）が付いて、マークが光る。無いときは、ただの赤いポスト。
 // 友だちの島に遊びに来ているときは、その島の持ち主のポストなので、見るだけで開けない。
 function postTile(){const hb=ISL&&ISL.bld&&ISL.bld.find(b=>b.type==='house');return hb?[hb.door.x+1,hb.door.y]:null}
 const postAt=(x,y)=>{const p=postTile();return !!p&&onIsland()&&p[0]===x&&p[1]===y};
@@ -8230,7 +8230,7 @@ function openPost(){
 {const _hint=hintText;hintText=function(){if(!RT.fishing&&!RT.layout&&onIsland()){const [fx,fy]=facingTile();if(postAt(fx,fy))return RT.visiting?'友だちのポスト':postHasMail()?'メールを読む':'ポストを見る'}return _hint()}}
 {const _pressA=pressA;pressA=function(){if(S&&!RT.dlg&&!RT.panel&&!RT.jump&&!RT.fishing&&!RT.catchShow&&onIsland()){const [fx,fy]=facingTile();if(postAt(fx,fy)){openPost();return}}return _pressA()}}
 {const _click=surpriseClick;surpriseClick=function(tx,ty){if(postAt(tx,ty))return {act:true,tx,ty,stands:n4(tx,ty)};return _click(tx,ty)}}
-// 描く：メールが無いときは、ただの赤いポスト。届いているときは、箱にメールのマークが付いて、マークが光る
+// 描く：メールが無いときは、ただの赤いポスト。届いているときは、旗が立ち、箱にメールのマークが付いて、マークが光る
 function drawPost(g,t){
   const p=postTile();if(!p)return;const x=(p[0]+.5)*T,y=(p[1]+1)*T-4,mail=postHasMail();
   shadow(g,x,y,6);
@@ -8239,6 +8239,7 @@ function drawPost(g,t){
   poly(g,[[x-11,y-46],[x,y-53],[x+11,y-46]],'#a83a36');   // 屋根
   rrect(g,x-6,y-42,12,3,1,'#3a2a2a');   // 入れ口
   if(!mail)return;
+  rrect(g,x+9,y-55,2,13,1,'#55585c');poly(g,[[x+11,y-55],[x+20,y-51],[x+11,y-47]],'#f6d860');   // 届いているときは、右わきの旗が立つ
   // メールのマーク：光りながら少しふくらむ
   const pl=.5+.5*Math.sin(t*4),cx=x,cy=y-35.5;
   const gl=g.createRadialGradient(cx,cy,2,cx,cy,16+pl*4);gl.addColorStop(0,`rgba(255,240,150,${.55+pl*.3})`);gl.addColorStop(1,'rgba(255,240,150,0)');g.fillStyle=gl;g.fillRect(cx-22,cy-22,44,44);
