@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.046";</script>
+<script>const GAME_VERSION="1.047";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7728,7 +7728,7 @@ function tickTodayChat(dt){
 // 起動したとき・日付が変わったときに、1日1回だけ出す
 let _dailyLast=0;
 setInterval(()=>{
-  if(!S||RT.title||RT.dlg||RT.panel||RT.layout||RT.catchShow)return;
+  if(!S||RT.title||RT.dlg||RT.panel||RT.layout||RT.catchShow||RT.visiting)return;
   if((S.login||{}).last!==realDay())openLoginBonus();
   else{const E=todayEvent();if(!E.done&&E.kind!=='chat'&&performance.now()-_dailyLast>3000){_dailyLast=performance.now();startTodayEvent()}else if(E.kind==='chat'&&!E.announced){E.announced=true;startTodayEvent()}}
 },1500);
@@ -7812,6 +7812,173 @@ function openNotify(){
 {const b=document.createElement('button');b.className='mbtn';b.id='bNotify';b.textContent='お知らせ';const x=$('bXfer');x.before(b);b.onclick=()=>RT.title||openNotify()}
 addEventListener('load',()=>setTimeout(notifySync,2000));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')notifySync()});
+</script>
+<script>
+// ===================== 友だちと一緒に歩く（合言葉） =====================
+// 島の持ち主が合言葉で「島の門」をひらき、友だちは同じ合言葉で遊びに行く。中継サーバー（pwa/relay/server.py）を通して、
+// おたがいの位置・向き・歩き・ジャンプ・気持ちマーク・見た目（服・帽子・小物）を、その場で見せ合う。
+// 遊びに来た人は、持ち主の島を「見て歩く」だけ（島を変えることはできない。自分の島のセーブにはさわらない）。
+const RELAY_URL=(()=>{try{return localStorage.getItem('hidamari-relay')||'wss://hidamari-relay.onrender.com'}catch(e){return 'wss://hidamari-relay.onrender.com'}})();
+const NET={ws:null,role:null,code:'',me:null,host:null,peers:new Map(),lastSt:'',lastStT:0,lastLook:'',lastTime:0,status:''};
+// peers: id -> {name,look,x,y,tx,ty,dir,diag,mv,run,jh,loc,walk,emote}
+const netOn=()=>!!NET.ws&&NET.ws.readyState===1&&!!NET.role;
+function netSend(o){if(NET.ws&&NET.ws.readyState===1)try{NET.ws.send(JSON.stringify(o))}catch(e){}}
+const myLook=()=>({name:(S.name&&S.name!=='あなた')?S.name:'だれか',gender:pcGender(),top:S.top||null,hat:S.hat||null,acc:S.acc||null});
+function netStatus(t){NET.status=t;if(RT.panel&&RT.panel.title==='友だちと遊ぶ')refresh()}
+// 中継サーバーにつなぐ（無料のサーバーは、しばらく使わないと眠っている。つなごうとすると起きるので、起きるまで最大 90秒ほど、つなぎ直しつづける）
+function tryOpen(ms){return new Promise(res=>{let done=false;const w=new WebSocket(RELAY_URL);const end=v=>{if(done)return;done=true;clearTimeout(tm);res(v)};
+  const tm=setTimeout(()=>{try{w.close()}catch(e){}end(null)},ms);w.onopen=()=>end(w);w.onerror=()=>end(null);w.onclose=()=>end(null)})}
+async function netConnect(role,code){
+  if(NET.ws)netClose(true);
+  const t0=performance.now();let ws=null;netStatus('島の門をひらいています…');
+  while(!ws&&performance.now()-t0<90000){
+    ws=await tryOpen(20000);
+    if(!ws){netStatus(`島の門をひらいています…（${Math.round((performance.now()-t0)/1000)}秒）`);await new Promise(r=>setTimeout(r,2500))}
+  }
+  if(!ws){netStatus('');toast('つながらなかった。通信のようすを確かめて、もう一度ためしてね');return}
+  NET.ws=ws;NET.code=code;
+  ws.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}netOnMsg(m)};
+  ws.onclose=()=>{const was=NET.role;if(NET.ws===ws){NET.ws=null;NET.role=null;NET.peers.clear()}
+    if(was==='guest'&&RT.visiting){leaveVisit('つながりが切れたので、自分の島に帰ってきた')}
+    else if(was==='host')toast('島の門がしまった');
+    netStatus('');updateNetBar()};
+  netSend({t:role==='host'?'host':'join',code,name:myLook().name});
+}
+function netClose(silent){
+  if(NET.role==='guest'&&RT.visiting)leaveVisit(silent?null:'自分の島に帰ってきた');
+  const ws=NET.ws;NET.ws=null;NET.role=null;NET.peers.clear();if(ws)try{ws.close()}catch(e){}
+  netStatus('');updateNetBar();
+}
+async function netOnMsg(m){
+  const P=NET.peers;
+  switch(m.t){
+    case 'err':{const w={code:'合言葉は 3〜20文字にしてね',taken:'その合言葉は、ほかの島が使っている。別の合言葉にしてね',noroom:'その合言葉の島が見つからない。島の持ち主が門をひらいているか、合言葉が合っているか確かめてね',full:'その島は、もういっぱい（4人まで）'}[m.why]||'うまくいかなかった';
+      toast(w);netStatus('');const ws=NET.ws;NET.ws=null;if(ws)try{ws.close()}catch(e){}break}
+    case 'hosted':NET.role='host';NET.me=m.id;NET.host=m.id;netStatus('');toast(`島の門をひらいた！ 友だちに合言葉「${NET.code}」を伝えてね`,true);sendLook(true);updateNetBar();break;
+    case 'joined':NET.role='guest';NET.me=m.id;NET.host=m.host;for(const [id,n] of Object.entries(m.names||{}))if(id!==m.id)P.set(id,{name:n});netStatus('島のようすを受け取っています…');sendLook(true);updateNetBar();break;
+    case 'peer':P.set(m.id,{name:m.name});toast(`${m.name}が島に遊びに来た！`,true);sfx('get');
+      if(NET.role==='host'){sendSnap(m.id);sendLook(true);NET.lastSt=''}
+      break;
+    case 'leave':{const p=P.get(m.id);P.delete(m.id);if(p)toast(`${p.name||'友だち'}が帰っていった`);break}
+    case 'closed':P.clear();if(RT.visiting)leaveVisit('島の持ち主が門をしめたので、自分の島に帰ってきた');try{NET.ws&&NET.ws.close()}catch(e){}break;
+    case 'snap':if(NET.role==='guest'&&!RT.visiting){try{const s=await readXferCode(m.data);startVisit(s)}catch(e){toast('島のようすを受け取れなかった');netClose(true)}}break;
+    case 'time':if(RT.visiting){S.min=m.min;S.day=m.day;S.weather=m.weather}break;
+    case 'look':{const p=P.get(m.from)||{};p.look=m.look;p.name=m.look&&m.look.name||p.name;P.set(m.from,p);break}
+    case 'st':{const p=P.get(m.from)||{};const first=p.x===undefined;Object.assign(p,{tx:m.x,ty:m.y,dir:m.dir,diag:m.diag,mv:m.mv,run:m.run,jh:m.jh,loc:m.loc,tAt:performance.now()});if(first){p.x=m.x;p.y=m.y}P.set(m.from,p);
+      if(NET.role==='guest'&&RT.visiting&&!RT.visitPlaced&&m.from===NET.host)placeNearHost(m.x,m.y);break}
+    case 'emo':{const p=P.get(m.from);if(p)p.emote={id:m.id,t0:performance.now()/1000};break}
+  }
+}
+async function sendSnap(to){
+  try{if(!S.v)S.v=2;const bytes=new TextEncoder().encode(JSON.stringify(S));
+    const data=typeof CompressionStream==='function'?'HIDA2:'+b64u(await pipeBytes(bytes,new CompressionStream('deflate-raw'))):'HIDA0:'+b64u(bytes);
+    netSend({t:'snap',to,data});netSend({t:'time',min:S.min,day:S.day,weather:S.weather})}catch(e){}
+}
+function sendLook(force){const L=JSON.stringify(myLook());if(force||L!==NET.lastLook){NET.lastLook=L;netSend({t:'look',look:myLook()})}}
+// ---- 遊びに行く（来た人の画面）----
+let OWN_KEEP=null;
+function startVisit(hostS){
+  if(S&&!RT.visiting)save();
+  OWN_KEEP={look:myLook(),gender:S.gender,top:S.top,hat:S.hat,acc:S.acc,name:S.name,tools:S.tools,weapon:S.weapon,weapons:S.weapons,emoLearned:S.emoLearned,emoLast:S.emoLast};
+  RT.visiting={host:NET.host};RT.visitPlaced=false;
+  const v=migrate(hostS);
+  // 見た目と名前は自分のもの（ゲームの絵は S の値で描くため）
+  Object.assign(v,{gender:OWN_KEEP.gender,top:OWN_KEEP.top,hat:OWN_KEEP.hat,acc:OWN_KEEP.acc,name:OWN_KEEP.name,emoLearned:OWN_KEEP.emoLearned,emoLast:OWN_KEEP.emoLast,tool:'hand',loc:'island',login:{last:realDay(),streak:1,total:1},todayEv:{day:realDay(),kind:'none',done:true}});
+  S=v;genWorld(S.seed);fitToMap();resetVillagers();resetMapRT();W=ISL;
+  RT.fade=.8;closePanel&&closePanel();updateHud();buildToolbar();updateNetBar();
+  const hn=(NET.peers.get(NET.host)||{}).name||'友だち';toast(`${hn}の島に遊びに来た！ 島を見て歩いたり、気持ちマークを見せ合ったりできるよ`,true);netStatus('');
+}
+function placeNearHost(x,y){
+  RT.visitPlaced=true;
+  const [hx,hy]=[Math.floor(x/T),Math.floor((y-4)/T)];
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[2,0],[-2,0]])if(walkable(hx+dx,hy+dy)){S.px=(hx+dx+.5)*T;S.py=(hy+dy+.5)*T+4;return}
+  S.px=x;S.py=y;
+}
+function leaveVisit(msg){
+  if(!RT.visiting)return;RT.visiting=null;RT.visitPlaced=false;
+  const sv=load();
+  if(sv){S=migrate(sv);genWorld(S.seed);fitToMap();resetVillagers();resetMapRT();
+    if(S.loc!=='island'){const px=S.px,py=S.py;if(S.loc==='home')goHome(null);else if(S.loc==='museum')goMuseum(null);else if(S.loc==='shop')goShop(null);else if(S.loc.startsWith('vh:'))goVHouse(S.loc.slice(3),null);else goCave(+S.loc.slice(4),null);S.px=px;S.py=py}}
+  RT.fade=.8;updateHud();buildToolbar();updateNetBar();if(msg)toast(msg,true);
+}
+// 遊びに来ているあいだは、自分のセーブを書きかえない。島を変えることもできない
+{const _save=save;save=function(){if(RT.visiting)return;_save()}}
+{const _pressA=pressA;pressA=function(){
+  if(RT.visiting&&!RT.dlg){const h=hintText&&hintText();if(h!=='話す'){toast('遊びに来ているあいだは、島を見て歩くだけ（住民と話すことはできるよ）');return}}
+  return _pressA()}}
+{const _hint=hintText;hintText=function(){const h=_hint();return RT.visiting&&h!=='話す'?null:h}}   // 遊びに来ているあいだは「話す」だけ案内する
+addEventListener('keydown',e=>{if(RT.visiting&&['KeyE','KeyR','KeyG','KeyC','KeyP','KeyI','KeyQ'].includes(e.code)&&!(document.activeElement&&document.activeElement.tagName==='INPUT')){e.stopImmediatePropagation();toast('遊びに来ているあいだは、メニューは使えない')}},true);
+// ---- 送る ----
+setInterval(()=>{
+  if(!netOn()||!S||RT.title)return;
+  const now=performance.now(),mv=!!(RT.walk&&(RT.running||RT.goal||keys.size))||!!RT.jump;
+  const st={t:'st',x:Math.round(S.px),y:Math.round(S.py),dir:S.dir,diag:RT.diag||null,mv:!!(RT.walk>0&&(keys.size||RT.goal||pad.x||pad.y||(typeof mHold!=='undefined'&&mHold&&mHold.on))),run:!!RT.running,jh:Math.round(RT.jumpH||0),loc:S.loc};
+  const k=JSON.stringify(st);
+  if(k!==NET.lastSt||now-NET.lastStT>1000){NET.lastSt=k;NET.lastStT=now;netSend(st)}
+  if(now-(NET.lookT||0)>1000){NET.lookT=now;sendLook(false)}
+  if(NET.role==='host'&&now-NET.lastTime>4000&&NET.peers.size){NET.lastTime=now;netSend({t:'time',min:S.min,day:S.day,weather:S.weather})}
+},100);
+{const _se=showEmote;showEmote=function(id){_se(id);if(netOn())netSend({t:'emo',id})}}
+// ---- 描く：ほかの人（同じ場所にいる人だけ） ----
+function drawRemote(ctx,p,t){
+  const L=p.look||{};const keep={gender:S.gender,top:S.top,hat:S.hat,acc:S.acc,tool:S.tool},kd=RT.diag,kw=RT.walk,kr=RT.running;
+  Object.assign(S,{gender:L.gender||'m',top:L.top||null,hat:L.hat||null,acc:L.acc||null,tool:'hand'});RT.diag=p.diag||null;
+  try{const jh=p.jh||0;if(jh)shadow(ctx,p.x,p.y,8);drawHuman(ctx,p.x,p.y-jh,p.dir||'down',p.mv?p.walk:0,{})}finally{Object.assign(S,keep);RT.diag=kd;RT.walk=kw;RT.running=kr}
+  // 名前
+  const nm=p.name||'友だち';ctx.font='bold 10px "Zen Maru Gothic",sans-serif';const w=ctx.measureText(nm).width+10;
+  ctx.fillStyle='rgba(255,255,255,.92)';ctx.beginPath();ctx.roundRect(p.x-w/2,p.y-PC_H-17-(p.jh||0),w,14,7);ctx.fill();ctx.fillStyle='#3f8a58';ctx.textAlign='center';ctx.fillText(nm,p.x,p.y-PC_H-6.5-(p.jh||0));
+  if(p.emote){const age=performance.now()/1000-p.emote.t0;if(age>EMOTE_SEC)p.emote=null;else drawEmoteBubble(ctx,p.x,p.y-PC_H-20-(p.jh||0),p.emote.id,age)}
+}
+const _surpriseObjNet=surpriseObjects;
+surpriseObjects=function(D,ctx,t){
+  _surpriseObjNet(D,ctx,t);
+  if(!NET.peers.size)return;
+  const dt=Math.min(.1,(t-(NET.lastDraw||t)));NET.lastDraw=t;
+  for(const [id,p] of NET.peers){
+    if(p.tx===undefined||p.loc!==S.loc)continue;
+    // なめらかに近づける
+    const k=Math.min(1,dt*12);p.x+=(p.tx-p.x)*k;p.y+=(p.ty-p.y)*k;if(Math.hypot(p.tx-p.x,p.ty-p.y)>T*6){p.x=p.tx;p.y=p.ty}
+    p.walk=(p.walk||0)+(p.mv?dt*(p.run?16:10):0);
+    D.push([p.y,()=>drawRemote(ctx,p,t)]);
+  }
+};
+// ---- 画面：メニューの「友だち」と、つながっているときの帯 ----
+function openOnline(){
+  openPanel('友だちと遊ぶ',null,null,body=>{
+    if(NET.status)body.append(h('div',{class:'card',style:'text-align:center'},h('b',{},NET.status),h('p',{class:'muted',style:'margin:6px 0 0'},'はじめてのときや、しばらくだれも使っていないときは、1分ほどかかることがあるよ。')));
+    if(netOn()&&NET.role==='host'){
+      const names=[...NET.peers.values()].map(p=>p.name||'友だち');
+      body.append(h('div',{class:'card'},h('b',{},`島の門がひらいています（合言葉：${NET.code}）`),h('p',{class:'muted',style:'margin:6px 0'},names.length?`遊びに来ている人：${names.join('、')}`:'友だちが来るのを待っています。合言葉を伝えてね。'),
+        h('button',{class:'btn sub',on:()=>{netClose();refresh()}},'門をしめる')));return}
+    if(netOn()&&NET.role==='guest'){body.append(h('div',{class:'card'},h('b',{},'友だちの島に遊びに来ています'),h('button',{class:'btn sub',style:'margin-top:8px',on:()=>{netClose();closePanel()}},'自分の島に帰る')));return}
+    body.append(h('p',{class:'muted',style:'margin:0 0 10px'},'合言葉を決めて、友だちを自分の島に呼んだり、友だちの島に遊びに行ったりできるよ。いっしょに島を歩いて、気持ちマークを見せ合おう（4人まで）。'));
+    const inp=(ph)=>h('input',{maxlength:'20',placeholder:ph,style:'font:inherit;font-size:15px;padding:8px 12px;border-radius:10px;border:2px solid var(--line);width:12em;color:var(--ink);background:#fff'});
+    const hi=inp('合言葉（3〜20文字）'),gi2=inp('友だちの合言葉');
+    const busy=!!NET.status;
+    body.append(h('div',{class:'card'},h('b',{},'友だちを呼ぶ'),h('p',{class:'muted',style:'margin:4px 0 8px'},'合言葉を決めて門をひらき、その合言葉を友だちに伝えてね。'),h('div',{class:'rowline',style:'margin:0;gap:8px;flex-wrap:wrap'},hi,
+      h('button',{class:'btn',...(busy?{disabled:''}:{}),on:()=>{const c=hi.value.trim();if(c.length<3){toast('合言葉は3文字以上にしてね');return}if(S.loc!=='island'){toast('島の外に出てから、門をひらいてね')}netConnect('host',c)}},'門をひらく'))));
+    body.append(h('div',{class:'card'},h('b',{},'遊びに行く'),h('p',{class:'muted',style:'margin:4px 0 8px'},'友だちが決めた合言葉を入れてね。遊びに行っているあいだは、見て歩くだけ（自分の島のセーブはそのまま）。'),h('div',{class:'rowline',style:'margin:0;gap:8px;flex-wrap:wrap'},gi2,
+      h('button',{class:'btn',...(busy?{disabled:''}:{}),on:()=>{const c=gi2.value.trim();if(c.length<3){toast('合言葉を入れてね');return}netConnect('guest',c)}},'遊びに行く'))));
+  });
+}
+{const b=document.createElement('button');b.className='mbtn';b.id='bOnline';b.textContent='友だち';$('bXfer').before(b);b.onclick=()=>RT.title||openOnline()}
+const netBar=document.createElement('div');netBar.id='netBar';netBar.hidden=true;document.getElementById('app').append(netBar);
+function updateNetBar(){
+  if(!netOn()){netBar.hidden=true;return}netBar.hidden=false;netBar.innerHTML='';
+  const n=NET.peers.size;
+  const txt=NET.role==='host'?`🌸 島の門がひらいています（合言葉：${NET.code}）${n?`・${n}人が来ています`:''}`:`🌸 ${(NET.peers.get(NET.host)||{}).name||'友だち'}の島に遊びに来ています`;
+  const s=document.createElement('span');s.textContent=txt;const b=document.createElement('button');b.textContent=NET.role==='host'?'門をしめる':'帰る';b.onclick=()=>netClose();netBar.append(s,b);
+}
+setInterval(updateNetBar,2000);
+addEventListener('beforeunload',()=>{try{NET.ws&&NET.ws.close()}catch(e){}});
+{const st=document.createElement('style');st.textContent=`
+#netBar{position:absolute;left:50%;top:calc(8px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:8;display:flex;align-items:center;gap:10px;background:rgba(255,248,232,.95);border:2px solid #f0b860;border-radius:999px;padding:5px 6px 5px 14px;font:700 12px "Zen Maru Gothic",sans-serif;color:#7a4a10;box-shadow:0 3px 0 #c8851c;pointer-events:auto;max-width:92vw}
+#netBar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#netBar button{border:0;border-radius:999px;background:#e6a93a;color:#fff;font:700 12px "Zen Maru Gothic",sans-serif;padding:5px 12px;cursor:pointer}
+#app.visiting #menubtns .mbtn:not(#bOnline){opacity:.4;pointer-events:none}
+#app.visiting #tasks{display:none}
+`;document.head.append(st)}
+setInterval(()=>{document.getElementById('app').classList.toggle('visiting',!!RT.visiting)},500);
 </script>
 <script>
 // ===================== タイトル画面 =====================
