@@ -256,7 +256,7 @@ async def handler(ws):
 
 def health(connection, request):
     if request.headers.get("Upgrade", "").lower() != "websocket":
-        r = connection.respond(HTTPStatus.OK, f"ok {len(rooms)} {len(online)}\n")
+        r = connection.respond(HTTPStatus.OK, f"ok {len(rooms)} {len(online)} {('pg' if db.pg else 'sqlite') if db else 'nodb'}\n")
         r.headers["Access-Control-Allow-Origin"] = "*"
         r.headers["Cache-Control"] = "no-store"
         return r
