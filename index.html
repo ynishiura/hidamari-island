@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.056";</script>
+<script>const GAME_VERSION="1.057";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7153,10 +7153,30 @@ Object.assign(FURN2_PAINT,{
     circ(g,W-11,H-14,3,'#e6c45a');circ(g,W-11,H-7,2,'#3a3a40');g.strokeStyle='#9aa3ab';g.lineWidth=1;g.beginPath();g.moveTo(W-8,H-20);g.lineTo(W-3,H-30);g.stroke()},
   loveseat(g,W,H){fShadow(g,2,H-10,W-4,10,4,.3);const c='#5f8fc8';g.fillStyle=fLin(g,0,-4,0,12,[[0,shade(c,.15)],[1,c]]);fRR(g,4,-4,W-8,16,6);g.fill();
     fCloth(g,2,8,W-4,H-10,5,c);for(const x of [6,W/2+1])fCloth(g,x,10,W/2-7,8,4,shade(c,.12));rrect(g,0,6,7,H-8,3,shade(c,-.1));rrect(g,W-7,6,7,H-8,3,shade(c,-.1));rrect(g,W/2-6,-1,12,9,3,'#f6d860')},
-  hammock(g,W,H){fShadow(g,4,H-6,W-8,6,3,.25);for(const x of [3,W-3]){rrect(g,x-1.5,-8,3,H+6,1,'#8a5a34')}
-    g.strokeStyle='#c9b48e';g.lineWidth=.8;for(const s of [-1,1]){g.beginPath();g.moveTo(W/2+s*(W/2-3),-4);g.lineTo(W/2+s*(W/2-10),4);g.stroke()}
-    g.fillStyle=fLin(g,0,2,0,14,[[0,'#f08a3c'],[1,'#c8603a']]);g.beginPath();g.moveTo(8,4);g.quadraticCurveTo(W/2,20,W-8,4);g.quadraticCurveTo(W/2,10,8,4);g.fill();
-    g.save();g.clip();g.fillStyle='#f6d860';for(let x=10;x<W-8;x+=8)g.fillRect(x,0,3,20);g.restore()},
+  // ロープの網のハンモック（木のスタンド・白いふさ・青いまくら）
+  hammock(g,W,H){
+  fShadow(g,2,H-7,W-4,8,4,.28);
+  // 土台：両はしの弓なりの脚
+  for(const s of [-1,1]){const bx=W/2+s*(W/2-6);g.strokeStyle='#7a4e2c';g.lineWidth=4;g.lineCap='round';g.beginPath();g.moveTo(bx-s*8,H-3);g.quadraticCurveTo(bx+s*2,H-3,bx,H-20);g.lineTo(bx,-H+12);g.stroke();
+    g.strokeStyle='rgba(255,230,190,.3)';g.lineWidth=1.2;g.beginPath();g.moveTo(bx-1,-H+12);g.lineTo(bx-1,H-18);g.stroke();circ(g,bx,-H+12,3,'#6a4224')}
+  // 網のかたち：横長の舟形
+  const x0=8,x1=W-8,ym=0,cx=W/2;
+  const net=()=>{g.beginPath();g.moveTo(x0,ym);g.quadraticCurveTo(cx,ym-6,x1,ym);g.quadraticCurveTo(cx,ym+42,x0,ym);g.closePath()};
+  // 柱からひもが扇のように
+  g.strokeStyle='#efe3c4';g.lineWidth=.9;
+  for(const s of [-1,1]){const bx=W/2+s*(W/2-6);for(let i=0;i<6;i++){const t=i/5;g.beginPath();g.moveTo(bx,-H+13);g.lineTo(cx+s*(W/2-8-t*4),ym-4+t*12);g.stroke()}}
+  // 布（うすい生成り）＋網の目
+  g.save();net();g.clip();
+  g.fillStyle=fLin(g,0,ym-8,0,ym+34,[[0,'#f3e6c6'],[1,'#c9ad7e']]);g.fillRect(0,-20,W,70);
+  g.strokeStyle='rgba(120,90,50,.45)';g.lineWidth=.6;
+  for(let i=-8;i<10;i++){g.beginPath();g.moveTo(x0+i*6,ym-10);g.lineTo(x0+i*6+14,ym+34);g.stroke();g.beginPath();g.moveTo(x0+i*6+14,ym-10);g.lineTo(x0+i*6,ym+34);g.stroke()}
+  g.fillStyle=fLin(g,0,ym+8,0,ym+34,[[0,'rgba(0,0,0,0)'],[1,'rgba(80,50,20,.35)']]);g.fillRect(0,ym+8,W,30);
+  g.restore();
+  g.strokeStyle='#8a6a40';g.lineWidth=1;net();g.stroke();
+  // 下のふちの白いふさ
+  g.strokeStyle='#fff8e8';g.lineWidth=.8;for(let x=x0+4;x<x1-2;x+=4){const yy=ym+(1-Math.pow((x-cx)/(cx-x0),2))*20;g.beginPath();g.moveTo(x,yy);g.lineTo(x+(x%8?1:-1),yy+4);g.stroke()}
+  // まくら（青）
+  g.save();g.translate(x0+12,ym+4);g.rotate(-.1);rrect(g,-6.5,-3,13,6,3,'#7fa6d8');rrect(g,-5.5,-2.2,11,2,1,'rgba(255,255,255,.45)');g.restore();},
   stove(g,W,H){fShadow(g,4,H-8,W-8,8,4,.3);rrect(g,5,H-24,W-10,21,4,'#5a5f66');rrect(g,8,H-18,W-16,11,2,'#2a2e33');
     g.fillStyle=fLin(g,0,H-16,0,H-8,[[0,'#ffd27a'],[1,'#f0703a']]);g.beginPath();g.ellipse(W/2,H-12,5,3.5,0,0,7);g.fill();rrect(g,6,H-26,W-12,3,1.5,'#7a828a');rrect(g,W/2-4,H-31,8,5,1,'#8a929a');
     for(const x of [8,W-8])rrect(g,x-1,H-4,2,3,.5,'#3a3e44')},
