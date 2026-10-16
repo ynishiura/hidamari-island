@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.067";</script>
+<script>const GAME_VERSION="1.068";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7726,14 +7726,15 @@ const HATD={};
 // 横向き・後ろ向きの絵の大きさは、正面の絵との「シート上の大きさの比」から決める（同じ帽子はどの向きでも同じ縮尺。シートごとの描かれた大きさのちがいは SHEET_K で補正）
 const SHEET_K={f:1,b:.78,l:1.0,r:1.0};   // 後ろ向きのシートは、ほかより約1.3倍大きく描かれている
 const HAT_IMG_FIT={
-  hat_cap:{w:1.15,y:.55,ys:.68,dx:-.22},hat_cap_red:{w:1.15,y:.55,ys:.68,dx:-.22},hat_cap_black:{w:1.15,y:.55,ys:.62,dx:-.12},
+  // ws/wb：横向き・後ろ向きの絵の幅を直接決める（頭の幅の何倍か）。シートの縮尺が正面とちがう帽子だけ
+  hat_cap:{w:1.15,y:.55,ws:1.22,ys:.60,dx:-.14,wb:1.1,yb:.66},hat_cap_red:{w:1.15,y:.55,ws:1.22,ys:.60,dx:-.14,wb:1.1,yb:.66},hat_cap_black:{w:1.15,y:.55,ws:1.15,ys:.60,dx:-.08,wb:1.1,yb:.6},
   hat_knit:{w:1.12,y:.66},hat_knit_blue:{w:1.12,y:.66},hat_knit_green:{w:1.12,y:.66},
   hat_beret:{w:1.25,y:.50,dx:-.05},hat_beret_red:{w:1.25,y:.50,dx:-.05},hat_beret_navy:{w:1.25,y:.50,dx:-.05},
   hat_straw:{w:1.7,y:.58,ys:.62},hat_straw_blue:{w:1.7,y:.58,ys:.62},hat_bucket:{w:1.45,y:.60,ys:.62},hat_top:{w:1.15,y:.52},hat_witch:{w:1.7,y:.56,dx:-.08},
-  hat_cowboy:{w:1.7,y:.58,ys:.60},hat_santa:{w:1.25,y:.62,dx:-.15},hat_chef:{w:1.15,y:.54},hat_party:{w:.7,y:.12},
+  hat_cowboy:{w:1.7,y:.58,ys:.60},hat_santa:{w:1.25,y:.62,ws:1.3,ys:.50,dx:-.22,wb:1.15,yb:.70},hat_chef:{w:1.15,y:.54},hat_party:{w:.7,y:.12},
   hat_ribbon:{w:.95,y:.12,dx:-.1},hat_crown:{w:.8,y:.12},hat_tiara:{w:.85,y:.14},hat_flower:{w:1.15,y:.26},
   hat_catear:{w:.95,y:.30,ys:.45},hat_bunny:{w:.8,y:.30,ys:.45},
-  hat_helmet:{w:1.25,y:.58,ys:.60},hat_sailor:{w:1.15,y:.52,dx:-.05},hat_earmuff:{w:1.3,y:.95},
+  hat_helmet:{w:1.25,y:.58,ys:.60},hat_sailor:{w:1.15,y:.52,dx:-.05},hat_earmuff:{w:1.3,y:.95,ws:.5,ys:.75,dx:-.25,wb:1.1,yb:.90},
 };
 // 向き d8（d/u/l/r/dl/dr/ul/ur）に合う絵を、頭のてっぺん (hx,hy)・頭の幅 hw に合わせて描く。絵が無ければ false
 function drawHatImg(g,id,d8,hx,hy,hw){
@@ -7742,7 +7743,8 @@ function drawHatImg(g,id,d8,hx,hy,hw){
   const F=HAT_IMG_FIT[id]||{w:1.2,y:.5},imf=gi(`${id}_f`);
   const side=v==='l'||v==='r',f=v==='l'?-1:1;
   // 正面の絵の幅を頭の幅×F.w にする縮尺を、ほかの向きにもそのまま使う（シートごとの大きさのちがいだけ補正）
-  const scale=(imf&&imf.naturalWidth?hw*F.w/imf.naturalWidth:hw*F.w/im.naturalWidth)*SHEET_K[v];
+  let scale=(imf&&imf.naturalWidth?hw*F.w/imf.naturalWidth:hw*F.w/im.naturalWidth)*SHEET_K[v];
+  if(side&&F.ws)scale=hw*F.ws/im.naturalWidth;else if(v==='b'&&F.wb)scale=hw*F.wb/im.naturalWidth;   // 幅を直接決めている帽子
   const w=im.naturalWidth*scale,h=im.naturalHeight*scale;
   const yoff=side?(F.ys!==undefined?F.ys:F.y):v==='b'?(F.yb!==undefined?F.yb:F.y):F.y;
   const dx=side?f*hw*(F.dx||0):0;
