@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.064";</script>
+<script>const GAME_VERSION="1.065";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -6379,8 +6379,9 @@ function headOf(im){
   const iw=im.naturalWidth,ih=im.naturalHeight,c=document.createElement('canvas');c.width=iw;c.height=ih;const cg=c.getContext('2d');cg.drawImage(im,0,0);
   const d=cg.getImageData(0,0,iw,ih).data,A=(x,y)=>d[(y*iw+x)*4+3]>120;
   let top=0;outer:for(let y=0;y<ih;y++)for(let x=0;x<iw;x++)if(A(x,y)){top=y;break outer}
-  let x0=iw,x1=0;const yh=Math.min(ih-1,top+Math.round(ih*.16));for(let y=top;y<=yh;y++)for(let x=0;x<iw;x++)if(A(x,y)){if(x<x0)x0=x;if(x>x1)x1=x}
-  r={top,cx:(x0+x1)/2,w:Math.max(1,x1-x0)};_headCache.set(im,r);return r;
+  // 頭の幅：頭の上から 38% までのうち、いちばん広い行（髪のてっぺんの細い所ではなく、頭そのものの幅）。帽子はこの幅で頭をすっぽりおおう
+  let bw=0,bcx=iw/2;const yh=Math.min(ih-1,top+Math.round(ih*.38));for(let y=top;y<=yh;y++){let x0=-1,x1=-1;for(let x=0;x<iw;x++)if(A(x,y)){if(x0<0)x0=x;x1=x}if(x0>=0&&x1-x0>bw){bw=x1-x0;bcx=(x0+x1)/2}}
+  r={top,cx:bcx,w:Math.max(1,bw)};_headCache.set(im,r);return r;
 }
 function drawHat(g,id,x,y,w,back,side,f){
   // (x,y) は頭のてっぺん、w は頭の幅（画面の大きさ）。back＝後ろ姿、side＝横向き（f は向いている側：-1 左／+1 右）
@@ -6397,6 +6398,8 @@ function drawHat(g,id,x,y,w,back,side,f){
     g.fillStyle='#f6d860';g.fillRect(-10,1,20,3);circ(g,0,-1,1.8,'#d9576b');circ(g,-6,1.5,1.3,'#3a9ad9');circ(g,6,1.5,1.3,'#5fbf6a')}
   g.restore();
 }
+const HAT_FIT={hat_ribbon:[0,.75],hat_crown:[.04,.7],hat_tiara:[.03,.8],hat_flower:[.02,.95],hat_catear:[.02,.9],hat_bunny:[.02,.9],hat_earmuff:[0,1.0],hat_party:[.06,.8]};
+let HAT_DIRS=false;   // 向きごとの帽子の絵（横・後ろ）を使うか。いまは正面の形を全部の向きで使う（横・後ろの形は確認待ち）
 const _drawHumanBase=drawHuman;
 drawHuman=function(g,x,y,dir,frame,opt){
   _drawHumanBase(g,x,y,dir,frame,opt);
@@ -6406,8 +6409,10 @@ drawHuman=function(g,x,y,dir,frame,opt){
   const bob=walking?Math.abs(sw)*2:Math.sin(performance.now()/650)*.7,tilt=walking?sw*.05:0;
   g.save();g.translate(x,y-bob);g.rotate(tilt);
   const hx=(hd.cx-im.naturalWidth/2)*k,hy=-PC_H+2+hd.top*k,hw=hd.w*k;
-  const side=/[lr]/.test(d8),f=d8.includes('l')?-1:1;
-  drawHat(g,S.hat,hx,hy+hw*(S.hat==='hat_ribbon'?.12:S.hat==='hat_crown'?.05:.2),hw*(S.hat==='hat_ribbon'?.7:S.hat==='hat_crown'?.62:.95),d8[0]==='u',side,f);
+  // 帽子の置き方：[頭のてっぺんからの下がり（頭の幅に対する割合）, 帽子の幅（頭の幅に対する割合）]。かぶる帽子は頭を少しおおう位置、のせる物（リボン・王冠など）はてっぺん
+  const fit=HAT_FIT[S.hat]||[.12,1.02];
+  const side=HAT_DIRS&&/[lr]/.test(d8),f=d8.includes('l')?-1:1,back=HAT_DIRS&&d8[0]==='u';
+  drawHat(g,S.hat,hx,hy+hw*fit[0],hw*fit[1],back,side,f);
   g.restore();
 };
 // ---- 持ち物のアイコン ----
