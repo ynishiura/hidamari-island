@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.066";</script>
+<script>const GAME_VERSION="1.067";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7721,24 +7721,32 @@ const HATD={};
 
 // ===================== ユーザーが描いた帽子の絵（4方向） =====================
 // assets/gen/hat_<ID>_<f|b|l|r>.webp（tools/cut_hats.py が tools/raw/hats/ のシートから切り出す）。
-// 頭の大きさに合わせる：[絵の下のふちを頭のてっぺんからどれだけ下げるか（頭の幅に対する割合）, 絵の幅（頭の幅の何倍か）, 横向きのときの幅（省略時は正面の1.1倍）, 横向きのときの前後のずれ（頭の幅に対する割合。マイナスで後ろへ）]
+// 頭の大きさに合わせる：{w: 正面の絵の幅（頭の幅の何倍か）, y: 正面の絵の下のふちを頭のてっぺんからどれだけ下げるか（頭の幅に対する割合）,
+//   ys/yb: 横向き・後ろ向きの下げ（省略時は y）, dx: 横向きのときの前後のずれ（頭の幅に対する割合。マイナスで後ろへ）}
+// 横向き・後ろ向きの絵の大きさは、正面の絵との「シート上の大きさの比」から決める（同じ帽子はどの向きでも同じ縮尺。シートごとの描かれた大きさのちがいは SHEET_K で補正）
+const SHEET_K={f:1,b:.78,l:1.0,r:1.0};   // 後ろ向きのシートは、ほかより約1.3倍大きく描かれている
 const HAT_IMG_FIT={
-  hat_cap:[.60,1.2,1.45,-.1],hat_cap_red:[.60,1.2,1.45,-.1],hat_cap_black:[.58,1.2,1.3,-.05],
-  hat_knit:[.64,1.15],hat_knit_blue:[.64,1.15],hat_knit_green:[.64,1.15],
-  hat_beret:[.50,1.25],hat_beret_red:[.50,1.25],hat_beret_navy:[.50,1.25],
-  hat_straw:[.58,1.7],hat_straw_blue:[.58,1.7],hat_bucket:[.60,1.45],hat_top:[.52,1.15],hat_witch:[.56,1.7,1.7,-.08],
-  hat_cowboy:[.58,1.7],hat_santa:[.62,1.3,1.5,-.12],hat_chef:[.54,1.15],hat_party:[.12,.7,.75,-.05],
-  hat_ribbon:[.12,.95],hat_crown:[.12,.8],hat_tiara:[.14,.85],hat_flower:[.26,1.15],hat_catear:[.16,.95],hat_bunny:[.14,.8],
-  hat_helmet:[.58,1.25,1.35],hat_sailor:[.52,1.15,1.25,-.05],hat_earmuff:[.90,1.25,1.0],
+  hat_cap:{w:1.15,y:.55,ys:.68,dx:-.22},hat_cap_red:{w:1.15,y:.55,ys:.68,dx:-.22},hat_cap_black:{w:1.15,y:.55,ys:.62,dx:-.12},
+  hat_knit:{w:1.12,y:.66},hat_knit_blue:{w:1.12,y:.66},hat_knit_green:{w:1.12,y:.66},
+  hat_beret:{w:1.25,y:.50,dx:-.05},hat_beret_red:{w:1.25,y:.50,dx:-.05},hat_beret_navy:{w:1.25,y:.50,dx:-.05},
+  hat_straw:{w:1.7,y:.58,ys:.62},hat_straw_blue:{w:1.7,y:.58,ys:.62},hat_bucket:{w:1.45,y:.60,ys:.62},hat_top:{w:1.15,y:.52},hat_witch:{w:1.7,y:.56,dx:-.08},
+  hat_cowboy:{w:1.7,y:.58,ys:.60},hat_santa:{w:1.25,y:.62,dx:-.15},hat_chef:{w:1.15,y:.54},hat_party:{w:.7,y:.12},
+  hat_ribbon:{w:.95,y:.12,dx:-.1},hat_crown:{w:.8,y:.12},hat_tiara:{w:.85,y:.14},hat_flower:{w:1.15,y:.26},
+  hat_catear:{w:.95,y:.30,ys:.45},hat_bunny:{w:.8,y:.30,ys:.45},
+  hat_helmet:{w:1.25,y:.58,ys:.60},hat_sailor:{w:1.15,y:.52,dx:-.05},hat_earmuff:{w:1.3,y:.95},
 };
 // 向き d8（d/u/l/r/dl/dr/ul/ur）に合う絵を、頭のてっぺん (hx,hy)・頭の幅 hw に合わせて描く。絵が無ければ false
 function drawHatImg(g,id,d8,hx,hy,hw){
   const v=d8.includes('l')?'l':d8.includes('r')?'r':d8[0]==='u'?'b':'f';
-  const im=gi(`${id}_${v}`);if(!im)return false;
-  const fit=HAT_IMG_FIT[id]||[.3,1.2],side=v==='l'||v==='r',f=v==='l'?-1:1;
-  const w=hw*(side?(fit[2]||fit[1]*1.1):fit[1]),h=w*im.naturalHeight/im.naturalWidth;
-  const dx=side?f*hw*(fit[3]||0):0;
-  g.drawImage(im,hx+dx-w/2,hy+hw*fit[0]-h,w,h);
+  const im=gi(`${id}_${v}`);if(!im||!im.naturalWidth)return false;
+  const F=HAT_IMG_FIT[id]||{w:1.2,y:.5},imf=gi(`${id}_f`);
+  const side=v==='l'||v==='r',f=v==='l'?-1:1;
+  // 正面の絵の幅を頭の幅×F.w にする縮尺を、ほかの向きにもそのまま使う（シートごとの大きさのちがいだけ補正）
+  const scale=(imf&&imf.naturalWidth?hw*F.w/imf.naturalWidth:hw*F.w/im.naturalWidth)*SHEET_K[v];
+  const w=im.naturalWidth*scale,h=im.naturalHeight*scale;
+  const yoff=side?(F.ys!==undefined?F.ys:F.y):v==='b'?(F.yb!==undefined?F.yb:F.y):F.y;
+  const dx=side?f*hw*(F.dx||0):0;
+  g.drawImage(im,hx+dx-w/2,hy+hw*yoff-h,w,h);
   return true;
 }
 // 持ち物・お店・装備の小さな絵も、正面の絵を使う
@@ -8517,7 +8525,8 @@ function openPost(){
 // 案内・Aボタン・タップ
 {const _hint=hintText;hintText=function(){if(!RT.fishing&&!RT.layout&&onIsland()){const [fx,fy]=facingTile();if(postAt(fx,fy))return RT.visiting?'友だちのポスト':postHasMail()?'メールを読む':'ポストを見る'}return _hint()}}
 {const _pressA=pressA;pressA=function(){if(S&&!RT.dlg&&!RT.panel&&!RT.jump&&!RT.fishing&&!RT.catchShow&&onIsland()){const [fx,fy]=facingTile();if(postAt(fx,fy)){openPost();return}}return _pressA()}}
-{const _click=surpriseClick;surpriseClick=function(tx,ty){if(postAt(tx,ty))return {act:true,tx,ty,stands:n4(tx,ty)};return _click(tx,ty)}}
+// タップ：ポストの絵は1マス上（家の列）まで伸びているので、その上のマスを押しても家ではなくポストとして扱う
+{const _click=surpriseClick;surpriseClick=function(tx,ty){const p=postTile();if(p&&onIsland()&&tx===p[0]&&(ty===p[1]||ty===p[1]-1))return {act:true,tx:p[0],ty:p[1],stands:n4(p[0],p[1])};return _click(tx,ty)}}
 // 描く：メールが無いときは、ただの赤いポスト。届いているときは、旗が立ち、箱にメールのマークが付いて、マークが光る
 function drawPost(g,t){
   const p=postTile();if(!p)return;const x=(p[0]+.5)*T,y=(p[1]+1)*T-4,mail=postHasMail();
