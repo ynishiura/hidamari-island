@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.063";</script>
+<script>const GAME_VERSION="1.064";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7494,6 +7494,206 @@ shopPool=function(){const L=[];for(const g of ['top','hat','acc','furn'])for(con
 .genbtn.on{background:var(--leaf-deep,#4f9a68);border-color:var(--leaf-deep,#4f9a68);color:#fff}
 .cell.soldout{opacity:.5;filter:grayscale(.6)}
 `;document.head.append(st)}
+</script>
+<script>
+// ===================== 帽子を向きごとに描く =====================
+// 帽子は絵ではなく、頭の上にその場で描く（outfit.js の drawHat）。ここで全部の帽子を「正面・後ろ・横」の3つの形で描き直す。
+//   front：正面（つば・記章・まん中の宝石などが見える）
+//   back ：後ろ姿（つばや記章は見えず、後ろの留め具・リボンのたれ・縫い目が見える）
+//   side ：横向き（右を向いた形で描き、左向きは左右反転。つばは前へ出て、たれ・とんがり・ポンポンは後ろへ）
+// 座標：頭のてっぺんが (0,0)、頭の幅 24。前は +x（横向きのとき）。
+const HATD={};
+{
+  const ol=(g,c='rgba(40,25,20,.55)',lw=.7)=>{g.strokeStyle=c;g.lineWidth=lw;g.stroke()};
+  const path=(g,pts,c)=>{g.fillStyle=c;g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();g.fill()};
+  const shine=(g,x,y,w,h)=>{g.fillStyle='rgba(255,255,255,.28)';g.beginPath();g.ellipse(x,y,w,h,-.4,0,7);g.fill()};
+  const seam=(g,x0,y0,x1,y1,c='rgba(0,0,0,.18)')=>{g.strokeStyle=c;g.lineWidth=.7;g.beginPath();g.moveTo(x0,y0);g.quadraticCurveTo((x0+x1)/2,(y0+y1)/2-3,x1,y1);g.stroke()};
+
+  // ---- キャップ：正面はつばが手前に広がる。後ろは留め具の穴。横はつばが前へ長く出る ----
+  const cap=(c,c2)=>({
+    front(g){ell(g,0,1,11,8,c);g.fillStyle=c;g.fillRect(-11,1,22,4);seam(g,-7,-3,0,-7);seam(g,7,-3,0,-7);ell(g,0,5,13,3.2,c2);circ(g,0,-6,1.8,c2);shine(g,-5,-3,2.2,3)},
+    back(g){ell(g,0,1,11,8,c);g.fillStyle=c;g.fillRect(-11,1,22,4);seam(g,-7,-3,0,-7);seam(g,7,-3,0,-7);circ(g,0,-6,1.8,c2);
+      rrect(g,-11,4,22,2.4,1,shade(c,-.2));rrect(g,-3.5,2.2,7,3.2,1.5,c2);circ(g,0,3.6,1.2,'#f6f0e6');shine(g,-5,-3,2.2,3)},   // 後ろの留め具と穴
+    side(g){ell(g,-1,1,11,8,c);g.fillStyle=c;g.fillRect(-12,1,22,4);seam(g,-8,-2,-2,-7);seam(g,-2,-7,5,-3);
+      g.fillStyle=c2;g.beginPath();g.moveTo(4,2.5);g.quadraticCurveTo(13,2,19,6.5);g.lineTo(18.5,8.4);g.quadraticCurveTo(12,8,4,7);g.closePath();g.fill();ol(g,'rgba(0,0,0,.2)',.5);   // 前へ出るつば
+      circ(g,-1,-6,1.8,c2);shine(g,-6,-3,2,3);rrect(g,-12,4,5,2,1,shade(c,-.2))},   // 後ろの留め具
+  });
+  HATD.hat_cap=cap('#3a7bd5','#2a5aa0');HATD.hat_cap_red=cap('#d9473f','#a8302a');HATD.hat_cap_black=cap('#3a3a40','#222226');
+
+  // ---- ニット帽：ポンポンは横向きだと後ろへかたむく。後ろは縫い目 ----
+  const knit=(c,c2)=>{
+    const body=(g,dx,tilt)=>{ell(g,dx*.3,0,11,10,c);g.strokeStyle='rgba(0,0,0,.16)';g.lineWidth=.7;for(let i=-8;i<=8;i+=4){g.beginPath();g.moveTo(i+dx*.3,-7);g.lineTo(i+dx*.3,3);g.stroke()}
+      rrect(g,-11.5,3,23,5,2,c2);g.strokeStyle='rgba(0,0,0,.12)';for(let i=-10;i<=10;i+=2.5){g.beginPath();g.moveTo(i,3.5);g.lineTo(i,7.5);g.stroke()}circ(g,tilt,-10.5,4,c2);circ(g,tilt-1.2,-11.5,1.3,'rgba(255,255,255,.5)')};
+    return {front(g){body(g,0,0)},back(g){body(g,0,0);g.strokeStyle='rgba(0,0,0,.22)';g.lineWidth=.9;g.beginPath();g.moveTo(0,-7);g.lineTo(0,3);g.stroke()},
+      side(g){body(g,-2,-5)}};
+  };
+  HATD.hat_knit=knit('#d9576b','#f2e6da');HATD.hat_knit_blue=knit('#3a7bd5','#f2f0ea');HATD.hat_knit_green=knit('#3f9a5a','#f6e9c8');
+
+  // ---- ベレー帽：横向きだと後ろへたれる ----
+  const beret=(c,c2)=>({
+    front(g){ell(g,1,0,13,6,c);ell(g,1,-1,11,4.5,c2);rrect(g,-.5,-8,2,3,1,c);rrect(g,-10,2,20,2.4,1.2,shade(c,-.15))},
+    back(g){ell(g,-1,0,13,6,c);ell(g,-1,-1,11,4.5,c2);rrect(g,-.5,-8,2,3,1,c);rrect(g,-10,2,20,2.4,1.2,shade(c,-.15))},
+    side(g){ell(g,-4,-.5,13,6.5,c);ell(g,-5,-2,10,4.5,c2);rrect(g,-7,-9,2,3.5,1,c);rrect(g,-9,2.5,19,2.4,1.2,shade(c,-.15));g.fillStyle=c;g.beginPath();g.moveTo(-16,1);g.quadraticCurveTo(-18,5,-14,6);g.lineTo(-10,4);g.closePath();g.fill()},   // 後ろへたれたふくらみ
+  });
+  HATD.hat_beret=beret('#6b3a5a','#86507a');HATD.hat_beret_red=beret('#a8302a','#d14a42');HATD.hat_beret_navy=beret('#26325a','#3a4a80');
+
+  // ---- 麦わら帽子：リボンの結び目は後ろ。横向きはつばが前後に広がり、結び目が後ろに見える ----
+  const straw=(rb)=>{
+    const brim=(g,dx,ry)=>{ell(g,dx,5,19,ry,'#c99a4a');ell(g,dx,4,18,ry-.8,'#e8c46a');g.strokeStyle='rgba(150,110,50,.5)';g.lineWidth=.6;for(const r of [12,15]){g.beginPath();g.ellipse(dx,4.5,r,r*ry/19,0,0,7);g.stroke()}};
+    const crown=(g,dx)=>{ell(g,dx,-1,10,7,'#e8c46a');g.strokeStyle='rgba(150,110,50,.35)';g.lineWidth=.5;for(const y of [-5,-3])g.beginPath(),g.ellipse(dx,y,8.5,2.6,0,0,7),g.stroke()};
+    const tails=(g,x)=>{for(const s of [-1,1]){g.fillStyle=rb;g.beginPath();g.moveTo(x,3);g.lineTo(x+s*2.6,9.5);g.lineTo(x+s*.4,10);g.closePath();g.fill()}circ(g,x,3,1.6,shade(rb,-.2))};
+    return {front(g){brim(g,0,5);crown(g,0);rrect(g,-10,1,20,3,1,rb)},
+      back(g){brim(g,0,5);crown(g,0);rrect(g,-10,1,20,3,1,rb);tails(g,0)},
+      side(g){brim(g,1,4.2);crown(g,-1);rrect(g,-11,1,20,3,1,rb);tails(g,-9)}};
+  };
+  HATD.hat_straw=straw('#c8505a');HATD.hat_straw_blue=straw('#3a7bd5');
+
+  // ---- 大きなリボン：正面は左右に輪、後ろは結び目とたれ、横は後ろ側にひとつの大きな輪 ----
+  {const c='#f27a8a',d='#d9576b';
+    const loop=(g,s,w,h)=>{g.fillStyle=c;g.beginPath();g.moveTo(0,0);g.quadraticCurveTo(s*w,-h,s*(w+1),0);g.quadraticCurveTo(s*w,h*.65,0,0);g.fill();ol(g,'rgba(120,40,60,.4)',.5)};
+    HATD.hat_ribbon={
+      front(g){loop(g,-1,14,12);loop(g,1,14,12);circ(g,0,0,3.5,d);shine(g,-8,-3,3,1.5)},
+      back(g){loop(g,-1,12,9);loop(g,1,12,9);for(const s of [-1,1]){path(g,[[0,1],[s*5,12],[s*2,13]],d)}circ(g,0,0,3.5,d)},   // 後ろ：たれが2本
+      side(g){g.save();g.translate(-7,1);loop(g,-1,12,13);g.fillStyle=c;g.beginPath();g.moveTo(0,0);g.quadraticCurveTo(5,-9,7,-1);g.quadraticCurveTo(5,5,0,0);g.fill();ol(g,'rgba(120,40,60,.4)',.5);
+        path(g,[[0,1],[-5,12],[-2,13]],d);circ(g,0,0,3.2,d);g.restore()},
+    };
+  }
+
+  // ---- 王冠：正面は5つの山と宝石、後ろは山だけ、横は手前の山が大きく ----
+  {const G='#e6b830',G2='#f6d860';
+    const zig=(g,pts)=>{path(g,pts,G);g.fillStyle=G2;g.fillRect(pts[0][0],1,pts[pts.length-1][0]-pts[0][0],3)};
+    HATD.hat_crown={
+      front(g){zig(g,[[-10,4],[-11,-8],[-5,-2],[0,-11],[5,-2],[11,-8],[10,4]]);circ(g,0,-1,1.8,'#d9576b');circ(g,-6,1.5,1.3,'#3a9ad9');circ(g,6,1.5,1.3,'#5fbf6a')},
+      back(g){zig(g,[[-10,4],[-11,-8],[-5,-3],[0,-9],[5,-3],[11,-8],[10,4]]);circ(g,0,1.5,1.2,'#3a9ad9')},
+      side(g){zig(g,[[-9,4],[-10,-6],[-5,-2],[1,-9],[6,-2],[11,-10],[10,4]]);circ(g,7,-1,1.8,'#d9576b');circ(g,0,1.5,1.2,'#3a9ad9')},
+    };
+  }
+
+  // ---- バケットハット：横向きはつばが前に下がる。後ろにタグ ----
+  HATD.hat_bucket={
+    front(g){ell(g,0,4,15,4,'#c9b48e');path(g,[[-10,4],[-8,-6],[0,-9],[8,-6],[10,4]],'#e3d1b0');ol(g);rrect(g,-9.5,0,19,2.5,1,'#8a6a48')},
+    back(g){ell(g,0,4,15,4,'#c9b48e');path(g,[[-10,4],[-8,-6],[0,-9],[8,-6],[10,4]],'#e3d1b0');ol(g);rrect(g,-9.5,0,19,2.5,1,'#8a6a48');rrect(g,-2,-5,4,2.6,.6,'#f6f0e0')},
+    side(g){ell(g,1,4.5,16,3.6,'#c9b48e');g.fillStyle='#b8a07a';g.beginPath();g.moveTo(8,3);g.quadraticCurveTo(15,4,17,7.5);g.lineTo(12,7);g.closePath();g.fill();path(g,[[-10,4],[-9,-6],[-1,-9],[7,-6],[9,4]],'#e3d1b0');ol(g);rrect(g,-10,0,19,2.5,1,'#8a6a48')},
+  };
+
+  // ---- シルクハット：横向きは筒が少し後ろへ、つばは前後に ----
+  HATD.hat_top={
+    front(g){ell(g,0,4,15,3.5,'#222226');g.fillStyle='#2e2e34';g.beginPath();g.roundRect(-8,-15,16,19,2);g.fill();rrect(g,-8,-2,16,3.5,.5,'#c8303a');ell(g,0,-15,8,2,'#3e3e46');g.fillStyle='rgba(255,255,255,.18)';g.fillRect(-6,-13,2.5,10)},
+    back(g){ell(g,0,4,15,3.5,'#222226');g.fillStyle='#2e2e34';g.beginPath();g.roundRect(-8,-15,16,19,2);g.fill();rrect(g,-8,-2,16,3.5,.5,'#c8303a');ell(g,0,-15,8,2,'#3e3e46');rrect(g,-1.5,-2.5,3,4.5,.5,'#8a1e26');g.fillStyle='rgba(255,255,255,.12)';g.fillRect(4,-13,2.5,10)},   // 後ろ：帯の結び目
+    side(g){ell(g,0,4,15,3,'#222226');path(g,[[-8,4],[-9,-15],[6,-15],[7,4]],'#2e2e34');path(g,[[-8.5,-2],[6.6,-2],[6.8,1.5],[-8.3,1.5]],'#c8303a');ell(g,-1.5,-15,7.5,1.8,'#3e3e46');g.fillStyle='rgba(255,255,255,.18)';g.fillRect(-6.5,-13,2.5,10)},
+  };
+
+  // ---- 魔女の帽子：とんがりは後ろへ曲がる。留め金は正面だけ ----
+  {const P='#5e3a86',D='#4a2a6a',B='#2e1a44';
+    const cone=(g,tip)=>{g.fillStyle=P;g.beginPath();g.moveTo(-10,4);g.quadraticCurveTo(-4,-8,tip[0]*.3,-16);g.quadraticCurveTo(tip[0]*.6,-22,tip[0],tip[1]);g.quadraticCurveTo(tip[0]*.5,-16,8,-6);g.lineTo(10,4);g.closePath();g.fill();ol(g)};
+    const buckle=(g,x)=>{rrect(g,x-2.5,-.5,5,4.5,1,'#e6c45a');rrect(g,x-1.2,.6,2.4,2.3,.5,B)};
+    HATD.hat_witch={
+      front(g){ell(g,0,4,18,4.5,D);cone(g,[12,-20]);rrect(g,-10,0,20,3.5,1,B);buckle(g,0)},
+      back(g){ell(g,0,4,18,4.5,D);cone(g,[-11,-20]);rrect(g,-10,0,20,3.5,1,B)},
+      side(g){ell(g,0,4,19,4,D);cone(g,[-16,-17]);rrect(g,-10,0,20,3.5,1,B);buckle(g,6)},
+    };
+  }
+
+  // ---- カウボーイハット：横向きはつばが前後に長く、前が少し下がる ----
+  {const L='#9a6a3a',C='#b07a44',B='#5a3a1e';
+    const crown=(g,dx)=>{path(g,[[-9+dx,4],[-8+dx,-7],[-4+dx,-10],[0+dx,-7],[4+dx,-10],[8+dx,-7],[9+dx,4]],C);ol(g);rrect(g,-9+dx,0,18,2.5,1,B)};
+    HATD.hat_cowboy={
+      front(g){g.fillStyle=L;g.beginPath();g.moveTo(-19,1);g.quadraticCurveTo(-16,6,0,6);g.quadraticCurveTo(16,6,19,1);g.quadraticCurveTo(14,4,0,4);g.quadraticCurveTo(-14,4,-19,1);g.fill();crown(g,0)},
+      back(g){g.fillStyle=L;g.beginPath();g.moveTo(-19,1);g.quadraticCurveTo(-16,6,0,6);g.quadraticCurveTo(16,6,19,1);g.quadraticCurveTo(14,4,0,4);g.quadraticCurveTo(-14,4,-19,1);g.fill();crown(g,0);rrect(g,-1.5,-.5,3,3.5,.6,'#e6c45a')},
+      side(g){g.fillStyle=L;g.beginPath();g.moveTo(-18,2);g.quadraticCurveTo(-10,6,0,5.5);g.quadraticCurveTo(12,5.5,20,8);g.quadraticCurveTo(14,3.5,0,3.5);g.quadraticCurveTo(-12,3.5,-18,0);g.closePath();g.fill();ol(g,'rgba(60,35,10,.4)',.5);crown(g,-1)},
+    };
+  }
+
+  // ---- サンタの帽子：正面はたれが横へ、横向きは後ろへ、後ろはたれが背中側に下がる ----
+  {const R='#d9473f',W='#f6f3ea';
+    HATD.hat_santa={
+      front(g){g.fillStyle=R;g.beginPath();g.moveTo(-11,3);g.quadraticCurveTo(-8,-12,4,-14);g.quadraticCurveTo(13,-14,15,-4);g.lineTo(11,3);g.closePath();g.fill();ol(g);rrect(g,-12,0,24,6,3,W);circ(g,15,-3,3.4,W)},
+      back(g){g.fillStyle=R;g.beginPath();g.moveTo(-11,3);g.quadraticCurveTo(-9,-13,0,-13);g.quadraticCurveTo(9,-13,11,3);g.closePath();g.fill();ol(g);g.fillStyle=R;g.beginPath();g.moveTo(-2,-10);g.quadraticCurveTo(6,-4,4,8);g.lineTo(0,9);g.quadraticCurveTo(0,-2,-5,-8);g.closePath();g.fill();ol(g);
+        rrect(g,-12,0,24,6,3,W);circ(g,2,10,3.4,W)},
+      side(g){g.fillStyle=R;g.beginPath();g.moveTo(-10,3);g.quadraticCurveTo(-6,-13,2,-13);g.quadraticCurveTo(10,-13,10,-4);g.quadraticCurveTo(-2,-9,-15,2);g.quadraticCurveTo(-17,6,-14,8);g.lineTo(-11,4);g.closePath();g.fill();ol(g);
+        rrect(g,-11,0,22,6,3,W);circ(g,-15,8,3.4,W)},
+    };
+  }
+
+  // ---- コック帽：横向きは山が後ろへふくらむ ----
+  {const G='#c9ccd4',W='#ffffff';
+    const puffs=(g,list,dx)=>{for(const [cx,cy,r] of list)circ(g,cx+dx,cy,r+.6,G);rrect(g,-9.6+dx,-4.6,19.2,9.2,1.4,G);rrect(g,-9+dx,-4,18,8,1,'#f6f6f2');for(const [cx,cy,r] of list)circ(g,cx+dx,cy,r,W);g.strokeStyle='rgba(120,120,130,.35)';g.lineWidth=.6;g.beginPath();g.moveTo(-9+dx,-3);g.lineTo(9+dx,-3);g.stroke()};
+    HATD.hat_chef={front(g){puffs(g,[[-6,-8,6],[0,-11,7],[6,-8,6]],0)},back(g){puffs(g,[[-6,-8,6],[0,-11,7],[6,-8,6]],0);g.strokeStyle='rgba(120,120,130,.3)';g.beginPath();g.moveTo(0,-4);g.lineTo(0,4);g.stroke()},
+      side(g){puffs(g,[[-8,-7,6],[-3,-11,7],[4,-8,6]],-1)}};
+  }
+
+  // ---- パーティー帽：横向きは後ろへかたむく。後ろはひもが見える ----
+  {const cone=(g,rot)=>{g.save();g.rotate(rot);g.fillStyle='#5fa8d8';g.beginPath();g.moveTo(-7,3);g.lineTo(0,-17);g.lineTo(7,3);g.closePath();g.fill();g.save();g.clip();g.fillStyle='#f6d860';for(let i=-16;i<4;i+=6)g.fillRect(-8,i,16,2.5);g.restore();ol(g);circ(g,0,-17,2.6,'#e0507a');g.restore()};
+    HATD.hat_party={front(g){cone(g,.15)},back(g){cone(g,-.1);g.strokeStyle='rgba(255,255,255,.7)';g.lineWidth=.8;g.beginPath();g.moveTo(-6,3);g.quadraticCurveTo(0,8,6,3);g.stroke()},side(g){cone(g,-.42)}};
+  }
+
+  // ---- ティアラ：後ろは細い輪だけ。横は宝石が前に ----
+  {const S='#d8dde6';
+    HATD.hat_tiara={
+      front(g){g.fillStyle=S;g.beginPath();g.moveTo(-9,3);g.quadraticCurveTo(0,-1,9,3);g.lineTo(7,0);g.lineTo(4,-3);g.lineTo(2,-1);g.lineTo(0,-6);g.lineTo(-2,-1);g.lineTo(-4,-3);g.lineTo(-7,0);g.closePath();g.fill();ol(g,'#8a95a6',.5);circ(g,0,-3,1.4,'#e0507a');circ(g,-4.5,0,1,'#5fa8d8');circ(g,4.5,0,1,'#5fa8d8')},
+      back(g){g.strokeStyle=S;g.lineWidth=1.6;g.beginPath();g.moveTo(-9,3);g.quadraticCurveTo(0,.5,9,3);g.stroke();g.strokeStyle='#8a95a6';g.lineWidth=.4;g.stroke()},
+      side(g){g.fillStyle=S;g.beginPath();g.moveTo(-8,3);g.quadraticCurveTo(0,0,9,2.5);g.lineTo(8,-1);g.lineTo(6,-5);g.lineTo(4,-1);g.lineTo(2,-3);g.lineTo(0,0);g.lineTo(-6,1.5);g.closePath();g.fill();ol(g,'#8a95a6',.5);circ(g,6,-2.5,1.4,'#e0507a');circ(g,1,0,1,'#5fa8d8')},
+    };
+  }
+
+  // ---- 花かんむり：横向きは前から後ろへ花が並ぶ ----
+  {const cols=['#f49ac1','#ffffff','#f6d860','#a8c8f0'];
+    const flower=(g,fx,fy,r,c)=>{for(let k=0;k<5;k++){const a=k*1.2566;circ(g,fx+Math.cos(a)*r*.75,fy+Math.sin(a)*r*.75,r*.55,c)}circ(g,fx,fy,r*.4,'#f6d860')};
+    const vine=(g,a0,a1)=>{g.strokeStyle='#5fa05a';g.lineWidth=1;g.beginPath();g.ellipse(0,3,11,3.5,0,a0,a1);g.stroke()};
+    HATD.hat_flower={
+      front(g){vine(g,Math.PI,2*Math.PI);for(let i=0;i<7;i++){const a=Math.PI*(1.05+i*.15);flower(g,Math.cos(a)*11,3+Math.sin(a)*3.5,2.6,cols[i%4])}},
+      back(g){vine(g,0,Math.PI);for(let i=0;i<5;i++){const a=Math.PI*(.1+i*.2);flower(g,Math.cos(a)*11,3+Math.sin(a)*2.8,2.3,cols[(i+1)%4])}},
+      side(g){vine(g,Math.PI*.9,Math.PI*2.1);for(let i=0;i<6;i++){const x=-11+i*4.6,y=3-Math.sin(i/5*Math.PI)*1.5;flower(g,x,y,2.6-(i<2?.5:0),cols[i%4])}},
+    };
+  }
+
+  // ---- ねこみみ・うさみみ：横向きは前後に耳が並び、後ろは耳の裏（内側のピンクが見えない） ----
+  {const ear=(g,bun,inner)=>{if(bun){ell(g,0,-9,3.4,9,'#fbfbf8');if(inner)ell(g,0,-9,1.6,6.5,'#f6c0cc')}else{path(g,[[-4,2],[0,-8],[4,2]],'#3a3a40');if(inner)path(g,[[-2,1],[0,-4.5],[2,1]],'#f6a6be')}};
+    const band=(g,dx=0)=>{g.strokeStyle='#3a3a40';g.lineWidth=2;g.beginPath();g.ellipse(dx,4,11,4,0,Math.PI,2*Math.PI);g.stroke()};
+    const mk=bun=>({
+      front(g){band(g);for(const sx of [-1,1]){g.save();g.translate(sx*7,0);g.rotate(sx*(bun?.18:.3));ear(g,bun,true);g.restore()}},
+      back(g){band(g);for(const sx of [-1,1]){g.save();g.translate(sx*7,0);g.rotate(sx*(bun?.18:.3));ear(g,bun,false);g.restore()}},
+      side(g){band(g,-1);for(const [x,rot,inner,sc] of [[-6,-.35,false,.8],[3,.1,true,1]]){g.save();g.translate(x,0);g.rotate(rot);g.scale(sc,1);ear(g,bun,inner);g.restore()}},
+    });
+    HATD.hat_catear=mk(false);HATD.hat_bunny=mk(true);
+  }
+
+  // ---- ヘルメット：横向きは前に小さなひさし。てっぺんの筋は前後に ----
+  {const Y='#f2c230',D='#d9a81c',E='#e0b425';
+    HATD.hat_helmet={
+      front(g){ell(g,0,1,12,9,Y);g.fillStyle=Y;g.fillRect(-12,1,24,3);ell(g,0,4,14,2.6,D);rrect(g,-1.5,-8,3,12,1,E);shine(g,-5,-3,2.5,4)},
+      back(g){ell(g,0,1,12,9,Y);g.fillStyle=Y;g.fillRect(-12,1,24,3);ell(g,0,4,14,2.6,D);rrect(g,-1.5,-8,3,12,1,E);rrect(g,-4,2,8,2,1,'#3a3a40');shine(g,5,-3,2.5,4)},   // 後ろ：あごひもの留め具
+      side(g){ell(g,-1,1,12,9,Y);g.fillStyle=Y;g.fillRect(-13,1,24,3);ell(g,0,4,13,2.4,D);g.fillStyle=D;g.beginPath();g.moveTo(8,2);g.quadraticCurveTo(14,2.5,16,5.5);g.lineTo(9,5);g.closePath();g.fill();
+        g.strokeStyle=E;g.lineWidth=2.4;g.beginPath();g.moveTo(-10,-2);g.quadraticCurveTo(-1,-9,8,-2);g.stroke();shine(g,-6,-3,2.3,4)},
+    };
+  }
+
+  // ---- セーラー帽：記章は正面、後ろにはリボンのたれが2本。横は記章が前、たれが後ろ ----
+  {const W='#f6f6f2',B='#2f5aa8';
+    const base=(g,dx)=>{ell(g,dx,2,11,5,W);g.fillStyle=W;g.fillRect(-11+dx,1,22,3);rrect(g,-11.5+dx,2,23,3.5,1.5,B);ell(g,dx,-2,9,3,'#ffffff')};
+    const badge=(g,x)=>{rrect(g,x-3,1.5,6,4,1,B);circ(g,x,3.5,1,'#e6c45a')};
+    const tails=(g,x)=>{for(const s of [-1,1]){path(g,[[x,4],[x+s*2.4,12],[x+s*.6,12.5]],B)}};
+    HATD.hat_sailor={front(g){base(g,0);badge(g,0)},back(g){base(g,0);tails(g,0)},side(g){base(g,-1);badge(g,7);tails(g,-9)}};
+  }
+
+  // ---- イヤーマフ：横向きは耳あてがひとつ、帯が頭の上を前後に通る ----
+  {const band=(g,dx,a0,a1)=>{g.strokeStyle='#8a5a8a';g.lineWidth=1.8;g.beginPath();g.ellipse(dx,9,12.5,11,0,a0,a1);g.stroke()};
+    const muff=(g,x,y,r=1)=>{circ(g,x,y,4.6*r,'#f6f0f6');circ(g,x,y,3.4*r,'#f6c8dc');circ(g,x-1,y-1,1.1*r,'rgba(255,255,255,.8)')};
+    HATD.hat_earmuff={
+      front(g){band(g,0,Math.PI*1.05,Math.PI*1.95);for(const sx of [-1,1])muff(g,sx*12.5,11)},
+      back(g){band(g,0,Math.PI*1.05,Math.PI*1.95);for(const sx of [-1,1])muff(g,sx*12.5,11);g.fillStyle='#8a5a8a';g.fillRect(-1,-2.5,2,4)},   // 後ろ：帯のつなぎ目
+      side(g){g.strokeStyle='#8a5a8a';g.lineWidth=1.8;g.beginPath();g.ellipse(-1,9,9,11,0,Math.PI*1.1,Math.PI*1.9);g.stroke();muff(g,1,11,1.1)},
+    };
+  }
+}
+// 向きごとの絵がある帽子は、ここで描く。無い帽子は前の描き方のまま
+{const _prev=drawHat;
+ drawHat=function(g,id,x,y,w,back,side,f){
+   const H=HATD[id];if(!H)return _prev(g,id,x,y,w,back,side,f);
+   const s=w/24;g.save();g.translate(x,y);g.scale(s,s);g.lineJoin='round';g.lineCap='round';
+   if(side){g.scale(f||1,1);H.side(g)}else if(back)H.back(g);else H.front(g);
+   g.restore();
+ }}
 </script>
 <script>
 // ===================== エモーション（気持ちのマーク） =====================
