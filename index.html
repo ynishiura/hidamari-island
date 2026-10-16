@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.062";</script>
+<script>const GAME_VERSION="1.063";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -6382,14 +6382,16 @@ function headOf(im){
   let x0=iw,x1=0;const yh=Math.min(ih-1,top+Math.round(ih*.16));for(let y=top;y<=yh;y++)for(let x=0;x<iw;x++)if(A(x,y)){if(x<x0)x0=x;if(x>x1)x1=x}
   r={top,cx:(x0+x1)/2,w:Math.max(1,x1-x0)};_headCache.set(im,r);return r;
 }
-function drawHat(g,id,x,y,w,back){
-  // (x,y) は頭のてっぺん、w は頭の幅（画面の大きさ）
-  const s=w/24;g.save();g.translate(x,y);g.scale(s,s);
+function drawHat(g,id,x,y,w,back,side,f){
+  // (x,y) は頭のてっぺん、w は頭の幅（画面の大きさ）。back＝後ろ姿、side＝横向き（f は向いている側：-1 左／+1 右）
+  const s=w/24;g.save();g.translate(x,y);g.scale(s,s);f=f||1;
+  if(side){g.translate(f*1.5,0);g.scale(.86,1)}   // 横向き：少し前へずらし、幅をつめる
   if(id==='hat_straw'){ell(g,0,5,19,5,'#c99a4a');ell(g,0,4,18,4.2,'#e8c46a');ell(g,0,-1,10,7,'#e8c46a');rrect(g,-10,1,20,3,1,'#c8505a');g.strokeStyle='rgba(150,110,50,.5)';g.lineWidth=.6;for(const r of [12,15])g.beginPath(),g.ellipse(0,4.5,r,r*.25,0,0,7),g.stroke()}
-  else if(id==='hat_cap'){ell(g,0,1,11,8,'#3a7bd5');g.fillStyle='#3a7bd5';g.fillRect(-11,1,22,4);if(!back)ell(g,0,5,13,3,'#2a5aa0');circ(g,0,-6,1.8,'#2a5aa0');g.fillStyle='rgba(255,255,255,.3)';g.fillRect(-6,-4,4,5)}
+  else if(id==='hat_cap'){ell(g,0,1,11,8,'#3a7bd5');g.fillStyle='#3a7bd5';g.fillRect(-11,1,22,4);if(!back){if(side){g.fillStyle='#2a5aa0';g.beginPath();g.ellipse(f*7,5,9,3,0,0,7);g.fill()}else ell(g,0,5,13,3,'#2a5aa0')}circ(g,0,-6,1.8,'#2a5aa0');g.fillStyle='rgba(255,255,255,.3)';g.fillRect(-6,-4,4,5)}
   else if(id==='hat_knit'){ell(g,0,1,11,9,'#d9576b');rrect(g,-11.5,2,23,5,2,'#f2e6da');g.strokeStyle='rgba(120,30,40,.35)';g.lineWidth=.7;for(let i=-8;i<=8;i+=4){g.beginPath();g.moveTo(i,-6);g.lineTo(i,2);g.stroke()}circ(g,0,-9,4,'#f2e6da')}
   else if(id==='hat_beret'){ell(g,1,0,13,6,'#6b3a5a');ell(g,1,-1,11,4.5,'#86507a');rrect(g,-.5,-8,2,3,1,'#6b3a5a')}
-  else if(id==='hat_ribbon'){const c='#f27a8a';g.fillStyle=c;g.beginPath();g.moveTo(0,0);g.quadraticCurveTo(-14,-12,-15,0);g.quadraticCurveTo(-14,8,0,0);g.fill();
+  else if(id==='hat_ribbon'){const c='#f27a8a';g.fillStyle=c;if(side){g.translate(-f*6,1);g.scale(-f,1)}   // 横向き：頭の後ろ寄りに、ひとつの輪が見える
+    g.beginPath();g.moveTo(0,0);g.quadraticCurveTo(-14,-12,-15,0);g.quadraticCurveTo(-14,8,0,0);g.fill();
     g.beginPath();g.moveTo(0,0);g.quadraticCurveTo(14,-12,15,0);g.quadraticCurveTo(14,8,0,0);g.fill();circ(g,0,0,3.5,'#d9576b');g.fillStyle='rgba(255,255,255,.35)';g.beginPath();g.ellipse(-8,-3,3,1.5,-.4,0,7);g.fill()}
   else if(id==='hat_crown'){g.fillStyle='#e6b830';g.beginPath();g.moveTo(-10,4);g.lineTo(-11,-8);g.lineTo(-5,-2);g.lineTo(0,-11);g.lineTo(5,-2);g.lineTo(11,-8);g.lineTo(10,4);g.closePath();g.fill();
     g.fillStyle='#f6d860';g.fillRect(-10,1,20,3);circ(g,0,-1,1.8,'#d9576b');circ(g,-6,1.5,1.3,'#3a9ad9');circ(g,6,1.5,1.3,'#5fbf6a')}
@@ -6404,7 +6406,8 @@ drawHuman=function(g,x,y,dir,frame,opt){
   const bob=walking?Math.abs(sw)*2:Math.sin(performance.now()/650)*.7,tilt=walking?sw*.05:0;
   g.save();g.translate(x,y-bob);g.rotate(tilt);
   const hx=(hd.cx-im.naturalWidth/2)*k,hy=-PC_H+2+hd.top*k,hw=hd.w*k;
-  drawHat(g,S.hat,hx,hy+hw*(S.hat==='hat_ribbon'?.12:S.hat==='hat_crown'?.05:.2),hw*(S.hat==='hat_ribbon'?.7:S.hat==='hat_crown'?.62:.95),d8[0]==='u');
+  const side=/[lr]/.test(d8),f=d8.includes('l')?-1:1;
+  drawHat(g,S.hat,hx,hy+hw*(S.hat==='hat_ribbon'?.12:S.hat==='hat_crown'?.05:.2),hw*(S.hat==='hat_ribbon'?.7:S.hat==='hat_crown'?.62:.95),d8[0]==='u',side,f);
   g.restore();
 };
 // ---- 持ち物のアイコン ----
@@ -6951,11 +6954,12 @@ const HATS2={hat_cap_red:'赤いキャップ',hat_cap_black:'黒いキャップ'
 const HAT2_PRICE={hat_top:3500,hat_witch:3000,hat_tiara:6000,hat_flower:1800,hat_cowboy:2500,hat_santa:2000,hat_helmet:1500};
 for(const [id,name] of Object.entries(HATS2)){HATS[id]=name;_addItem(id,name,HAT2_PRICE[id]||1200,'hat','かぶると、主人公の頭にのる')}
 const _drawHatBase=drawHat;
-drawHat=function(g,id,x,y,w,back){
-  if(!HATS2[id])return _drawHatBase(g,id,x,y,w,back);
-  const s=w/24;g.save();g.translate(x,y);g.scale(s,s);g.lineJoin='round';
+drawHat=function(g,id,x,y,w,back,side,f){
+  if(!HATS2[id])return _drawHatBase(g,id,x,y,w,back,side,f);
+  const s=w/24;g.save();g.translate(x,y);g.scale(s,s);g.lineJoin='round';f=f||1;
+  if(side){g.translate(f*1.5,0);g.scale(.86,1);if(id==='hat_santa'||id==='hat_witch'||id==='hat_party')g.scale(-f,1)}   // 横向き：幅をつめる。たれ・とんがりは後ろ側へ
   const ol=(c='rgba(40,25,20,.55)',lw=.7)=>{g.strokeStyle=c;g.lineWidth=lw;g.stroke()};
-  const cap=(c,c2)=>{ell(g,0,1,11,8,c);g.fillStyle=c;g.fillRect(-11,1,22,4);if(!back)ell(g,0,5,13,3,c2);circ(g,0,-6,1.8,c2);g.fillStyle='rgba(255,255,255,.3)';g.fillRect(-6,-4,4,5)};
+  const cap=(c,c2)=>{ell(g,0,1,11,8,c);g.fillStyle=c;g.fillRect(-11,1,22,4);if(!back){if(side){g.fillStyle=c2;g.beginPath();g.ellipse(f*7,5,9,3,0,0,7);g.fill()}else ell(g,0,5,13,3,c2)}circ(g,0,-6,1.8,c2);g.fillStyle='rgba(255,255,255,.3)';g.fillRect(-6,-4,4,5)};
   const knit=(c,c2)=>{ell(g,0,1,11,9,c);rrect(g,-11.5,2,23,5,2,c2);g.strokeStyle='rgba(0,0,0,.18)';g.lineWidth=.7;for(let i=-8;i<=8;i+=4){g.beginPath();g.moveTo(i,-6);g.lineTo(i,2);g.stroke()}circ(g,0,-9,4,c2)};
   const beret=(c,c2)=>{ell(g,1,0,13,6,c);ell(g,1,-1,11,4.5,c2);rrect(g,-.5,-8,2,3,1,c)};
   const flower=(fx,fy,r,c)=>{for(let k=0;k<5;k++){const a=k*1.2566;circ(g,fx+Math.cos(a)*r*.75,fy+Math.sin(a)*r*.75,r*.55,c)}circ(g,fx,fy,r*.4,'#f6d860')};
@@ -6985,7 +6989,7 @@ drawHat=function(g,id,x,y,w,back){
         if(bun){ell(g,0,-9,3.4,9,'#fbfbf8');ell(g,0,-9,1.6,6.5,'#f6c0cc')}else{g.fillStyle='#3a3a40';g.beginPath();g.moveTo(-4,2);g.lineTo(0,-8);g.lineTo(4,2);g.closePath();g.fill();g.fillStyle='#f6a6be';g.beginPath();g.moveTo(-2,1);g.lineTo(0,-4.5);g.lineTo(2,1);g.closePath();g.fill()}
         g.restore()}break}
     case 'hat_helmet':ell(g,0,1,12,9,'#f2c230');g.fillStyle='#f2c230';g.fillRect(-12,1,24,3);ell(g,0,4,14,2.6,'#d9a81c');rrect(g,-1.5,-8,3,12,1,'#e0b425');g.fillStyle='rgba(255,255,255,.35)';g.beginPath();g.ellipse(-5,-3,2.5,4,-.4,0,7);g.fill();break;
-    case 'hat_sailor':ell(g,0,2,11,5,'#f6f6f2');g.fillStyle='#f6f6f2';g.fillRect(-11,1,22,3);rrect(g,-11.5,2,23,3.5,1.5,'#2f5aa8');ell(g,0,-2,9,3,'#ffffff');if(!back){rrect(g,-3,1.5,6,4,1,'#2f5aa8');circ(g,0,3.5,1,'#e6c45a')}break;
+    case 'hat_sailor':ell(g,0,2,11,5,'#f6f6f2');g.fillStyle='#f6f6f2';g.fillRect(-11,1,22,3);rrect(g,-11.5,2,23,3.5,1.5,'#2f5aa8');ell(g,0,-2,9,3,'#ffffff');if(!back){const bx=side?f*5:0;rrect(g,bx-3,1.5,6,4,1,'#2f5aa8');circ(g,bx,3.5,1,'#e6c45a')}break;
   }
   g.restore();
 };
@@ -7368,8 +7372,9 @@ const _dispCache=new Map();
 function _dispArt(p){const k=p.furn?'f:'+p.furn:p.id;let c=_dispCache.get(k);if(!c){c=dispIcon(p);_dispCache.set(k,c)}return c}
 // 店員：コマチの絵（無ければ、まだ描かない）
 function drawClerk(g){
-  const x=(W.clerk.x+.5)*T,y=(W.clerk.y+1)*T-8,im=gi('wk_komachi_front');   // カウンターの後ろの台に立つ（胸から上が見えるように）if(!im)return;
-  const h=VW_H,w=h*im.naturalWidth/im.naturalHeight,bob=Math.sin(performance.now()/600)*.6;ell(g,x,y,10,3.4,'rgba(30,40,30,.25)');g.drawImage(im,x-w/2,y-h+2-bob,w,h);
+  const im=gi('wk_komachi_front');if(!im)return;
+  const x=(W.clerk.x+.5)*T,y=W.counter.y*T+10;   // カウンターの後ろの床に立つ。足もとはカウンターに隠れ、胸から上が見える（カウンターは店員のあとに描く）
+  const h=VW_H,w=h*im.naturalWidth/im.naturalHeight,bob=Math.sin(performance.now()/600)*.6;g.drawImage(im,x-w/2,y-h+2-bob,w,h);
 }
 function shopObjects(D,ctx){
   for(const s of W.stands)D.push([(s.y+s.h)*T-4,()=>drawShopStand(ctx,s)]);
