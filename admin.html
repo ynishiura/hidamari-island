@@ -239,19 +239,19 @@
   function envCard(p) {
     const E = p.envs || [], SH = p.shared || [];
     const tb = el('tbody');
-    if (!E.length) tb.append(el('tr', {}, el('td', { colspan: 6, class: 'msg', text: 'まだ記録はありません（新しい版で遊ぶと記録されます）' })));
+    if (!E.length) tb.append(el('tr', {}, el('td', { colspan: 7, class: 'msg', text: 'まだ記録はありません（新しい版で遊ぶと記録されます）' })));
     for (const e of E) tb.append(el('tr', {}, el('td', {}, fmt(e.lastAt), el('div', { class: 'msg', style: 'margin:0', text: ago(e.lastAt) })),
-      el('td', { text: e.device }), el('td', { text: e.net }), el('td', {}, el('span', { class: 'mono', text: e.ip || '—' }), el('div', { class: 'msg mono', style: 'margin:0', text: '識別 ' + e.ipKey })),
+      el('td', { text: e.device }), el('td', { class: 'mono', text: e.dKey || '—' }), el('td', { text: e.net }), el('td', {}, el('span', { class: 'mono', text: e.ip || '—' }), el('div', { class: 'msg mono', style: 'margin:0', text: '識別 ' + e.ipKey })),
       el('td', { text: e.n + '回' }), el('td', { text: fmt(e.firstAt) })));
     const sh = el('div', { class: 'row', style: 'margin-top:6px' });
     if (!SH.length) sh.append(el('span', { class: 'msg', text: 'ありません' }));
-    for (const o of SH) sh.append(el('button', { class: o.banned ? 'warn' : 'sub', on: () => loadPlayer(o.id) }, `${o.name}（${o.id}）${o.banned ? '・ブロック中' : ''}`));
+    for (const o of SH) sh.append(el('button', { class: o.banned ? 'warn' : 'sub', on: () => loadPlayer(o.id) }, `${o.name}（${o.id}）・${o.how || '同じ通信環境'}${o.banned ? '・ブロック中' : ''}`));
     return el('div', { class: 'card', style: 'margin:12px 0 0;background:var(--panel-2)' },
       el('h2', { text: '利用環境の記録' }),
-      el('p', { class: 'msg', style: 'margin-top:0', text: 'この友だちIDで使った端末・ブラウザ・回線・通信環境（IP の末尾は伏せています。「識別」が同じなら同じ IP）。回線の種類は、ブラウザが知らせる場合だけ（Android の Chrome など）分かります。' }),
-      el('div', { class: 'scroll' }, el('table', {}, el('thead', {}, el('tr', {}, ...['最後に使った日時', '端末・ブラウザ', '回線', '通信環境（IP）', '回数', '最初に使った日時'].map(t => el('th', { text: t })))), tb)),
-      el('h2', { style: 'margin-top:12px', text: '同じ通信環境を使ったほかのアカウント' }),
-      el('p', { class: 'msg', style: 'margin:0', text: '家族や同じ Wi-Fi・同じスマホ回線の人の場合もあります。押すと、その人の記録を開きます。' }), sh);
+      el('p', { class: 'msg', style: 'margin-top:0', text: 'ブロックと、別アカウント・複数アカウントの防止のための記録です。この友だちIDで使った端末・ブラウザ・回線・通信環境（IP の末尾は伏せています。IP の「識別」が同じなら同じ IP、「端末の識別」が同じなら同じブラウザ）。回線の種類は、ブラウザが知らせる場合だけ（Android の Chrome など）分かります。' }),
+      el('div', { class: 'scroll' }, el('table', {}, el('thead', {}, el('tr', {}, ...['最後に使った日時', '端末・ブラウザ', '端末の識別', '回線', '通信環境（IP）', '回数', '最初に使った日時'].map(t => el('th', { text: t })))), tb)),
+      el('h2', { style: 'margin-top:12px', text: '同じ端末・同じ通信環境を使ったほかのアカウント' }),
+      el('p', { class: 'msg', style: 'margin:0', text: '「同じ端末」は同じブラウザで作られたアカウントで、別アカウント・複数アカウントの可能性が高いです。「同じ通信環境」だけの場合は、家族や同じ Wi-Fi・同じスマホ回線の人のこともあります。押すと、その人の記録を開きます。' }), sh);
   }
   async function loadPlayer(id) {
     const d = $('#pdetail'); d.hidden = false; d.dataset.id = id; d.textContent = '読み込み中…';

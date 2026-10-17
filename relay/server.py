@@ -30,7 +30,8 @@
      運営の返事（管理画面の inqreply{iid,body}）は、運営からのメールとしてポストにも届ける
 6. 利用環境とアカウント作成の制限（2026-10-17〜）
      register・auth・sync・host・join のとき、IP・端末とブラウザ（dev）・回線の種類（net）をアカウントごとに記録する（store.py の hd_envs）
-     register は、利用停止中のアカウントが使った IP からは断る（regban）。同じ IP からは 48時間に1つ（reg48）・30日で2つ（reg30）まで
+     register は、利用停止中のアカウントが使った IP・端末からは断る（regban）。同じ IP か同じ端末からは 48時間に1つ（reg48）・30日で2つ（reg30）まで
+     端末＝ゲームがブラウザに保存する「端末の識別番号」（did）。記録の使いみちは、ブロックと、別アカウント・複数アカウントの防止だけ
      合言葉の部屋（host・join）は、友だちIDと鍵（id・secret）で名のった人だけ。利用停止中は使えない（needacct／banned）
 起動： python server.py （PORT は環境変数。無ければ 8787）
 """
@@ -111,16 +112,24 @@ def client_ip(ws):
         return ''
 
 
+DID_RE = re.compile(r'^[0-9a-f]{24}$')
+
+
+def did_of(m):
+    d = m.get("did")
+    return d if isinstance(d, str) and DID_RE.match(d) else ""
+
+
 def env_of(m):
     dev = str(m.get("dev") or "")[:120] or "不明"
     net = str(m.get("net") or "")[:20] or "不明"
-    return dev, net
+    return dev, net, did_of(m)
 
 
 REG_MSG = {
-    "regban": "この通信環境からは、新しい友だちIDを作れません（利用停止中のアカウントと同じ通信環境のため）。",
-    "reg48": "この通信環境からは、しばらく新しい友だちIDを作れません（同じ通信環境から作れるのは48時間に1つまで）。",
-    "reg30": "この通信環境からは、しばらく新しい友だちIDを作れません（同じ通信環境から作れるのは30日で2つまで）。",
+    "regban": "この端末・通信環境からは、新しい友だちIDを作れません（利用停止中のアカウントと同じ端末・通信環境のため）。",
+    "reg48": "この端末・通信環境からは、しばらく新しい友だちIDを作れません（同じ端末・通信環境から作れるのは48時間に1つまで）。",
+    "reg30": "この端末・通信環境からは、しばらく新しい友だちIDを作れません（同じ端末・通信環境から作れるのは30日で2つまで）。",
 }
 
 
@@ -463,7 +472,7 @@ async def handler(ws):
                 save = m.get("save") if isinstance(m.get("save"), str) and m["save"].startswith("HIDA") and len(m["save"]) <= SAVE_MAX else None
                 try:
                     await run(db.sync, acct, play, dev, save)
-                    await run(db.record_env, acct, client_ip(ws), dev or "不明", str(m.get("net") or "")[:20] or "不明")
+                    await run(db.record_env, acct, client_ip(ws), dev or "不明", str(m.get("net") or "")[:20] or "不明", did_of(m))
                 except Exception as e:
                     print("sync error:", repr(e), flush=True)
                 continue
@@ -497,13 +506,13 @@ async def handler(ws):
             if t == "register" and db and not acct:
                 nm = clean_name(m.get("name"))
                 ip = client_ip(ws)
-                why = await run(db.reg_check, ip)
+                why = await run(db.reg_check, ip, did_of(m))
                 if why:
                     await send(ws, {"t": "err", "why": "regblock", "kind": why, "msg": REG_MSG[why]}); continue
                 if await run(db.name_taken, nm, None):
                     await send(ws, {"t": "err", "why": "nametaken"}); continue
                 pid, sec = await run(db.create, nm)
-                await run(db.add_reg, ip, pid)
+                await run(db.add_reg, ip, pid, did_of(m))
                 await run(db.record_env, pid, ip, *env_of(m))
                 acct = pid; online.setdefault(acct, set()).add(ws)
                 await send(ws, {"t": "acct", "id": pid, "secret": sec}); continue

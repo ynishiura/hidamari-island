@@ -14,7 +14,9 @@
   hd_envs     アカウントごとの利用環境（2026-10-17〜）：IP（元に戻せない形 ip_hash と、末尾を伏せた形 ip_mask）・端末とブラウザ・回線の種類、最初と最後に使った日時、回数
   hd_regs     新しく作ったアカウントの記録（IP の ip_hash と日時）。同じ IP から作れる数の上限に使う（31日で消す）
   hd_meta     設定（ip_hash の「塩」など）
-アカウント作成の制限：利用停止中のアカウントが使った IP からは作れない。同じ IP からは 48時間に1つ・30日で2つまで
+アカウント作成の制限：利用停止中のアカウントが使った IP・端末からは作れない。同じ IP か同じ端末からは 48時間に1つ・30日で2つまで
+  （端末＝ゲームがブラウザに保存する「端末の識別番号」did。モバイル回線と Wi-Fi を切りかえても同じ端末だと分かる）
+  記録の使いみちは、利用停止（ブロック）と、別アカウント・複数アカウントの防止だけ
 
 hd_players には後から足した列がある：banned（ブロック）・play_sec（プレイ時間・秒。まだ届いていなければ NULL）・
 device（利用端末）・save（ゲームのセーブ＝引継ぎコードの形）・save_at
@@ -134,6 +136,13 @@ class Store:
         self.q('CREATE INDEX IF NOT EXISTS hd_envs_ip ON hd_envs (ip_hash)')
         self.q('CREATE TABLE IF NOT EXISTS hd_regs (ip_hash TEXT NOT NULL, pid TEXT, at BIGINT NOT NULL)')
         self.q('CREATE INDEX IF NOT EXISTS hd_regs_ip ON hd_regs (ip_hash, at)')
+        for t in ('hd_envs', 'hd_regs'):
+            try:                                   # 端末の識別番号（あとから足した列）
+                self.q(f'ALTER TABLE {t} ADD COLUMN did TEXT')
+            except Exception:
+                pass
+        self.q('CREATE INDEX IF NOT EXISTS hd_envs_did ON hd_envs (did)')
+        self.q('CREATE INDEX IF NOT EXISTS hd_regs_did ON hd_regs (did, at)')
         self.q('CREATE INDEX IF NOT EXISTS hd_mail_to ON hd_mail (to_id, at)')
         self.q('CREATE INDEX IF NOT EXISTS hd_mail_from ON hd_mail (from_id, at)')
 
@@ -410,48 +419,51 @@ class Store:
     def ip_hash(self, ip):
         return hashlib.sha256((self._salt() + '|' + str(ip or '')).encode()).hexdigest()[:32] if ip else ''
 
-    def record_env(self, pid, ip, device, net):
+    def record_env(self, pid, ip, device, net, did=''):
         if not pid or not ip:
             return
         now = int(time.time())
-        self.q('INSERT INTO hd_envs (pid, ip_hash, ip_mask, device, net, first_at, last_at, n) VALUES (?,?,?,?,?,?,?,1) '
-               'ON CONFLICT (pid, ip_hash, device, net) DO UPDATE SET last_at=excluded.last_at, ip_mask=excluded.ip_mask, n=hd_envs.n+1',
-               (pid, self.ip_hash(ip), ip_mask(ip), (device or '不明')[:120], (net or '不明')[:20], now, now))
+        self.q('INSERT INTO hd_envs (pid, ip_hash, ip_mask, device, net, first_at, last_at, n, did) VALUES (?,?,?,?,?,?,?,1,?) '
+               "ON CONFLICT (pid, ip_hash, device, net) DO UPDATE SET last_at=excluded.last_at, ip_mask=excluded.ip_mask, n=hd_envs.n+1, "
+               "did=CASE WHEN excluded.did<>'' THEN excluded.did ELSE hd_envs.did END",
+               (pid, self.ip_hash(ip), ip_mask(ip), (device or '不明')[:120], (net or '不明')[:20], now, now, did or ''))
 
-    def reg_check(self, ip):
-        """この IP から新しいアカウントを作ってよいか。だめなら理由（regban／reg48／reg30）"""
-        h = self.ip_hash(ip)
-        if not h:
+    def reg_check(self, ip, did=''):
+        """この IP・端末から新しいアカウントを作ってよいか。だめなら理由（regban／reg48／reg30）。IP と端末のどちらかが当てはまれば数える"""
+        h, d = self.ip_hash(ip), did or ''
+        if not h and not d:
             return None
-        if self.q('SELECT 1 FROM hd_envs e JOIN hd_players p ON p.id=e.pid WHERE e.ip_hash=? AND p.banned=1 LIMIT 1', (h,), one=True):
+        cond, args = ('(e.ip_hash=? OR e.did=?)', (h, d)) if d else ('e.ip_hash=?', (h,))
+        if self.q(f'SELECT 1 FROM hd_envs e JOIN hd_players p ON p.id=e.pid WHERE p.banned=1 AND {cond} LIMIT 1', args, one=True):
             return 'regban'
         now = int(time.time())
-        n48 = (self.q('SELECT COUNT(*) FROM hd_regs WHERE ip_hash=? AND at>?', (h, now - 48 * 3600), one=True) or [0])[0]
-        if n48 >= REG_48H:
+        rc, ra = ('(ip_hash=? OR did=?)', (h, d)) if d else ('ip_hash=?', (h,))
+        cnt = lambda since: (self.q(f'SELECT COUNT(*) FROM hd_regs WHERE at>? AND {rc}', (since,) + ra, one=True) or [0])[0]
+        if cnt(now - 48 * 3600) >= REG_48H:
             return 'reg48'
-        n30 = (self.q('SELECT COUNT(*) FROM hd_regs WHERE ip_hash=? AND at>?', (h, now - 30 * 86400), one=True) or [0])[0]
-        if n30 >= REG_30D:
+        if cnt(now - 30 * 86400) >= REG_30D:
             return 'reg30'
         return None
 
-    def add_reg(self, ip, pid):
+    def add_reg(self, ip, pid, did=''):
         h = self.ip_hash(ip)
-        if h:
-            self.q('INSERT INTO hd_regs (ip_hash, pid, at) VALUES (?,?,?)', (h, pid, int(time.time())))
+        if h or did:
+            self.q('INSERT INTO hd_regs (ip_hash, pid, at, did) VALUES (?,?,?,?)', (h, pid, int(time.time()), did or ''))
 
     def envs_of(self, pid, n=40):
-        rows = self.q('SELECT ip_hash, ip_mask, device, net, first_at, last_at, n FROM hd_envs WHERE pid=? ORDER BY last_at DESC LIMIT ?', (pid, int(n)), many=True) or []
-        return [{'ipKey': r[0][:6], 'ip': r[1] or '', 'device': r[2], 'net': r[3], 'firstAt': r[4], 'lastAt': r[5], 'n': r[6]} for r in rows]
+        rows = self.q('SELECT ip_hash, ip_mask, device, net, first_at, last_at, n, did FROM hd_envs WHERE pid=? ORDER BY last_at DESC LIMIT ?', (pid, int(n)), many=True) or []
+        return [{'ipKey': r[0][:6], 'ip': r[1] or '', 'device': r[2], 'net': r[3], 'firstAt': r[4], 'lastAt': r[5], 'n': r[6], 'dKey': (r[7] or '')[:6]} for r in rows]
 
     def shared_accounts(self, pid, n=30):
         """同じ IP を使ったことのある、ほかのアカウント（複数アカウントの手がかり）"""
-        rows = self.q('SELECT DISTINCT e2.pid FROM hd_envs e1 JOIN hd_envs e2 ON e1.ip_hash=e2.ip_hash AND e2.pid<>e1.pid WHERE e1.pid=? LIMIT ?', (pid, int(n)), many=True) or []
-        ids = [r[0] for r in rows]
+        by_ip = {r[0] for r in (self.q('SELECT DISTINCT e2.pid FROM hd_envs e1 JOIN hd_envs e2 ON e1.ip_hash=e2.ip_hash AND e2.pid<>e1.pid WHERE e1.pid=? LIMIT ?', (pid, int(n)), many=True) or [])}
+        by_dev = {r[0] for r in (self.q("SELECT DISTINCT e2.pid FROM hd_envs e1 JOIN hd_envs e2 ON e1.did=e2.did AND e1.did<>'' AND e2.pid<>e1.pid WHERE e1.pid=? LIMIT ?", (pid, int(n)), many=True) or [])}
         out = []
-        for i in ids:
+        for i in sorted(by_ip | by_dev):
             r = self.q('SELECT name, banned, created_at FROM hd_players WHERE id=?', (i,), one=True)
             if r:
-                out.append({'id': i, 'name': r[0] or 'だれか', 'banned': bool(r[1]), 'createdAt': r[2]})
+                how = '同じ端末・同じ通信環境' if i in by_ip and i in by_dev else '同じ端末' if i in by_dev else '同じ通信環境'
+                out.append({'id': i, 'name': r[0] or 'だれか', 'banned': bool(r[1]), 'createdAt': r[2], 'how': how})
         return out
 
     # ---- お問い合わせ ----
