@@ -10,6 +10,7 @@
   hd_xfer     運営が発行した引継ぎコード（7日間・1回限り）
   hd_reports  プレイヤーからの通報（フレンドから届いたメール）。運営が読めるメールは、通報があった2人の、
               通報の日の前30日〜後7日のものだけ（通信の秘密。SIDERA VEIL と同じ）
+  hd_inquiries  ゲーム内の「お問い合わせ」。運営の返事は、運営からのメールとしてポストに届ける
 
 hd_players には後から足した列がある：banned（ブロック）・play_sec（プレイ時間・秒。まだ届いていなければ NULL）・
 device（利用端末）・save（ゲームのセーブ＝引継ぎコードの形）・save_at
@@ -23,6 +24,7 @@ AUTO_DEL_DAYS = 3             #           この日数以上つないでいな�
 
 ID_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'    # まぎらわしい 0・1・I・O は使わない
 MAIL_KEEP_DAYS = 30
+INQ_PER_HOUR, INQ_PER_DAY = 3, 10   # 1つのアカウントから送れるお問い合わせの数（SIDERA VEIL と同じ）
 
 
 def new_id():
@@ -102,6 +104,8 @@ class Store:
                'expires_at BIGINT NOT NULL, used INTEGER NOT NULL DEFAULT 0)')
         self.q(f'CREATE TABLE IF NOT EXISTS hd_reports (id {auto}, reporter TEXT NOT NULL, target TEXT NOT NULL, mail_id BIGINT, '
                'reason TEXT, detail TEXT, body TEXT, mail_at BIGINT, at BIGINT NOT NULL)')
+        self.q(f'CREATE TABLE IF NOT EXISTS hd_inquiries (id {auto}, pid TEXT NOT NULL, name TEXT, body TEXT NOT NULL, '
+               'at BIGINT NOT NULL, mailed INTEGER NOT NULL DEFAULT 0, reply TEXT, replied_at BIGINT, done INTEGER NOT NULL DEFAULT 0)')
         self.q('CREATE INDEX IF NOT EXISTS hd_mail_to ON hd_mail (to_id, at)')
         self.q('CREATE INDEX IF NOT EXISTS hd_mail_from ON hd_mail (from_id, at)')
 
@@ -271,6 +275,7 @@ class Store:
                 d[k] = [x for x in d.get(k, []) if x != pid]
             self.q('UPDATE hd_players SET data=? WHERE id=?', (json.dumps({k: d.get(k, []) for k in ('friends', 'reqIn', 'reqOut', 'blocked')}, ensure_ascii=False), oid))
         self.q('DELETE FROM hd_reports WHERE reporter=? OR target=?', (pid, pid))
+        self.q('DELETE FROM hd_inquiries WHERE pid=?', (pid,))
         self.q('DELETE FROM hd_mail WHERE from_id=? OR to_id=?', (pid, pid))
         self.q('DELETE FROM hd_xfer WHERE pid=?', (pid,))
         self.q('DELETE FROM hd_players WHERE id=?', (pid,))
@@ -331,8 +336,9 @@ class Store:
         return r and {'id': r[0], 'from': r[1], 'fromName': r[2], 'body': r[3], 'at': r[4]}
 
     def add_report(self, reporter, target, mail, reason, detail):
-        self.q('INSERT INTO hd_reports (reporter, target, mail_id, reason, detail, body, mail_at, at) VALUES (?,?,?,?,?,?,?,?)',
-               (reporter, target, mail['id'], reason, detail, mail['body'], mail['at'], int(time.time())))
+        r = self.q('INSERT INTO hd_reports (reporter, target, mail_id, reason, detail, body, mail_at, at) VALUES (?,?,?,?,?,?,?,?) RETURNING id',
+                   (reporter, target, mail['id'], reason, detail, mail['body'], mail['at'], int(time.time())), one=True)
+        return r and r[0]
 
     def reports(self, limit=200):
         rows = self.q('SELECT id, reporter, target, reason, detail, body, mail_at, at FROM hd_reports ORDER BY at DESC, id DESC LIMIT ?',
@@ -347,6 +353,41 @@ class Store:
         for a, b, at in (self.q('SELECT reporter, target, at FROM hd_reports', many=True) or []):
             out.setdefault(frozenset((a, b)), []).append(int(at))
         return out
+
+    # ---- お問い合わせ ----
+    def add_inquiry(self, pid, name, body):
+        """受け付けたら (id, None)。送りすぎなら (None, 理由)"""
+        now = int(time.time())
+        times = [r[0] for r in (self.q('SELECT at FROM hd_inquiries WHERE pid=? AND at>?', (pid, now - 86400), many=True) or [])]
+        if len(times) >= INQ_PER_DAY or sum(t > now - 3600 for t in times) >= INQ_PER_HOUR:
+            return None, 'お問い合わせを続けて送ることはできません。しばらくたってから送ってください'
+        r = self.q('INSERT INTO hd_inquiries (pid, name, body, at) VALUES (?,?,?,?) RETURNING id', (pid, name, body, now), one=True)
+        return (r and r[0]), None
+
+    def mark_mailed(self, iid):
+        self.q('UPDATE hd_inquiries SET mailed=1 WHERE id=?', (int(iid),))
+
+    def my_inquiries(self, pid, n=20):
+        rows = self.q('SELECT id, body, at, reply, replied_at FROM hd_inquiries WHERE pid=? ORDER BY at DESC, id DESC LIMIT ?',
+                      (pid, int(n)), many=True) or []
+        return [{'id': r[0], 'body': r[1], 'at': r[2], 'reply': r[3] or '', 'repliedAt': r[4]} for r in rows]
+
+    def inquiries(self, limit=300):
+        rows = self.q('SELECT id, pid, name, body, at, mailed, reply, replied_at, done FROM hd_inquiries ORDER BY at DESC, id DESC LIMIT ?',
+                      (int(limit),), many=True) or []
+        names = self.names(list({r[1] for r in rows}))
+        return [{'id': r[0], 'pid': r[1], 'name': r[2] or '', 'nowName': names.get(r[1], '（削除された人）'), 'body': r[3], 'at': r[4],
+                 'mailed': bool(r[5]), 'reply': r[6] or '', 'repliedAt': r[7], 'done': bool(r[8])} for r in rows]
+
+    def inquiry(self, iid):
+        r = self.q('SELECT id, pid FROM hd_inquiries WHERE id=?', (int(iid),), one=True)
+        return r and {'id': r[0], 'pid': r[1]}
+
+    def reply_inquiry(self, iid, body):
+        self.q('UPDATE hd_inquiries SET reply=?, replied_at=?, done=1 WHERE id=?', (body, int(time.time()), int(iid)))
+
+    def set_inquiry_done(self, iid, on):
+        self.q('UPDATE hd_inquiries SET done=? WHERE id=?', (1 if on else 0, int(iid)))
 
     def all_ids(self):
         return [r[0] for r in (self.q('SELECT id FROM hd_players WHERE banned=0', many=True) or [])]

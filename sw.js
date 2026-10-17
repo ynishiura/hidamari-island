@@ -5,7 +5,7 @@
 //   取りに行った分は裏で受け取りつづけ、届いたら保存しておく（次の起動から新しい版になる）
 // ・版が上がるとキャッシュ名が変わり、古い版の保存分は消える。文字のフォントは版に関係なく残す
 // キャッシュ名の版の番号は build.sh が埋める
-const CACHE = 'hidamari-1.096';
+const CACHE = 'hidamari-1.097';
 const FONTS = 'hidamari-fonts';
 const ASSETS = 'hidamari-assets';   // 絵と音楽（版が上がっても残す）
 const PAGE = './index.html';
@@ -35,8 +35,13 @@ function page(e) {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
-  if (req.mode === 'navigate') { e.respondWith(page(e)); return; }
   const url = new URL(req.url);
+  if (req.mode === 'navigate') {
+    // ゲーム本体（/ と index.html）だけ保存分を使う。紹介・利用規約・プライバシーポリシー・管理画面などのページは、そのままサーバーから読む
+    if (/\/(index\.html)?$/.test(url.pathname)) e.respondWith(page(e));
+    return;
+  }
+  if (url.pathname.endsWith('.html')) return;
   const store = /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname) ? FONTS : /\/(img|bgm)\//.test(url.pathname) ? ASSETS : CACHE;
   // そのほか（アイコン・フォントなど）：保存してあればそれを使い、なければ取ってきて保存
   e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(r => {

@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.096";</script>
+<script>const GAME_VERSION="1.097";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -8545,6 +8545,7 @@ function mailConsent(go){
   dialogOnTop(()=>showDialog('メッセージ機能のご利用について',['フレンドとのメールは、運営者のサーバーを通じて相手に届けます。使う前に、次のことに同意してください。',
     '(1) 送るメールに使えない言葉が含まれていないかを、プログラムで自動的に確かめます。',
     '(2) 通報されたメールと、通報の日の前30日から後7日までの間に同じ相手との間で送られたメールは、通報への対応と不正行為の調査に必要な限度で、運営者が確認します。それ以外の目的で内容を見ることはありません。',
+    '同意は、メニューの「お問い合わせ」からいつでも撤回できます（利用規約 第8条）。',
     '本名・住所・連絡先など、個人を特定できる情報は書かないでください。'],null,[
     ['同意して使う',()=>{endTalk();S.flags=S.flags||{};S.flags.msgConsent=Date.now();save();go()}],['やめる',()=>endTalk()]]));
 }
@@ -8815,6 +8816,109 @@ function startTitleFx(){
 }
 // Esc でメニューへ戻る
 addEventListener('keydown',e=>{if(RT.title&&e.code==='Escape'&&$('titleMain').hidden)showTitlePane('titleMain')});
+</script>
+<script>
+// ===================== お問い合わせ・利用規約 =====================
+// SIDERA VEIL と同じ窓口。メニューの「お問い合わせ」から運営に送る（中継サーバーの hd_inquiries に残り、運営者にメールで知らせる）。
+// 運営の返事は、家の前のポストに「運営」からのメールで届く。これまでのお問い合わせと返事は、この画面でも見られる。
+// 利用停止中でも送れるように、友だちIDと鍵（S.net）をいっしょに送る（サーバーがそれで本人を確かめる）。
+// 利用規約（terms.html）・プライバシーポリシー（privacy.html）は、遊びはじめる前に一度だけ同意してもらう（すでに遊んでいる人にも一度）。
+const TERMS_KEY='hidamari-terms',TERMS_VER='2026-10-17';
+const INQ={draft:'',name:'',items:null,sending:false,ws:null};
+const inqNet=()=>(RT.visiting?(OWN_KEEP&&OWN_KEEP.net):(S&&S.net))||null;
+function termsOk(){try{return localStorage.getItem(TERMS_KEY)===TERMS_VER}catch(e){return true}}
+// ---- サーバーとのやりとり（つないでいればその線で、つないでいなければ、その時だけつなぐ） ----
+async function inqSend(o){
+  const net=inqNet();
+  if(!net||!net.id){toast('サーバーにつないでいるところ。少し待ってから、もう一度ためしてね');if(typeof accConnect==='function')accConnect(true);return false}
+  const msg=Object.assign({},o,{id:net.id,secret:net.secret});
+  if(ACC.ws&&ACC.ws.readyState===1){ACC.ws.send(JSON.stringify(msg));return true}
+  if(INQ.ws&&INQ.ws.readyState===1){INQ.ws.send(JSON.stringify(msg));return true}
+  toast('サーバーにつないでいます…（1分ほどかかることがあるよ）');
+  const t0=performance.now();let ws=null;
+  while(!ws&&performance.now()-t0<60000){ws=await tryOpen(20000);if(!ws)await new Promise(r=>setTimeout(r,2500))}
+  if(!ws){toast('サーバーにつながらなかった。もう一度ためしてね');return false}
+  INQ.ws=ws;ws.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}inqOnMsg(m)};
+  ws.onclose=()=>{if(INQ.ws===ws)INQ.ws=null};
+  setTimeout(()=>{try{ws.close()}catch(e){}},120000);   // しばらくしたら切る
+  ws.send(JSON.stringify(msg));return true;
+}
+function inqOnMsg(m){   // お問い合わせの返事なら受け取って true
+  if(m.t==='inquired'){INQ.sending=false;INQ.draft='';INQ.tab='list';INQ.items=null;sfx('get');
+    if(RT.panel&&RT.panel.title==='お問い合わせ')RT.panel.tab='list';
+    dialogOnTop(()=>showDialog('お問い合わせ',[`お問い合わせを受け付けました（受付番号 ${m.no}）。`,'お返事は、家の前のポストに「運営」からのメールで届きます。'],null,[['とじる',()=>endTalk()]]));
+    inqSend({t:'inqlist'});inqRefresh();return true}
+  if(m.t==='inqlist'){INQ.items=m.items||[];inqRefresh();return true}
+  if(m.t==='err'&&(m.why==='inq'||m.why==='inqauth')){INQ.sending=false;
+    toast(m.why==='inqauth'?'友だちIDの確認ができなかった。データ引継ぎで受け取ったデータなら、少し遊んでからもう一度ためしてね':(m.msg||'送れなかった'),true);inqRefresh();return true}
+  return false;
+}
+{const _ao=accOnMsg;accOnMsg=function(m){if(inqOnMsg(m))return;return _ao(m)}}
+function inqRefresh(){if(RT.panel&&RT.panel.title==='お問い合わせ')refresh()}
+// ---- お問い合わせの画面 ----
+const inqLinks=()=>h('p',{class:'muted',style:'margin:10px 0 0;font-size:13px'},h('a',{href:'terms.html',target:'_blank',rel:'noopener'},'利用規約'),'　',h('a',{href:'privacy.html',target:'_blank',rel:'noopener'},'プライバシーポリシー'));
+function openInquiry(){
+  if(!INQ.name)INQ.name=(S&&S.name&&S.name!=='あなた')?S.name:'';
+  INQ.tab=INQ.tab||'new';
+  openPanel('お問い合わせ',[['new','送る'],['list','これまでのお問い合わせ']],INQ.tab,(body,tab)=>{
+    INQ.tab=tab;
+    if(tab==='list'){
+      if(INQ.items===null){body.append(h('p',{class:'muted'},'読み込んでいます…'));if(!INQ.loading){INQ.loading=true;inqSend({t:'inqlist'}).finally(()=>setTimeout(()=>INQ.loading=false,3000))}return}
+      if(!INQ.items.length)body.append(h('p',{class:'muted'},'まだお問い合わせはありません。'));
+      for(const q of INQ.items)body.append(h('div',{class:'card'},
+        h('div',{class:'rowline',style:'margin:0'},h('b',{class:'grow'},`受付番号 ${q.id}`),h('small',{class:'muted'},fmtAt(q.at))),
+        h('p',{style:'margin:6px 0;white-space:pre-wrap;word-break:break-all;font-size:14px'},q.body),
+        q.reply?h('div',{style:'background:#fff6e0;border:2px solid #f0c060;border-radius:10px;padding:6px 10px'},
+          h('div',{class:'rowline',style:'margin:0'},h('b',{class:'grow'},'🌸 運営からのお返事'),h('small',{class:'muted'},q.repliedAt?fmtAt(q.repliedAt):'')),
+          h('p',{style:'margin:4px 0 0;white-space:pre-wrap;word-break:break-all;font-size:14px'},q.reply))
+        :h('small',{class:'muted'},'お返事をお待ちください（家の前のポストに届きます）')));
+      body.append(h('div',{class:'rowline',style:'margin-top:8px'},h('button',{class:'btn sub',on:()=>{INQ.items=null;refresh()}},'読み込み直す')));
+      body.append(inqLinks());return;
+    }
+    const net=inqNet();
+    body.append(h('p',{style:'margin:0 0 8px;font-size:14px'},'ゲームの不具合、データの引継ぎのご相談、アカウントの削除、利用規約やプライバシーについてなど、運営へのご連絡はこちらから送ってください。お返事は、家の前のポストに「運営」からのメールで届きます。'));
+    body.append(h('p',{class:'muted',style:'margin:0 0 8px;font-size:13px'},`あなたの友だちID：${net&&net.id?net.id:'（まだありません）'}`));
+    const st='font:inherit;font-size:15px;padding:8px 10px;border-radius:10px;border:2px solid var(--line);width:100%;box-sizing:border-box;color:var(--ink);background:#fff';
+    const nm=h('input',{maxlength:'30',placeholder:'お名前（呼び名でかまいません）',style:st});nm.value=INQ.name;nm.oninput=()=>INQ.name=nm.value;
+    const cnt=h('small',{class:'muted'},`${INQ.draft.length} / 2000`);
+    const ta=h('textarea',{maxlength:'2000',rows:'7',placeholder:'お問い合わせの内容（2000文字まで）',style:st+';resize:vertical'});ta.value=INQ.draft;
+    ta.oninput=()=>{INQ.draft=ta.value;cnt.textContent=`${ta.value.length} / 2000`};
+    const go=h('button',{class:'btn',on:async()=>{
+      const n=nm.value.trim(),b=ta.value.trim();
+      if(!n){toast('お名前（呼び名）を書いてね');nm.focus();return}
+      if(!b){toast('お問い合わせの内容を書いてね');ta.focus();return}
+      if(INQ.sending)return;INQ.sending=true;go.disabled=true;go.textContent='送っています…';
+      const ok=await inqSend({t:'inquiry',name:n,body:b});if(!ok){INQ.sending=false;go.disabled=false;go.textContent='送る'}
+      else setTimeout(()=>{if(INQ.sending){INQ.sending=false;inqRefresh()}},20000)}},INQ.sending?'送っています…':'送る');
+    if(INQ.sending)go.disabled=true;
+    body.append(h('div',{class:'card'},h('b',{},'お名前'),h('div',{style:'margin:6px 0 10px'},nm),h('b',{},'お問い合わせの内容'),h('div',{style:'margin:6px 0 4px'},ta),
+      h('div',{class:'rowline',style:'margin:0;justify-content:space-between'},cnt,go)));
+    body.append(h('p',{class:'muted',style:'margin:8px 0 0;font-size:13px'},'本名・住所・電話番号などは、ご本人の確認などで運営からお願いしたとき以外は、書かないでください。'));
+    body.append(inqLinks());
+  });
+}
+{const b=document.createElement('button');b.className='mbtn';b.id='bInq';b.textContent='お問い合わせ';const x=$('bSave');x.before(b);b.onclick=()=>RT.title||openInquiry()}
+// ---- 利用規約とプライバシーポリシー（タイトル画面） ----
+{const main=$('titleMain'),pane=document.createElement('div');pane.id='titleTerms';pane.className='tpane box';pane.hidden=true;
+ pane.innerHTML='<h2>利用規約とプライバシーポリシー</h2><p style="margin:0;text-align:left;font-size:14px;line-height:1.7">ひだまり島ぐらし をはじめる前に、<a href="terms.html" target="_blank" rel="noopener">利用規約</a>と<a href="privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>をお読みください。<br>同意いただいた方だけ、ご利用いただけます。<br>未成年の方は、保護者の方の同意を得てからご利用ください。</p><button class="go" id="termsYes">同意してはじめる</button><button class="tback" id="termsBack">もどる</button>';
+ main.after(pane);
+ const links=document.createElement('p');links.className='tlegal';links.innerHTML='<a href="terms.html" target="_blank" rel="noopener">利用規約</a><a href="privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>';
+ $('title').append(links);   // 左上のすみに出す（メニューの下に足すと、小さい画面で下の案内が切れるため）
+ const _stp=showTitlePane;showTitlePane=function(id){pane.hidden=id!=='titleTerms';return _stp(id)};
+ let want=null;
+ $('title').addEventListener('click',e=>{   // 「つづきから」「はじめから」を押したとき、まだ同意していなければ先に同意の画面を出す
+   const b=e.target.closest&&e.target.closest('#tContinue,#tNew');if(!b||termsOk())return;
+   e.stopImmediatePropagation();e.preventDefault();want=b.id;showTitlePane('titleTerms');
+ },true);
+ $('termsYes').onclick=()=>{try{localStorage.setItem(TERMS_KEY,TERMS_VER)}catch(e){}showTitlePane('titleMain');const b=want&&$(want);want=null;if(b)b.click()};
+ $('termsBack').onclick=()=>{want=null;showTitlePane('titleMain')};
+ const st=document.createElement('style');st.textContent=`
+#title .tlegal{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));top:calc(8px + env(safe-area-inset-top,0px));z-index:3;margin:0;display:flex;gap:8px;font-size:12px}
+#title:has(#titleMain[hidden]) .tlegal{display:none}
+@media (max-height:500px),(max-width:700px){#title .tlegal{flex-direction:column;align-items:flex-start;gap:4px;font-size:11px}#title .tlegal a{padding:1px 8px}}
+#title .tlegal a{color:#fff;background:rgba(30,45,40,.5);padding:2px 10px;border-radius:999px;text-decoration:underline}
+#titleTerms a{color:var(--leaf-deep,#3f8a58);text-decoration:underline;font-weight:700}
+`;document.head.append(st)}
 </script>
 <script>
 // ===================== クリック移動・クリックアクション =====================

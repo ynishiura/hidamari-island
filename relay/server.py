@@ -23,6 +23,10 @@
      {"t":"sync","play":秒,"dev":利用端末,"save":"HIDA2:…"}   名のった人が定期的に送る（セーブは数分おき）
      {"t":"claim","code":"ABCD-EFGH"} → {"t":"claimed","id","secret","save","name"}  運営が発行した引継ぎコードで受け取る（前の端末は使えなくなる）
    利用停止のアカウントは auth で {"t":"err","why":"banned"} を返す
+5. お問い合わせ（SIDERA VEIL と同じ窓口。届いたら運営者にメールで知らせる。mailer.py）
+     {"t":"inquiry","name","body","id","secret"} → {"t":"inquired","no":受付番号}   名のっていなくても id・secret で送れる（利用停止中も送れる）
+     {"t":"inqlist","id","secret"} → {"t":"inqlist","items":[{id,body,at,reply,repliedAt}]}
+     運営の返事（管理画面の inqreply{iid,body}）は、運営からのメールとしてポストにも届ける
 起動： python server.py （PORT は環境変数。無ければ 8787）
 """
 import asyncio, json, os, time, unicodedata, secrets
@@ -30,6 +34,7 @@ from http import HTTPStatus
 from websockets.asyncio.server import serve
 import ngfilter
 from store import Store, norm_id
+from mailer import Mailer
 
 MAX_ROOM = 4
 MAX_MSG = 600_000
@@ -44,6 +49,9 @@ NOTICE_MAX = 200
 admin_fail = {"t": 0.0}
 claim_fail = {"t": 0.0}
 SAVE_MAX = 500_000
+INQ_NAME_MAX, INQ_BODY_MAX, INQ_REPLY_MAX = 30, 2000, 1000
+inq_fail = {"t": 0.0}
+mailer = Mailer()
 
 rooms = {}                   # code -> {"host": ws, "hostId": id, "members": {id: ws}, "names": {id: name}}
 online = {}                  # 友だちID -> set(ws)
@@ -80,6 +88,44 @@ async def broadcast(room, obj, skip=None):
 
 def run(fn, *a):
     return asyncio.to_thread(fn, *a)
+
+
+def jst(ts=None):
+    return time.strftime("%Y-%m-%d %H:%M", time.gmtime((ts or time.time()) + 9 * 3600)) + "（日本時間）"
+
+
+async def ops_mail(pid, body):
+    """運営からのメールをポストに届ける（つないでいれば、すぐに知らせる）"""
+    await run(db.add_mail, OPS_ID, pid, OPS_NAME, "", body)
+    if online.get(pid):
+        await push(pid, {"t": "mailnew", "from": OPS_ID, "name": OPS_NAME, "unread": await run(db.unread, pid)})
+
+
+async def inquiry_op(ws, acct, m):
+    """お問い合わせ。名のっていればその人、そうでなければ id・secret で本人を確かめる（利用停止中でも使える）"""
+    t = m.get("t")
+    pid = acct
+    if not pid:
+        pid = norm_id(m.get("id"))
+        if not pid or not await run(db.check, pid, str(m.get("secret") or "")):
+            wait = max(0.0, inq_fail["t"] + 1.0 - time.time()); inq_fail["t"] = time.time() + wait
+            await asyncio.sleep(1.0 + wait)
+            await send(ws, {"t": "err", "why": "inqauth"}); return
+    if t == "inqlist":
+        await send(ws, {"t": "inqlist", "items": await run(db.my_inquiries, pid, 20)}); return
+    name = " ".join(str(m.get("name") or "").split())[:INQ_NAME_MAX]
+    body = str(m.get("body") or "").replace("\r", "").strip()
+    if not name:
+        await send(ws, {"t": "err", "why": "inq", "msg": "お名前（呼び名）を書いてください"}); return
+    if not body:
+        await send(ws, {"t": "err", "why": "inq", "msg": "お問い合わせの内容を書いてください"}); return
+    if len(body) > INQ_BODY_MAX:
+        await send(ws, {"t": "err", "why": "inq", "msg": f"お問い合わせの内容は{INQ_BODY_MAX}文字までです"}); return
+    iid, err = await run(db.add_inquiry, pid, name, body)
+    if err:
+        await send(ws, {"t": "err", "why": "inq", "msg": err}); return
+    mailer.notify("inquiry", iid, jst(), lambda: db.mark_mailed(iid))
+    await send(ws, {"t": "inquired", "no": iid})
 
 
 async def friends_msg(pid):
@@ -180,7 +226,8 @@ async def account_op(ws, me, m):
             await send(ws, {"t": "err", "why": "report"}); return
         reason = " ".join(str(m.get("reason") or "").split())[:30] or "その他"
         detail = str(m.get("detail") or "").replace("\r", "").strip()[:500]
-        await run(db.add_report, me, mail["from"], mail, reason, detail)
+        rid = await run(db.add_report, me, mail["from"], mail, reason, detail)
+        mailer.notify("report", f"通報 {rid}", jst())
         blocked = bool(m.get("block"))
         if blocked:                                  # ブロック：フレンドをやめ、申請・メール・誘いを受けない
             a, b = await run(db.get, me), await run(db.get, mail["from"])
@@ -287,6 +334,25 @@ async def admin_op(ws, m):
             await run(db.touch, pid, nm)
             await push(pid, {"t": "info", "why": "opsrename", "name": nm})
             await reply(ok=True, id=pid, name=nm); return
+        if op == "inquiries":
+            await reply(ok=True, items=await run(db.inquiries, 300), mail=mailer.on); return
+        if op in ("inqreply", "inqdone"):
+            try:
+                q = await run(db.inquiry, int(m.get("iid")))
+            except (TypeError, ValueError):
+                q = None
+            if not q:
+                await reply(ok=False, err="そのお問い合わせはありません"); return
+            if op == "inqdone":
+                await run(db.set_inquiry_done, q["id"], bool(m.get("on"))); await reply(ok=True); return
+            body = str(m.get("body") or "").strip().replace("\r", "")
+            if not body or len(body) > INQ_REPLY_MAX:
+                await reply(ok=False, err=f"返事は1〜{INQ_REPLY_MAX}文字で書いてください"); return
+            await run(db.reply_inquiry, q["id"], body)
+            delivered = bool(await run(db.get, q["pid"]))
+            if delivered:
+                await ops_mail(q["pid"], f"【お問い合わせ（受付番号 {q['id']}）へのお返事】\n{body}")
+            await reply(ok=True, delivered=delivered); return
         if op == "reports":
             await reply(ok=True, items=await run(db.reports, 300)); return
         if op == "mails":
@@ -303,9 +369,7 @@ async def admin_op(ws, m):
             if not ids:
                 await reply(ok=False, err="送り先が見つかりません"); return
             for i in ids:
-                await run(db.add_mail, OPS_ID, i, OPS_NAME, "", body)
-                if online.get(i):
-                    await push(i, {"t": "mailnew", "from": OPS_ID, "name": OPS_NAME, "unread": await run(db.unread, i)})
+                await ops_mail(i, body)
             await reply(ok=True, sent=len(ids)); return
         if op == "closeroom":
             code = norm_code(m.get("code")); r = rooms.get(code) if code else None
@@ -369,6 +433,15 @@ async def handler(ws):
                     except Exception:
                         pass
                 await send(ws, {"t": "claimed", **got}); continue
+            # ---- お問い合わせ ----
+            if t in ("inquiry", "inqlist") and db:
+                if len(raw) <= 12_000:
+                    try:
+                        await inquiry_op(ws, acct, m)
+                    except Exception as e:
+                        print("inquiry error:", repr(e), flush=True)
+                        await send(ws, {"t": "err", "why": "server"})
+                continue
             # ---- フレンド・メール ----
             if t == "namecheck":
                 nm = clean_name(m.get("name"))

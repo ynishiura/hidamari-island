@@ -68,7 +68,7 @@
 <main>
   <p class="msg" id="status">パスワードを入れて「表示」を押してください。（中継サーバーが眠っているときは、起きるまで1分ほどかかります）</p>
   <div class="tabs" id="tabs" hidden>
-    <button data-t="stats" class="on">状況</button><button data-t="players">プレイヤー</button><button data-t="reports">通報</button><button data-t="mails">メール</button><button data-t="notice">お知らせを送る</button>
+    <button data-t="stats" class="on">状況</button><button data-t="players">プレイヤー</button><button data-t="inq">お問い合わせ<span id="inqBadge"></span></button><button data-t="reports">通報</button><button data-t="mails">メール</button><button data-t="notice">お知らせを送る</button>
   </div>
 
   <section class="pane" id="pane-stats" hidden>
@@ -92,6 +92,16 @@
       <div class="row"><input id="mq" class="grow" placeholder="友だちID・名前・本文で探す"><button id="msearch">探す</button><button id="mdel" class="warn" disabled>選んだメールを消す</button></div>
       <p class="msg" id="mmsg"></p>
       <div class="scroll"><table><thead><tr><th></th><th>日時</th><th>差出人</th><th>宛先</th><th>本文</th></tr></thead><tbody id="mlist"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="pane" id="pane-inq" hidden>
+    <div class="card">
+      <h2>お問い合わせ</h2>
+      <p class="msg" style="margin-top:0">ゲームのメニューの「お問い合わせ」から届いたものです（新しい順）。返事は、その人の家の前のポストに「運営」からのメールとして届き、ゲームの「これまでのお問い合わせ」にも出ます（1000文字まで）。アカウントの削除の依頼は、内容を確かめてから「プレイヤー」の画面で削除してください。</p>
+      <div class="row"><label class="inline"><input type="checkbox" id="inqAll"> 対応済みも表示する</label><span class="msg grow" id="inqMail"></span></div>
+      <p class="msg" id="imsg"></p>
+      <div id="ilist"></div>
     </div>
   </section>
 
@@ -165,7 +175,7 @@
     if (!j.ok) { status(j.err || '表示できませんでした', true); $('#tabs').hidden = true; document.querySelectorAll('.pane').forEach(p => p.hidden = true); return; }
     try { sessionStorage.setItem(KEY, token); } catch (e) {}
     status(`つながりました（保存先：${j.store === 'pg' ? 'Neon' : '手元の SQLite'}）`);
-    $('#tabs').hidden = false; showStats(j); show(tab);
+    $('#tabs').hidden = false; showStats(j); show(tab); if (tab !== 'inq') loadInq(true);
   }
   function show(t) {
     tab = t; document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
@@ -174,6 +184,7 @@
     if (t === 'players') loadPlayers();
     if (t === 'mails') loadMails();
     if (t === 'reports') loadReports();
+    if (t === 'inq') loadInq();
   }
   document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => show(b.dataset.t));
   $('#login').onclick = login; $('#token').onkeydown = e => { if (e.key === 'Enter') login(); };
@@ -247,6 +258,39 @@
         el('p', { class: 'msg', id: 'xferOut' })));
     d.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  // ---- お問い合わせ ----
+  async function loadInq(badgeOnly) {
+    if (!badgeOnly) $('#imsg').textContent = '読み込み中…';
+    const j = await api('inquiries');
+    if (!j.ok) { if (!badgeOnly) $('#imsg').textContent = j.err; return; }
+    const open = j.items.filter(q => !q.done).length;
+    $('#inqBadge').textContent = open ? `（${open}）` : '';
+    if (badgeOnly) return;
+    $('#inqMail').textContent = j.mail ? '届いたときの通知メール：送っています' : '届いたときの通知メール：設定されていません（RESEND_API_KEY・INQUIRY_TO）';
+    const all = $('#inqAll').checked, items = j.items.filter(q => all || !q.done), l = $('#ilist'); l.innerHTML = '';
+    $('#imsg').textContent = items.length ? `${items.length}件` + (all ? '' : '（対応待ち）') : (all ? 'まだお問い合わせはありません' : '対応待ちのお問い合わせはありません');
+    for (const q of items) {
+      const ta = el('textarea', { rows: 4, maxlength: 1000, placeholder: 'お返事（1000文字まで。ポストに「運営」からのメールで届きます）' });
+      l.append(el('div', { class: 'card', style: 'background:var(--panel-2)' },
+        el('div', { class: 'row' }, el('b', { class: 'grow', text: `受付番号 ${q.id}　${fmt(q.at)}` }), q.done ? el('span', { class: 'tag on', text: '対応済み' }) : el('span', { class: 'tag ban', text: '対応待ち' })),
+        el('dl', { class: 'detail', style: 'display:grid;grid-template-columns:8em 1fr;gap:4px 10px;margin:6px 0' },
+          el('dt', { text: 'お名前' }), el('dd', {}, q.name || '—', '（いまのプレイヤー名：', q.nowName, '）'),
+          el('dt', { text: '友だちID' }), el('dd', { class: 'mono', text: q.pid }),
+          el('dt', { text: '内容' }), el('dd', { style: 'white-space:pre-wrap;word-break:break-all', text: q.body }),
+          q.reply ? el('dt', { text: 'お返事' }) : null, q.reply ? el('dd', { style: 'white-space:pre-wrap;word-break:break-all', text: `${q.reply}
+（${fmt(q.repliedAt)} に送りました）` }) : null),
+        ta,
+        el('div', { class: 'row', style: 'margin-top:8px' },
+          el('button', { on: async () => {
+            const body = ta.value.trim(); if (!body) { status('お返事を書いてください', true); return; }
+            if (!confirm(`受付番号 ${q.id} にお返事を送りますか？`)) return;
+            const x = await api('inqreply', { iid: q.id, body }); status(x.ok ? (x.delivered ? 'お返事を送りました（ポストに届きます）' : 'お返事を残しました（この人のアカウントはもうないので、ポストには届きません）') : x.err, !x.ok); loadInq(); } }, q.reply ? 'もう一度お返事を送る' : 'お返事を送る'),
+          el('button', { class: 'sub', on: async () => { const x = await api('inqdone', { iid: q.id, on: !q.done }); status(x.ok ? (q.done ? '対応待ちに戻しました' : '対応済みにしました') : x.err, !x.ok); loadInq(); } }, q.done ? '対応待ちに戻す' : '対応済みにする'),
+          el('button', { class: 'sub', on: () => { show('players'); loadPlayer(q.pid); } }, 'この人の記録'))));
+    }
+  }
+  $('#inqAll').onchange = () => loadInq();
 
   // ---- 通報 ----
   async function loadReports() {
