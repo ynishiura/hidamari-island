@@ -20,13 +20,16 @@
 
 hd_players には後から足した列がある：banned（ブロック）・play_sec（プレイ時間・秒。まだ届いていなければ NULL）・
 device（利用端末）・save（ゲームのセーブ＝引継ぎコードの形）・save_at
-自動削除：プレイ時間が3分未満のまま、3日以上つないでいないアカウントは消す（play_sec が NULL のものは消さない）
+自動削除：プレイ時間が3分未満のまま、3日以上つないでいないアカウントは消す（play_sec が NULL のものは消さない）。
+  さらに、最後につないでから30日つないでいないアカウントも消す（2026-10-17〜）。どちらも利用停止中のアカウントは消さない（ブロック逃れを止める記録を残すため）
+友だちIDは、アカウントごとに1つで変わらない。運営の「アカウント作成の代行」は、hd_xfer の kind='id' のコード（受け取ると友だちIDだけが入る）
 """
 import hashlib, json, os, secrets, sqlite3, threading, time
 
 XFER_DAYS = 7                 # 引継ぎコードの有効期限（日）
 AUTO_DEL_PLAY = 180           # 自動削除：プレイ時間がこれ（秒）未満で
 AUTO_DEL_DAYS = 3             #           この日数以上つないでいないアカウント
+IDLE_DEL_DAYS = 30            # 自動削除：最後につないでから、この日数つないでいないアカウント
 
 ID_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'    # まぎらわしい 0・1・I・O は使わない
 MAIL_KEEP_DAYS = 30
@@ -126,6 +129,10 @@ class Store:
                 pass
         self.q('CREATE TABLE IF NOT EXISTS hd_xfer (code TEXT PRIMARY KEY, pid TEXT NOT NULL, created_at BIGINT NOT NULL, '
                'expires_at BIGINT NOT NULL, used INTEGER NOT NULL DEFAULT 0)')
+        try:                                       # コードの種類（save＝セーブごと、id＝友だちIDだけ）。あとから足した列
+            self.q("ALTER TABLE hd_xfer ADD COLUMN kind TEXT")
+        except Exception:
+            pass
         self.q(f'CREATE TABLE IF NOT EXISTS hd_reports (id {auto}, reporter TEXT NOT NULL, target TEXT NOT NULL, mail_id BIGINT, '
                'reason TEXT, detail TEXT, body TEXT, mail_at BIGINT, at BIGINT NOT NULL)')
         self.q(f'CREATE TABLE IF NOT EXISTS hd_inquiries (id {auto}, pid TEXT NOT NULL, name TEXT, body TEXT NOT NULL, '
@@ -280,33 +287,42 @@ class Store:
         self.q('UPDATE hd_players SET seen_at=? WHERE id=?', (now, pid))
 
     # ---- 引継ぎコード（運営が発行。7日間・1回限り） ----
-    def issue_xfer(self, pid):
-        r = self.q('SELECT save_at FROM hd_players WHERE id=? AND save IS NOT NULL', (pid,), one=True)
-        if not r:
-            return None, None
+    def _new_code(self, pid, kind):
         now = int(time.time())
         for _ in range(20):
             raw = ''.join(secrets.choice(ID_CHARS) for _ in range(8))
             code = f'{raw[:4]}-{raw[4:]}'
             if not self.q('SELECT 1 FROM hd_xfer WHERE code=?', (code,), one=True):
-                self.q('INSERT INTO hd_xfer (code, pid, created_at, expires_at, used) VALUES (?,?,?,?,0)', (code, pid, now, now + XFER_DAYS * 86400))
-                return code, r[0]
+                self.q('INSERT INTO hd_xfer (code, pid, created_at, expires_at, used, kind) VALUES (?,?,?,?,0,?)', (code, pid, now, now + XFER_DAYS * 86400, kind))
+                return code
         raise RuntimeError('xfer')
+
+    def issue_xfer(self, pid):
+        r = self.q('SELECT save_at FROM hd_players WHERE id=? AND save IS NOT NULL', (pid,), one=True)
+        if not r:
+            return None, None
+        return self._new_code(pid, 'save'), r[0]
+
+    def admin_create(self, name):
+        """運営がアカウントを作る（作成の代行。作成の数の制限は数えない）。受け取りのコード（友だちIDだけが入る）を返す"""
+        pid, _ = self.create(name)
+        return pid, self._new_code(pid, 'id')
 
     def claim_xfer(self, code):
         """引継ぎコードを使う：セーブと、新しい鍵（前の端末は使えなくなる）を返す。使えなければ None"""
         code = ''.join(c for c in str(code or '').upper() if c.isalnum())
         code = f'{code[:4]}-{code[4:]}' if len(code) == 8 else ''
-        r = self.q('SELECT pid, expires_at, used FROM hd_xfer WHERE code=?', (code,), one=True)
+        r = self.q('SELECT pid, expires_at, used, kind FROM hd_xfer WHERE code=?', (code,), one=True)
         if not r or r[2] or r[1] < time.time():
             return None
         p = self.q('SELECT save, name FROM hd_players WHERE id=?', (r[0],), one=True)
-        if not p or not p[0]:
+        idonly = r[3] == 'id'
+        if not p or (not p[0] and not idonly):
             return None
         sec = secrets.token_urlsafe(24)
         self.q('UPDATE hd_players SET secret_hash=? WHERE id=?', (hsec(sec), r[0]))
         self.q('UPDATE hd_xfer SET used=1 WHERE code=?', (code,))
-        return {'id': r[0], 'secret': sec, 'save': p[0], 'name': p[1]}
+        return {'id': r[0], 'secret': sec, 'save': None if idonly else p[0], 'name': p[1], 'idonly': idonly}
 
     # ---- アカウントの削除（運営・自動削除） ----
     def delete_player(self, pid):
@@ -329,9 +345,10 @@ class Store:
         return True
 
     def auto_delete(self):
-        """プレイ時間が3分未満のまま、3日以上つないでいないアカウントを消す。消した数を返す"""
-        rows = self.q('SELECT id FROM hd_players WHERE play_sec IS NOT NULL AND play_sec<? AND seen_at<? AND banned=0',
-                      (AUTO_DEL_PLAY, int(time.time()) - AUTO_DEL_DAYS * 86400), many=True) or []
+        """プレイ時間が3分未満のまま3日以上つないでいない、または最後につないでから30日つないでいないアカウントを消す（利用停止中は消さない）。消した数を返す"""
+        now = int(time.time())
+        rows = self.q('SELECT id FROM hd_players WHERE banned=0 AND ((play_sec IS NOT NULL AND play_sec<? AND seen_at<?) OR seen_at<?)',
+                      (AUTO_DEL_PLAY, now - AUTO_DEL_DAYS * 86400, now - IDLE_DEL_DAYS * 86400), many=True) or []
         for (pid,) in rows:
             self.delete_player(pid)
         return len(rows)

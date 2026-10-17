@@ -8,6 +8,8 @@
 2. フレンドとメール（store.py に保存。DATABASE_URL があれば Neon）
      {"t":"register","name"} → {"t":"acct","id","secret"}       はじめての人に友だちIDを作る
      {"t":"auth","id","secret","name"} → {"t":"authed","id"}    つなぐたびに名のる（ここからフレンドの操作ができる）
+       名のれないとき：その友だちIDが削除されていれば {"t":"err","why":"gone"}、鍵がちがう（ほかの端末に引き継がれた）なら {"t":"err","why":"moved"}
+       友だちIDはアカウントごとに1つで変わらない（ゲームは moved のとき新しいIDを作らない）
      friends / freq{to} / faccept{id} / fdecline{id} / fcancel{id} / fremove{id} / rename{name}
      report{mid, reason, detail, block}（フレンドから届いたメールを通報。block ならその人をブロック）/ unblock{id}
      メールに自傷をほのめかす言葉があれば止めて、相談窓口を知らせる（{"t":"err","why":"selfharm","msg"}）
@@ -378,6 +380,14 @@ async def admin_op(ws, m):
                     pass
             ok = await run(db.delete_player, pid)
             await reply(ok=ok, **({} if ok else {"err": "その友だちIDの人はいません"})); return
+        if op == "create":   # アカウント作成の代行（家族などで、同じ端末・通信環境から作れないとき）
+            nm = clean_name(m.get("name"))
+            if not str(m.get("name") or "").strip():
+                await reply(ok=False, err="名前を入れてください"); return
+            if await run(db.name_taken, nm, None):
+                await reply(ok=False, err=f"「{nm}」は、ほかの人が使っている名前です"); return
+            pid, code = await run(db.admin_create, nm)
+            await reply(ok=True, id=pid, name=nm, code=code, days=7); return
         if op == "rename":
             nm = clean_name(m.get("name"))
             if not pid or not await run(db.get, pid):
@@ -518,7 +528,8 @@ async def handler(ws):
             if t == "auth" and db and not acct:
                 pid = norm_id(m.get("id"))
                 if not pid or not await run(db.check, pid, str(m.get("secret") or "")):
-                    await send(ws, {"t": "err", "why": "auth"}); continue
+                    gone = not pid or not await run(db.get, pid)
+                    await send(ws, {"t": "err", "why": "gone" if gone else "moved"}); continue
                 await run(db.record_env, pid, client_ip(ws), *env_of(m))
                 if await run(db.is_banned, pid):
                     await send(ws, {"t": "err", "why": "banned"}); continue

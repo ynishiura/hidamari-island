@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.126";</script>
+<script>const GAME_VERSION="1.127";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -8593,7 +8593,13 @@ function accOnMsg(m){
       S.bag[g]=(S.bag[g]||0)+1;if(DEX_KINDS.includes(it.kind)&&!S.dex[g]&&!S.found[g])S.found[g]=S.day;updateHud();save();sfx('lv');   // 開けるときにポケットのあきを確かめてある
       pushOverlay({badge:'包みを開けた',title:`${it.name}が出てきた！`,cheer:`${mm?mm.fromName||'フレンド':'フレンド'}からの贈り物`,note:it.note||'',meta:'持ち物に入れたよ',icon:g});accRefresh();break}
     case 'err':if(m.why==='mail'||m.why==='mlen'||m.why==='ng'||m.why==='mday'||m.why==='gday'||m.why==='notfriend'||m.why==='selfharm')ACC.pendingGift=null;
-      if(m.why==='auth'){ACC.authed=false;if(!RT.visiting){S.net=null;save();ACC.auto=true;try{ACC.ws&&ACC.ws.close()}catch(e){}ACC.ws=null;setTimeout(()=>accConnect(true),500)}else{ACC.bad=true;toast('友だちIDの確認ができなかった')}accRefresh();break}   // サーバーに無い友だちID（削除された）は作り直す
+      // 友だちIDはアカウントごとに1つで変わらない（2026-10-17）。名のれないとき：
+      //  gone＝その友だちIDが削除されていた（長いあいだ使われなかったなど）→ 新しいアカウントとして友だちIDを作る（作成の制限はかかる）
+      //  moved＝鍵がちがう（ほかの端末に引き継がれた）→ 新しいIDは作らない。この端末ではフレンドとメールを使えない
+      if(m.why==='gone'){ACC.authed=false;if(!RT.visiting){S.net=null;save();ACC.auto=true;try{ACC.ws&&ACC.ws.close()}catch(e){}ACC.ws=null;
+          toast('前の友だちIDは、長いあいだ使われなかったなどの理由で、なくなっていました。新しい友だちIDを作ります',true);setTimeout(()=>accConnect(true),500)}else ACC.bad=true;accRefresh();break}
+      if(m.why==='moved'||m.why==='auth'){ACC.authed=false;ACC.bad=true;ACC.moved=true;try{ACC.ws&&ACC.ws.close()}catch(e){}
+        if(!ACC.movedToasted){ACC.movedToasted=true;toast('この友だちIDは、ほかの端末に引き継がれたため、この端末ではフレンドやメールが使えません',true)}accRefresh();break}
       if(m.why==='nametaken'&&ACC.auto){ACC.auto=false;break}
       if(m.why==='regblock'){ACC.bad=true;ACC.auto=false;ACC.regMsg=m.msg;try{ACC.ws&&ACC.ws.close()}catch(e){}   // 同じ通信環境からの新しい友だちIDの作成の制限（サーバーが断った）
         if(!ACC.regToasted){ACC.regToasted=true;toast(`${m.msg||'新しい友だちIDを作れませんでした。'} 島で遊ぶことはできます。`,true)}accRefresh();break}
@@ -8627,10 +8633,13 @@ function renderFriendPlay(body){
   if(ACC.status)body.append(h('div',{class:'netnote'},'⏳ '+ACC.status));
   body.append(h('p',{class:'muted',style:'margin:0 0 8px'},'📮 フレンドとのメールは、家の前のポストで読んだり送ったりできるよ。'));
   // 自分の友だちID
-  if(!net||ACC.bad){
-    body.append(h('div',{class:'card'},h('b',{},'友だちIDを作る'),h('p',{class:'muted',style:'margin:4px 0 8px'},'友だちIDを作ると、フレンドになったり、メールを送りあったりできるよ。友だちIDは引継ぎにも入るので、機種変更しても同じIDのまま。'),
-      h('button',{class:'btn',...(ACC.connecting?{disabled:''}:{}),on:()=>{if(ACC.bad){ACC.bad=false;if(RT.visiting&&OWN_KEEP)OWN_KEEP.net=null;else S.net=null;try{ACC.ws&&ACC.ws.close()}catch(e){}ACC.ws=null}accConnect(true)}},ACC.bad?'友だちIDを作り直す':'友だちIDを作る')));
+  if(!net){   // 友だちIDがまだない（作るのは1回だけ。作ったあとは変わらない）
+    body.append(h('div',{class:'card'},h('b',{},'友だちIDを作る'),h('p',{class:'muted',style:'margin:4px 0 8px'},'友だちIDを作ると、フレンドになったり、メールを送りあったりできるよ。友だちIDはアカウントに1つだけで、あとから変わらない。引継ぎにも入るので、機種変更しても同じIDのまま。'),
+      ACC.regMsg?h('p',{class:'muted',style:'margin:0 0 8px;color:#c2493e'},ACC.regMsg+' 家族などで作れないときは、メニューの「お問い合わせ」で相談してね。'):null,
+      h('button',{class:'btn',...(ACC.connecting?{disabled:''}:{}),on:()=>{ACC.bad=false;accConnect(true)}},ACC.regMsg?'もう一度ためす':'友だちIDを作る')));
   }else{
+    if(ACC.bad)body.append(h('div',{class:'netnote'},ACC.moved?'この友だちIDは、ほかの端末に引き継がれたため、この端末ではフレンドやメールが使えません。':'友だちIDの確認ができませんでした。',
+      ACC.moved?null:h('button',{class:'btn sub',style:'margin-left:8px',on:()=>{ACC.bad=false;try{ACC.ws&&ACC.ws.close()}catch(e){}ACC.ws=null;accConnect(false)}},'もう一度つなぐ')));
     const idv=net.id;
     body.append(h('div',{class:'card'},h('div',{class:'rowline',style:'margin:0;gap:8px;flex-wrap:wrap'},h('span',{class:'muted'},'あなたの友だちID：'),h('b',{class:'fid'},idv),
       h('button',{class:'btn sub',on:async()=>{try{await navigator.clipboard.writeText(idv);toast('友だちIDをコピーした')}catch(e){toast(idv)}}},'コピー'),
@@ -8793,6 +8802,9 @@ setTimeout(function auto(){
   if(!S.net&&!RT.visiting&&!ACC.connecting&&!ACC.ws){ACC.auto=true;accConnect(true)}
 },6000);
 
+// 運営の作成代行のコードを、島を始める前に受け取っていたとき：始めたら友だちIDを入れる
+setInterval(()=>{try{const p=localStorage.getItem('hidamari-pendnet');if(!p||!S||RT.title||S.net)return;S.net=JSON.parse(p);save();localStorage.removeItem('hidamari-pendnet');
+  ACC.bad=false;ACC.regMsg=null;try{ACC.ws&&ACC.ws.close()}catch(e){}ACC.ws=null;accConnect(false);toast(`友だちID ${S.net.id} が入りました`,true)}catch(e){}},3000);
 // ---- 引継ぎの画面に「運営から受け取った引継ぎコード」の欄を足す ----
 {const _rx=renderXfer;renderXfer=function(el){
   _rx(el);
@@ -8809,6 +8821,13 @@ setTimeout(function auto(){
         ws.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}if(m.t==='claimed'){clearTimeout(tm);res(m)}else if(m.t==='err'){clearTimeout(tm);rej(new Error('コードがちがうか、期限が切れているか、もう使われています'))}};
         ws.send(JSON.stringify({t:'claim',code}))});
       try{ws.close()}catch(e){}
+      if(got.idonly){   // 運営の「アカウント作成の代行」のコード：島のデータはそのままで、友だちIDだけが入る
+        const net={id:got.id,secret:got.secret};
+        let had=false;try{const raw=localStorage.getItem(SAVE_KEY);if(raw){const sv=JSON.parse(raw);sv.net=net;localStorage.setItem(SAVE_KEY,JSON.stringify(sv));had=true}}catch(e){}
+        if(had&&S){S.net=net;try{save()}catch(e){}}else{try{localStorage.setItem('hidamari-pendnet',JSON.stringify(net))}catch(e){}}   // まだ島がなければ、はじめたときに入れる
+        ACC.bad=false;ACC.moved=false;ACC.regMsg=null;try{ACC.ws&&ACC.ws.close()}catch(e){}ACC.ws=null;if(had&&!RT.title)setTimeout(()=>accConnect(false),300);
+        msg.textContent=`友だちID ${got.id} を受け取りました。島のデータはそのままです。`+(had?'':'「はじめから」で島のくらしを始めると、この友だちIDが入ります。');btn.disabled=false;return;
+      }
       const s=await readXferCode(got.save);s.net={id:got.id,secret:got.secret};
       const conf=h('div',{class:'xconf'},h('p',{},`「${xferInfo(s)}」（友だちID ${got.id}）のデータを読み込みます。`+(localStorage.getItem(SAVE_KEY)?'この端末のいまのセーブは上書きされ、もとに戻せません。':'')),
         h('button',{class:'xbtn main',on:()=>{try{localStorage.setItem(SAVE_KEY,JSON.stringify(s));msg.textContent='読み込みました。ゲームを開き直します…';RT.quit=true;setTimeout(()=>location.reload(),600)}catch(e){msg.textContent='書きこめませんでした：'+e.message}}},'読み込む'));
@@ -8816,7 +8835,7 @@ setTimeout(function auto(){
     }catch(e){msg.textContent='受け取れませんでした：'+e.message}
     btn.disabled=false;
   }},'コードで受け取る');
-  sec.append(h('p',{},'スマホをなくしたときなどに、運営から受け取った8文字のコードで、島のくらしを取り戻せます（7日間・1回だけ使えます）。'),inp,btn,msg);
+  sec.append(h('p',{},'スマホをなくしたときなどに、運営から受け取った8文字のコードで、島のくらしを取り戻せます（7日間・1回だけ使えます）。運営に友だちIDの作成をお願いしたときのコードも、ここに入れます（島のデータはそのままで、友だちIDだけが入ります）。'),inp,btn,msg);
   const last=el.querySelector('.xmsg:last-of-type');el.insertBefore(sec,last||null);
 }}
 </script>
@@ -8974,7 +8993,7 @@ addEventListener('keydown',e=>{if(RT.title&&e.code==='Escape'&&$('titleMain').hi
 // 運営の返事は、家の前のポストに「運営」からのメールで届く。これまでのお問い合わせと返事は、この画面でも見られる。
 // 利用停止中でも送れるように、友だちIDと鍵（S.net）をいっしょに送る（サーバーがそれで本人を確かめる）。
 // 利用規約（terms.html）・プライバシーポリシー（privacy.html）は、遊びはじめる前に一度だけ同意してもらう（すでに遊んでいる人にも一度）。
-const TERMS_KEY='hidamari-terms',TERMS_VER='2026-10-17c';   // 規約を変えたら変える（全員にもう一度同意の画面が出る）。b：アカウント作成の制限と利用環境の記録、c：端末の識別番号と記録の使いみち
+const TERMS_KEY='hidamari-terms',TERMS_VER='2026-10-18';   // 規約を変えたら変える（全員にもう一度同意の画面が出る）。10-17b：作成の制限と利用環境の記録、c：端末の識別番号、10-18：友だちIDの固定・30日の自動削除・作成の代行
 const INQ={draft:'',name:'',items:null,sending:false,ws:null};
 const inqNet=()=>(RT.visiting?(OWN_KEEP&&OWN_KEEP.net):(S&&S.net))||null;
 function termsOk(){try{return localStorage.getItem(TERMS_KEY)===TERMS_VER}catch(e){return true}}

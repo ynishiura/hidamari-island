@@ -86,6 +86,12 @@
       <div class="row" style="margin-top:8px"><button id="pprev" class="sub">前の100人</button><button id="pnext" class="sub">次の100人</button></div>
     </div>
     <div class="card detail" id="pdetail" hidden></div>
+    <div class="card">
+      <h2>アカウントの作成（代行）</h2>
+      <p class="msg" style="margin-top:0">家族などで同じ端末・通信環境を使っていて、ゲームで友だちIDを作れない人のために、運営がアカウントを作ります（作成の数の制限は数えません）。お問い合わせで事情を確かめてから作ってください。出てきたコードを、その人に伝えます。その人は、ゲームの「データ引継ぎ」→「運営から受け取った引継ぎコードで受け取る」にコードを入れます。島のデータはそのままで、友だちIDだけが入ります（7日間・1回限り）。</p>
+      <div class="row"><input id="cname" maxlength="7" placeholder="名前（7文字まで。ほかの人と同じ名前は不可）" class="grow"><button id="ccreate">アカウントを作る</button></div>
+      <p class="msg" id="cmsg"></p>
+    </div>
   </section>
 
   <section class="pane" id="pane-mails" hidden>
@@ -197,7 +203,7 @@
     const s = j.stats, g = $('#statGrid'); g.innerHTML = '';
     for (const [v, l] of [[j.online, 'いまつないでいる人'], [s.players, '友だちIDの数'], [s.active1, '24時間以内に遊んだ人'], [s.active7, '7日以内に遊んだ人'], [s.new7, '7日以内に作られたID'], [s.mails, 'メール（30日分）'], [s.mails1, '24時間のメール'], [s.banned, 'ブロック中']])
       g.append(el('div', { class: 'stat' }, el('b', { text: (v || 0).toLocaleString() }), el('span', { text: l })));
-    $('#statNote').textContent = '「友だちIDの数」＝アカウントの数です（Ver 1.095 からは、遊び始めると自動で作られます）。プレイ時間が3分未満のまま3日以上つないでいないアカウントは、自動で削除されます。';
+    $('#statNote').textContent = '「友だちIDの数」＝アカウントの数です（Ver 1.095 からは、遊び始めると自動で作られます）。プレイ時間が3分未満のまま3日以上つないでいないアカウントと、最後につないでから30日つないでいないアカウントは、自動で削除されます（ブロック中のアカウントは消しません）。';
     const rl = $('#roomList'); rl.innerHTML = '';
     if (!j.rooms.length) rl.append(el('tr', {}, el('td', { colspan: 5, class: 'msg', text: 'いまひらいている島の門はありません' })));
     for (const r of j.rooms) rl.append(el('tr', {}, el('td', { class: 'mono', text: r.code }), el('td', { text: r.host }), el('td', { text: r.members + '人' }), el('td', { text: r.names.join('、') }),
@@ -222,6 +228,15 @@
   $('#psearch').onclick = () => { pq = $('#pq').value.trim(); page = 0; loadPlayers(); };
   $('#pq').onkeydown = e => { if (e.key === 'Enter') $('#psearch').onclick(); };
   $('#pprev').onclick = () => { page = Math.max(0, page - 1); loadPlayers(); };
+  $('#ccreate').onclick = async () => {
+    const name = $('#cname').value.trim(); const out = $('#cmsg');
+    if (!name) { out.textContent = '名前を入れてください'; out.className = 'msg err'; return; }
+    if (!confirm(`「${name}」のアカウントを作りますか？`)) return;
+    $('#ccreate').disabled = true; out.textContent = '作っています…'; out.className = 'msg'; out.style.fontSize = '';
+    const x = await api('create', { name }); $('#ccreate').disabled = false;
+    if (!x.ok) { out.textContent = x.err; out.className = 'msg err'; return; }
+    out.textContent = `作りました：${x.name}（友だちID ${x.id}）　受け取りコード：${x.code}（${x.days}日間・1回限り）`; out.style.fontSize = '17px'; $('#cname').value = ''; loadPlayers();
+  };
   $('#pnext').onclick = () => { page++; loadPlayers(); };
   // ブロック・削除（一覧と詳しい画面の両方から使う）
   async function banPlayer(p) {
