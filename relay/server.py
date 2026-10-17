@@ -80,6 +80,20 @@ def clean_name(s):
     return "だれか" if ngfilter.has_ng_name(s) else s
 
 
+def name_ng(s):
+    """名前に使えない言葉が入っているか（clean_name で「だれか」に変わる名前）。"""
+    s = unicodedata.normalize("NFKC", str(s or "")).strip()[:7]
+    return bool(s) and ngfilter.has_ng_name(s)
+
+
+INV_CODE = re.compile(r"inv-[a-z0-9]{6}")   # フレンドを島に誘うときにゲームが作る合言葉（だれにも見せない）
+
+
+def code_ng(c):
+    """合言葉に使えない言葉が入っているか（名前と同じ調べ方）。ゲームが作る招待の合言葉は調べない。"""
+    return not INV_CODE.fullmatch(c) and ngfilter.has_ng_name(c)
+
+
 async def send(ws, obj):
     try:
         await ws.send(json.dumps(obj, ensure_ascii=False))
@@ -189,6 +203,8 @@ async def account_op(ws, me, m):
     if t == "friends":
         await send(ws, await friends_msg(me)); return
     if t == "rename":
+        if name_ng(m.get("name")):
+            await send(ws, {"t": "err", "why": "nameng"}); return
         nm = clean_name(m.get("name"))
         if await run(db.name_taken, nm, me):
             await send(ws, {"t": "err", "why": "nametaken"}); return
@@ -508,10 +524,14 @@ async def handler(ws):
                 continue
             # ---- フレンド・メール ----
             if t == "namecheck":
+                if name_ng(m.get("name")):           # 使えない言葉の名前（理由は言わない）
+                    await send(ws, {"t": "name", "ok": False, "ng": True}); continue
                 nm = clean_name(m.get("name"))
                 ok = not (db and await run(db.name_taken, nm, norm_id(m.get("id"))))
                 await send(ws, {"t": "name", "ok": ok}); continue
             if t == "register" and db and not acct:
+                if name_ng(m.get("name")):
+                    await send(ws, {"t": "err", "why": "nameng"}); continue
                 nm = clean_name(m.get("name"))
                 ip = client_ip(ws)
                 why = await run(db.reg_check, ip, did_of(m))
@@ -535,12 +555,13 @@ async def handler(ws):
                     await send(ws, {"t": "err", "why": "banned"}); continue
                 acct = pid; online.setdefault(acct, set()).add(ws)
                 nm = clean_name(m.get("name"))
-                if await run(db.name_taken, nm, pid):      # 名前がほかの人と重なっていたら、前の名前のまま（返事で知らせる）
+                ng = name_ng(m.get("name"))
+                if ng or await run(db.name_taken, nm, pid):   # 使えない名前・ほかの人と重なる名前なら、前の名前のまま（返事で知らせる）
                     await run(db.touch, pid)
                 else:
                     await run(db.touch, pid, nm)
                 cur = await run(db.get, pid)
-                await send(ws, {"t": "authed", "id": pid, "unread": await run(db.unread, pid), "name": cur["name"] if cur else nm})
+                await send(ws, {"t": "authed", "id": pid, "unread": await run(db.unread, pid), "name": cur["name"] if cur else nm, "ng": ng})
                 inv = invites.get(pid)
                 if inv and time.time() - inv["at"] < INVITE_TTL and inv["code"] in rooms:
                     await send(ws, {"t": "invite", "from": inv["from"], "name": inv["name"], "code": inv["code"]})
@@ -560,6 +581,8 @@ async def handler(ws):
                 c = norm_code(m.get("code"))
                 if not c:
                     await send(ws, {"t": "err", "why": "code"}); continue
+                if t == "host" and code_ng(c):           # 使えない言葉の合言葉（理由は言わない）
+                    await send(ws, {"t": "err", "why": "codeng"}); continue
                 if db:   # 友だちIDと鍵で名のった人だけ。利用停止中は使えない
                     rp = norm_id(m.get("id"))
                     if not rp or not await run(db.check, rp, str(m.get("secret") or "")):

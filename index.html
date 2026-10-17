@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.127";</script>
+<script>const GAME_VERSION="1.128";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -8355,7 +8355,7 @@ function netClose(silent){
 async function netOnMsg(m){
   const P=NET.peers;
   switch(m.t){
-    case 'err':{const w={code:'合言葉は 3〜20文字にしてね',taken:'その合言葉は、ほかの島が使っている。別の合言葉にしてね',noroom:'その合言葉の島が見つからない。島の持ち主が門をひらいているか、合言葉が合っているか確かめてね',full:'その島は、もういっぱい（4人まで）',needacct:'友だちIDの確認ができなかった。少し待ってから、もう一度ためしてね',banned:'この友だちIDは、運営により利用が止められているので、島の行き来はできません'}[m.why]||'うまくいかなかった';
+    case 'err':{const w={code:'合言葉は 3〜20文字にしてね',taken:'その合言葉は、ほかの島が使っている。別の合言葉にしてね',codeng:'その合言葉は使えないよ。別の合言葉にしてね',noroom:'その合言葉の島が見つからない。島の持ち主が門をひらいているか、合言葉が合っているか確かめてね',full:'その島は、もういっぱい（4人まで）',needacct:'友だちIDの確認ができなかった。少し待ってから、もう一度ためしてね',banned:'この友だちIDは、運営により利用が止められているので、島の行き来はできません'}[m.why]||'うまくいかなかった';
       toast(w);netStatus('');const ws=NET.ws;NET.ws=null;if(ws)try{ws.close()}catch(e){}break}
     case 'hosted':NET.role='host';NET.me=m.id;NET.host=m.id;netStatus('');if(NET.pendInv&&typeof accSend==='function'){for(const to of NET.pendInv)accSend({t:'invite',to,code:NET.code});NET.pendInv=null}toast(NET.code.startsWith('inv-')?'島の門をひらいて、フレンドを誘った！':`島の門をひらいた！ 友だちに合言葉「${NET.code}」を伝えてね`,true);sendLook(true);updateNetBar();break;
     case 'joined':NET.role='guest';NET.me=m.id;NET.host=m.host;for(const [id,n] of Object.entries(m.names||{}))if(id!==m.id)P.set(id,{name:n});netStatus('島のようすを受け取っています…');sendLook(true);updateNetBar();break;
@@ -8564,6 +8564,7 @@ const FERR={fid:'友だちIDの形がちがうよ（例：HD-ABC234）',nofriend
   notfriend:'フレンドにだけ送れるよ',mlen:'メールは1〜50文字で書いてね',ng:'使えない言葉が入っているので、送れなかった（悪口や、電話番号・住所・年齢などは送れないよ）',
   mday:'今日はもう送れない（1日50通まで）',server:'うまくいかなかった。もう一度ためしてね',
   nametaken:'その名前は、もうほかの人が使っているよ。能力の画面で別の名前にしてから、もう一度ためしてね',nlen:'名前は1〜7文字にしてね',
+  nameng:'その名前は使えないよ。能力の画面で別の名前にしてから、もう一度ためしてね',
   blocked:'この人には申請できません',report:'通報できるのは、フレンドから届いたメールです',
   gday:'贈り物を付けて送れるのは、1日10通までだよ',giftgone:'この包みは、もう開けてあるよ'};
 function accOnMsg(m){
@@ -8572,7 +8573,7 @@ function accOnMsg(m){
       if(RT.visiting){const sv=load();if(sv){sv.net=net;try{localStorage.setItem(SAVE_KEY,JSON.stringify(sv))}catch(e){}}}else save();
       ACC.id=m.id;ACC.authed=true;if(!ACC.auto)toast(`友だちIDができた！ ${m.id}`,true);ACC.auto=false;accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();if(typeof cloudSync==='function')cloudSync(true);break}
     case 'authed':ACC.id=m.id;ACC.authed=true;ACC.unread=m.unread||0;setTimeout(()=>typeof cloudSync==='function'&&cloudSync(true),1500);
-      if(m.name&&!RT.visiting&&m.name!==accName()){toast(`「${accName()}」は、もうほかの人が使っている名前なので、名前は「${m.name}」のまま。別の名前にしたいときは、能力の画面で変えてね`,true);S.name=m.name;save();updateHud&&updateHud()}   // 名前がほかの人と重なっていた
+      if(m.name&&!RT.visiting&&m.name!==accName()){toast(m.ng?`「${accName()}」は名前に使えないので、名前は「${m.name}」のまま。別の名前にしたいときは、能力の画面で変えてね`:`「${accName()}」は、もうほかの人が使っている名前なので、名前は「${m.name}」のまま。別の名前にしたいときは、能力の画面で変えてね`,true);S.name=m.name;save();updateHud&&updateHud()}   // 名前がほかの人と重なっていた
       accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();break;
     case 'friends':ACC.friends={list:m.list||[],reqIn:m.reqIn||[],reqOut:m.reqOut||[],blocked:m.blocked||[]};accRefresh();break;
     case 'mailbox':ACC.inbox=m.inbox||[];ACC.outbox=m.outbox||[];ACC.unread=ACC.inbox.filter(x=>!x.read).length;accRefresh();break;
@@ -8600,6 +8601,7 @@ function accOnMsg(m){
           toast('前の友だちIDは、長いあいだ使われなかったなどの理由で、なくなっていました。新しい友だちIDを作ります',true);setTimeout(()=>accConnect(true),500)}else ACC.bad=true;accRefresh();break}
       if(m.why==='moved'||m.why==='auth'){ACC.authed=false;ACC.bad=true;ACC.moved=true;try{ACC.ws&&ACC.ws.close()}catch(e){}
         if(!ACC.movedToasted){ACC.movedToasted=true;toast('この友だちIDは、ほかの端末に引き継がれたため、この端末ではフレンドやメールが使えません',true)}accRefresh();break}
+      if(m.why==='nameng')ACC.auto=false;   // 使えない名前は、自動で作るときも知らせる（下の FERR）
       if(m.why==='nametaken'&&ACC.auto){ACC.auto=false;break}
       if(m.why==='regblock'){ACC.bad=true;ACC.auto=false;ACC.regMsg=m.msg;try{ACC.ws&&ACC.ws.close()}catch(e){}   // 同じ通信環境からの新しい友だちIDの作成の制限（サーバーが断った）
         if(!ACC.regToasted){ACC.regToasted=true;toast(`${m.msg||'新しい友だちIDを作れませんでした。'} 島で遊ぶことはできます。`,true)}accRefresh();break}
@@ -8846,14 +8848,14 @@ setInterval(()=>{try{const p=localStorage.getItem('hidamari-pendnet');if(!p||!S|
 // サーバーが眠っていて答えがもらえないときは、いったん通して、友だちIDを作るとき（register）にもう一度確かめる。
 const NAME_MAX=7;
 function nameValid(v){v=(v||'').trim();if(!v||v==='あなた')return '名前を入れてください';if([...v].length>NAME_MAX)return `名前は${NAME_MAX}文字までにしてね`;return null}
-// 中継サーバーに聞く。答え：true（使える）／ false（ほかの人が使っている）／ null（確かめられなかった）
+// 中継サーバーに聞く。答え：true（使える）／ false（ほかの人が使っている）／ 'ng'（使えない言葉の名前）／ null（確かめられなかった）
 async function nameFree(name){
   const own=(typeof RT!=='undefined'&&RT.visiting&&typeof OWN_KEEP!=='undefined'&&OWN_KEEP)?OWN_KEEP.net:(S&&S.net);
   const id=(own&&own.id)||null;
   const ws=await tryOpen(10000);if(!ws)return null;
   return new Promise(res=>{let done=false;const end=v=>{if(done)return;done=true;clearTimeout(tm);try{ws.close()}catch(e){}res(v)};
     const tm=setTimeout(()=>end(null),8000);
-    ws.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}if(m.t==='name')end(!!m.ok)};
+    ws.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}if(m.t==='name')end(m.ng?'ng':!!m.ok)};
     ws.onclose=()=>end(null);
     try{ws.send(JSON.stringify({t:'namecheck',name,id}))}catch(e){end(null)}});
 }
@@ -8862,6 +8864,7 @@ async function nameOk(name,btn){
   const w=nameValid(name);if(w){toast(w);return false}
   if(btn){btn.disabled=true;btn.dataset.t=btn.textContent;btn.textContent='名前を確かめています…'}
   try{const f=await nameFree(name);
+    if(f==='ng'){toast(`「${name}」は、名前に使えないよ。別の名前にしてね`);return false}
     if(f===false){toast(`「${name}」は、もうほかの人が使っている名前。別の名前にしてね`);return false}
     if(f===null)toast('名前の重なりを確かめられなかった（友だちIDを作るときに、もう一度確かめるよ）');
     return true}
