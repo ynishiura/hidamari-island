@@ -8329,6 +8329,9 @@ function netStatus(t){NET.status=t;if(RT.panel&&RT.panel.title==='友だちと�
 function tryOpen(ms){return new Promise(res=>{let done=false;const w=new WebSocket(RELAY_URL);const end=v=>{if(done)return;done=true;clearTimeout(tm);res(v)};
   const tm=setTimeout(()=>{try{w.close()}catch(e){}end(null)},ms);w.onopen=()=>end(w);w.onerror=()=>end(null);w.onclose=()=>end(null)})}
 async function netConnect(role,code){
+  // 合言葉の島の行き来は、友だちIDで名のった人だけ（利用停止中は使えない。サーバーが確かめる）
+  const myNet=RT.visiting?(typeof OWN_KEEP!=='undefined'&&OWN_KEEP&&OWN_KEEP.net):S.net;
+  if(!myNet||!myNet.id||!myNet.secret){toast(typeof ACC!=='undefined'&&ACC.regMsg?ACC.regMsg+' 友だちと遊ぶ機能は使えません。':'友だちIDを用意しているところ。少し待ってから、もう一度ためしてね',true);if(typeof accConnect==='function'&&!(typeof ACC!=='undefined'&&ACC.regMsg))accConnect(true);return}
   if(NET.ws)netClose(true);
   const t0=performance.now();let ws=null;netStatus('島の門をひらいています…');
   while(!ws&&performance.now()-t0<90000){
@@ -8342,7 +8345,7 @@ async function netConnect(role,code){
     if(was==='guest'&&RT.visiting){leaveVisit('つながりが切れたので、自分の島に帰ってきた')}
     else if(was==='host')toast('島の門がしまった');
     netStatus('');updateNetBar()};
-  netSend({t:role==='host'?'host':'join',code,name:myLook().name});
+  netSend({t:role==='host'?'host':'join',code,name:myLook().name,id:myNet.id,secret:myNet.secret,...(typeof envMsg==='function'?envMsg():{})});
 }
 function netClose(silent){
   if(NET.role==='guest'&&RT.visiting)leaveVisit(silent?null:'自分の島に帰ってきた');
@@ -8352,7 +8355,7 @@ function netClose(silent){
 async function netOnMsg(m){
   const P=NET.peers;
   switch(m.t){
-    case 'err':{const w={code:'合言葉は 3〜20文字にしてね',taken:'その合言葉は、ほかの島が使っている。別の合言葉にしてね',noroom:'その合言葉の島が見つからない。島の持ち主が門をひらいているか、合言葉が合っているか確かめてね',full:'その島は、もういっぱい（4人まで）'}[m.why]||'うまくいかなかった';
+    case 'err':{const w={code:'合言葉は 3〜20文字にしてね',taken:'その合言葉は、ほかの島が使っている。別の合言葉にしてね',noroom:'その合言葉の島が見つからない。島の持ち主が門をひらいているか、合言葉が合っているか確かめてね',full:'その島は、もういっぱい（4人まで）',needacct:'友だちIDの確認ができなかった。少し待ってから、もう一度ためしてね',banned:'この友だちIDは、運営により利用が止められているので、島の行き来はできません'}[m.why]||'うまくいかなかった';
       toast(w);netStatus('');const ws=NET.ws;NET.ws=null;if(ws)try{ws.close()}catch(e){}break}
     case 'hosted':NET.role='host';NET.me=m.id;NET.host=m.id;netStatus('');if(NET.pendInv&&typeof accSend==='function'){for(const to of NET.pendInv)accSend({t:'invite',to,code:NET.code});NET.pendInv=null}toast(NET.code.startsWith('inv-')?'島の門をひらいて、フレンドを誘った！':`島の門をひらいた！ 友だちに合言葉「${NET.code}」を伝えてね`,true);sendLook(true);updateNetBar();break;
     case 'joined':NET.role='guest';NET.me=m.id;NET.host=m.host;for(const [id,n] of Object.entries(m.names||{}))if(id!==m.id)P.set(id,{name:n});netStatus('島のようすを受け取っています…');sendLook(true);updateNetBar();break;
@@ -8529,6 +8532,10 @@ setInterval(()=>{document.getElementById('app').classList.toggle('visiting',!!RT
 // 友だちIDを持っている人は、ゲームを開いているあいだ、サーバーにつないでおく（メールや招待がすぐ届くように）
 const ACC={ws:null,id:null,authed:false,connecting:false,bad:false,friends:{list:[],reqIn:[],reqOut:[]},inbox:[],outbox:[],unread:0,retry:0,status:''};
 function accSend(o){if(ACC.ws&&ACC.ws.readyState===1)try{ACC.ws.send(JSON.stringify(o))}catch(e){}}
+// 回線の種類（ブラウザが知らせる場合だけ。Android の Chrome など）。サーバーが利用環境として記録する
+function netType(){try{const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;const t=c&&c.type;
+  return {wifi:'Wi-Fi',cellular:'モバイル回線',ethernet:'有線',wimax:'WiMAX',bluetooth:'Bluetooth',none:'なし'}[t]||'不明'}catch(e){return '不明'}}
+const envMsg=()=>({dev:typeof devInfo==='function'?devInfo():'',net:netType()});
 const accName=()=>(S&&S.name&&S.name!=='あなた')?S.name:'だれか';
 const accRefresh=()=>{if(RT.panel&&RT.panel.title==='友だちと遊ぶ')refresh();updateFriendBadge()};
 async function accConnect(make){
@@ -8544,7 +8551,7 @@ async function accConnect(make){
   ws.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}accOnMsg(m)};
   ws.onclose=()=>{if(ACC.ws===ws){ACC.ws=null;ACC.authed=false;accRefresh();accRetry()}};
   const net=RT.visiting?(OWN_KEEP&&OWN_KEEP.net):S.net;
-  if(net&&net.id&&net.secret)accSend({t:'auth',id:net.id,secret:net.secret,name:accName()});else accSend({t:'register',name:accName()});
+  if(net&&net.id&&net.secret)accSend({t:'auth',id:net.id,secret:net.secret,name:accName(),...envMsg()});else accSend({t:'register',name:accName(),...envMsg()});
 }
 function accRetry(){   // 切れたら、ゲームを開いているあいだは、すこしずつ間をあけてつなぎ直す
   const net=RT.visiting?(OWN_KEEP&&OWN_KEEP.net):S&&S.net;if(!net||ACC.bad||ACC.banned)return;   // 利用停止のときはつなぎ直さない
@@ -8586,6 +8593,8 @@ function accOnMsg(m){
     case 'err':if(m.why==='mail'||m.why==='mlen'||m.why==='ng'||m.why==='mday'||m.why==='gday'||m.why==='notfriend'||m.why==='selfharm')ACC.pendingGift=null;
       if(m.why==='auth'){ACC.authed=false;if(!RT.visiting){S.net=null;save();ACC.auto=true;try{ACC.ws&&ACC.ws.close()}catch(e){}ACC.ws=null;setTimeout(()=>accConnect(true),500)}else{ACC.bad=true;toast('友だちIDの確認ができなかった')}accRefresh();break}   // サーバーに無い友だちID（削除された）は作り直す
       if(m.why==='nametaken'&&ACC.auto){ACC.auto=false;break}
+      if(m.why==='regblock'){ACC.bad=true;ACC.auto=false;ACC.regMsg=m.msg;try{ACC.ws&&ACC.ws.close()}catch(e){}   // 同じ通信環境からの新しい友だちIDの作成の制限（サーバーが断った）
+        if(!ACC.regToasted){ACC.regToasted=true;toast(`${m.msg||'新しい友だちIDを作れませんでした。'} 島で遊ぶことはできます。`,true)}accRefresh();break}
       if(m.why==='selfharm'){dialogOnTop(()=>showDialog('メッセージを送れませんでした',String(m.msg||'').split('\n').filter(Boolean)));break}   // 自傷をほのめかす言葉：相談窓口を知らせる（SIDERA VEIL と同じ）
       if(m.why==='banned'){ACC.banned=true;ACC.authed=false;toast('この友だちIDは、運営により利用が止められています（フレンドとメールが使えません）',true);accRefresh();break}
       toast(FERR[m.why]||'うまくいかなかった');break;
@@ -8769,7 +8778,7 @@ async function cloudSave(){
 }
 async function cloudSync(withSave){
   if(!ACC.authed||!S||RT.title||RT.visiting)return;
-  const m={t:'sync',play:Math.floor(S.playSec||0),dev:devInfo()};
+  const m={t:'sync',play:Math.floor(S.playSec||0),dev:devInfo(),net:typeof netType==='function'?netType():'不明'};
   if(withSave||Date.now()-cloudSaveAt>5*60*1000){const sv=await cloudSave();if(sv){m.save=sv;cloudSaveAt=Date.now()}}
   accSend(m);
 }
@@ -8963,7 +8972,7 @@ addEventListener('keydown',e=>{if(RT.title&&e.code==='Escape'&&$('titleMain').hi
 // 運営の返事は、家の前のポストに「運営」からのメールで届く。これまでのお問い合わせと返事は、この画面でも見られる。
 // 利用停止中でも送れるように、友だちIDと鍵（S.net）をいっしょに送る（サーバーがそれで本人を確かめる）。
 // 利用規約（terms.html）・プライバシーポリシー（privacy.html）は、遊びはじめる前に一度だけ同意してもらう（すでに遊んでいる人にも一度）。
-const TERMS_KEY='hidamari-terms',TERMS_VER='2026-10-17';
+const TERMS_KEY='hidamari-terms',TERMS_VER='2026-10-17b';   // 規約を変えたら変える（全員にもう一度同意の画面が出る）。b：アカウント作成の制限と利用環境の記録を書き足した
 const INQ={draft:'',name:'',items:null,sending:false,ws:null};
 const inqNet=()=>(RT.visiting?(OWN_KEEP&&OWN_KEEP.net):(S&&S.net))||null;
 function termsOk(){try{return localStorage.getItem(TERMS_KEY)===TERMS_VER}catch(e){return true}}

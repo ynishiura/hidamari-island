@@ -28,6 +28,10 @@
      {"t":"inquiry","name","body","id","secret"} → {"t":"inquired","no":受付番号}   名のっていなくても id・secret で送れる（利用停止中も送れる）
      {"t":"inqlist","id","secret"} → {"t":"inqlist","items":[{id,body,at,reply,repliedAt}]}
      運営の返事（管理画面の inqreply{iid,body}）は、運営からのメールとしてポストにも届ける
+6. 利用環境とアカウント作成の制限（2026-10-17〜）
+     register・auth・sync・host・join のとき、IP・端末とブラウザ（dev）・回線の種類（net）をアカウントごとに記録する（store.py の hd_envs）
+     register は、利用停止中のアカウントが使った IP からは断る（regban）。同じ IP からは 48時間に1つ（reg48）・30日で2つ（reg30）まで
+     合言葉の部屋（host・join）は、友だちIDと鍵（id・secret）で名のった人だけ。利用停止中は使えない（needacct／banned）
 起動： python server.py （PORT は環境変数。無ければ 8787）
 """
 import asyncio, json, os, re, time, unicodedata, secrets
@@ -91,6 +95,33 @@ async def broadcast(room, obj, skip=None):
 
 def run(fn, *a):
     return asyncio.to_thread(fn, *a)
+
+
+def client_ip(ws):
+    """つないできた人の IP。Render の前の Cloudflare が付ける見出しを優先する"""
+    try:
+        h = ws.request.headers
+        for k in ('CF-Connecting-IP', 'True-Client-IP', 'X-Forwarded-For'):
+            v = h.get(k)
+            if v:
+                return v.split(',')[0].strip()[:64]
+        ra = ws.remote_address
+        return str(ra[0]) if ra else ''
+    except Exception:
+        return ''
+
+
+def env_of(m):
+    dev = str(m.get("dev") or "")[:120] or "不明"
+    net = str(m.get("net") or "")[:20] or "不明"
+    return dev, net
+
+
+REG_MSG = {
+    "regban": "この通信環境からは、新しい友だちIDを作れません（利用停止中のアカウントと同じ通信環境のため）。",
+    "reg48": "この通信環境からは、しばらく新しい友だちIDを作れません（同じ通信環境から作れるのは48時間に1つまで）。",
+    "reg30": "この通信環境からは、しばらく新しい友だちIDを作れません（同じ通信環境から作れるのは30日で2つまで）。",
+}
 
 
 def jst(ts=None):
@@ -432,6 +463,7 @@ async def handler(ws):
                 save = m.get("save") if isinstance(m.get("save"), str) and m["save"].startswith("HIDA") and len(m["save"]) <= SAVE_MAX else None
                 try:
                     await run(db.sync, acct, play, dev, save)
+                    await run(db.record_env, acct, client_ip(ws), dev or "不明", str(m.get("net") or "")[:20] or "不明")
                 except Exception as e:
                     print("sync error:", repr(e), flush=True)
                 continue
@@ -464,15 +496,22 @@ async def handler(ws):
                 await send(ws, {"t": "name", "ok": ok}); continue
             if t == "register" and db and not acct:
                 nm = clean_name(m.get("name"))
+                ip = client_ip(ws)
+                why = await run(db.reg_check, ip)
+                if why:
+                    await send(ws, {"t": "err", "why": "regblock", "kind": why, "msg": REG_MSG[why]}); continue
                 if await run(db.name_taken, nm, None):
                     await send(ws, {"t": "err", "why": "nametaken"}); continue
                 pid, sec = await run(db.create, nm)
+                await run(db.add_reg, ip, pid)
+                await run(db.record_env, pid, ip, *env_of(m))
                 acct = pid; online.setdefault(acct, set()).add(ws)
                 await send(ws, {"t": "acct", "id": pid, "secret": sec}); continue
             if t == "auth" and db and not acct:
                 pid = norm_id(m.get("id"))
                 if not pid or not await run(db.check, pid, str(m.get("secret") or "")):
                     await send(ws, {"t": "err", "why": "auth"}); continue
+                await run(db.record_env, pid, client_ip(ws), *env_of(m))
                 if await run(db.is_banned, pid):
                     await send(ws, {"t": "err", "why": "banned"}); continue
                 acct = pid; online.setdefault(acct, set()).add(ws)
@@ -502,6 +541,13 @@ async def handler(ws):
                 c = norm_code(m.get("code"))
                 if not c:
                     await send(ws, {"t": "err", "why": "code"}); continue
+                if db:   # 友だちIDと鍵で名のった人だけ。利用停止中は使えない
+                    rp = norm_id(m.get("id"))
+                    if not rp or not await run(db.check, rp, str(m.get("secret") or "")):
+                        await send(ws, {"t": "err", "why": "needacct"}); continue
+                    await run(db.record_env, rp, client_ip(ws), *env_of(m))
+                    if await run(db.is_banned, rp):
+                        await send(ws, {"t": "err", "why": "banned"}); continue
                 if t == "host":
                     if rooms.get(c):
                         await send(ws, {"t": "err", "why": "taken"}); continue

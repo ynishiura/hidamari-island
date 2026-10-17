@@ -225,7 +225,7 @@
   $('#pnext').onclick = () => { page++; loadPlayers(); };
   // ブロック・削除（一覧と詳しい画面の両方から使う）
   async function banPlayer(p) {
-    if (!confirm(p.banned ? `${p.name}（${p.id}）のブロックを解除しますか？` : `${p.name}（${p.id}）をブロックしますか？\nフレンドとメールが使えなくなります（ゲームは遊べます）。`)) return;
+    if (!confirm(p.banned ? `${p.name}（${p.id}）のブロックを解除しますか？` : `${p.name}（${p.id}）をブロックしますか？\nフレンド・メール・贈り物・合言葉の島の行き来が使えなくなります（島で遊ぶことはできます）。\nこの人が使った通信環境からは、新しい友だちIDも作れなくなります。`)) return;
     const x = await api('ban', { id: p.id, on: !p.banned }); status(x.ok ? (x.banned ? `${p.name} をブロックしました` : `${p.name} のブロックを解除しました`) : x.err, !x.ok);
     loadPlayers(); if (!$('#pdetail').hidden && $('#pdetail').dataset.id === p.id) loadPlayer(p.id);
   }
@@ -234,6 +234,24 @@
     if (prompt('確認のため、友だちIDを入れてください') !== p.id) { status('友だちIDがちがうので、削除しませんでした', true); return; }
     const x = await api('delete', { id: p.id }); status(x.ok ? `${p.name}（${p.id}）を削除しました` : x.err, !x.ok);
     if (x.ok && $('#pdetail').dataset.id === p.id) $('#pdetail').hidden = true; loadPlayers();
+  }
+  // 利用環境の記録と、同じ通信環境を使ったほかのアカウント（複数アカウント・ブロック逃れの手がかり）
+  function envCard(p) {
+    const E = p.envs || [], SH = p.shared || [];
+    const tb = el('tbody');
+    if (!E.length) tb.append(el('tr', {}, el('td', { colspan: 6, class: 'msg', text: 'まだ記録はありません（新しい版で遊ぶと記録されます）' })));
+    for (const e of E) tb.append(el('tr', {}, el('td', {}, fmt(e.lastAt), el('div', { class: 'msg', style: 'margin:0', text: ago(e.lastAt) })),
+      el('td', { text: e.device }), el('td', { text: e.net }), el('td', {}, el('span', { class: 'mono', text: e.ip || '—' }), el('div', { class: 'msg mono', style: 'margin:0', text: '識別 ' + e.ipKey })),
+      el('td', { text: e.n + '回' }), el('td', { text: fmt(e.firstAt) })));
+    const sh = el('div', { class: 'row', style: 'margin-top:6px' });
+    if (!SH.length) sh.append(el('span', { class: 'msg', text: 'ありません' }));
+    for (const o of SH) sh.append(el('button', { class: o.banned ? 'warn' : 'sub', on: () => loadPlayer(o.id) }, `${o.name}（${o.id}）${o.banned ? '・ブロック中' : ''}`));
+    return el('div', { class: 'card', style: 'margin:12px 0 0;background:var(--panel-2)' },
+      el('h2', { text: '利用環境の記録' }),
+      el('p', { class: 'msg', style: 'margin-top:0', text: 'この友だちIDで使った端末・ブラウザ・回線・通信環境（IP の末尾は伏せています。「識別」が同じなら同じ IP）。回線の種類は、ブラウザが知らせる場合だけ（Android の Chrome など）分かります。' }),
+      el('div', { class: 'scroll' }, el('table', {}, el('thead', {}, el('tr', {}, ...['最後に使った日時', '端末・ブラウザ', '回線', '通信環境（IP）', '回数', '最初に使った日時'].map(t => el('th', { text: t })))), tb)),
+      el('h2', { style: 'margin-top:12px', text: '同じ通信環境を使ったほかのアカウント' }),
+      el('p', { class: 'msg', style: 'margin:0', text: '家族や同じ Wi-Fi・同じスマホ回線の人の場合もあります。押すと、その人の記録を開きます。' }), sh);
   }
   async function loadPlayer(id) {
     const d = $('#pdetail'); d.hidden = false; d.dataset.id = id; d.textContent = '読み込み中…';
@@ -259,6 +277,7 @@
         el('button', { class: 'sub', on: () => { show('notice'); document.querySelector('input[name=nto][value=one]').checked = true; $('#nid').value = p.id; } }, 'お知らせを送る'),
         el('button', { class: p.banned ? 'sub' : 'warn', on: () => banPlayer(p) }, p.banned ? 'ブロックを解除' : 'ブロックする'),
         el('button', { class: 'warn', on: () => deletePlayer(p) }, '削除する')),
+      envCard(p),
       el('div', { class: 'card', style: 'margin:12px 0 0;background:var(--panel-2)' },
         el('h2', { text: '引継ぎコードの発行（復旧）' }),
         el('p', { class: 'msg', style: 'margin-top:0', text: 'スマホをなくした人などに。この人が最後に預けたセーブを、新しい端末で受け取れるコードを発行します（7日間・1回限り）。受け取ると、前の端末ではフレンドとメールが使えなくなります。ゲームの「データ引継ぎ」の「運営から受け取った引継ぎコードで受け取る」に入れてもらいます。' }),
