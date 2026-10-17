@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.092";</script>
+<script>const GAME_VERSION="1.093";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -6438,7 +6438,9 @@ drawHuman=function(g,x,y,dir,frame,opt){
   const walking=frame>0,sw=Math.sin(frame*1.55);
   const bob=walking?Math.abs(sw)*2:Math.sin(performance.now()/650)*.7,tilt=walking?sw*.05:0;
   g.save();g.translate(x,y-bob);g.rotate(tilt);
-  const hx=hd.cx,hy=hd.top,hw=hd.w;
+  // 帽子の大きさは、どの向きでも正面の頭の幅を基準にする（左向きの絵は頭が少し広く測れるので、向きごとの幅を使うと左だけ大きくなる）
+  const hdF=pcHeadOnScreen('down','d')||hd;
+  const hx=hd.cx,hy=hd.top,hw=hdF.w;
   // 帽子の置き方：[頭のてっぺんからの下がり（頭の幅に対する割合）, 帽子の幅（頭の幅に対する割合）]。かぶる帽子は頭を少しおおう位置、のせる物（リボン・王冠など）はてっぺん
   if(typeof drawHatImg==='function'&&drawHatImg(g,S.hat,d8,hx,hy,hw)){g.restore();return}   // ユーザーが描いた帽子の絵（4方向、hats.js）があれば、それを使う
   const fit=HAT_FIT[S.hat]||[.12,1.02];
@@ -7748,15 +7750,17 @@ const HAT_IMG_FIT={
   // band：帯（white 白い帯／red 赤い帯／any いちばん広い行＝つば・ふち／crown 山の幅／base 山の下端）を測り、帯の幅を頭の幅の w 倍・帯の中心を頭の中心・帯の行を頭のてっぺんから y（横 ys・後ろ yb）倍の位置に置く。sy は縦の縮尺の倍率
   hat_cap:{w:1.075,y:.61,m:CAP_M},
   hat_cap_red:{w:1.075,y:.61,m:CAP_M},
-  hat_cap_black:{w:1.075,y:.61,m:CAP_M},
+  // 黒いキャップ：横・後ろの絵の形がほかのキャップとちがう（丸い）ので、描いた高さが正面と同じになる大きさに
+  hat_cap_black:{w:1.075,y:.61,m:{s:{cw:.99,cx:-.04,cy:.66},b:{cw:1.08,cx:0,cy:.66}}},
   hat_knit:{w:1.12,y:.66,same:'b'},
   hat_knit_blue:{w:1.12,y:.66,same:'b'},
   hat_knit_green:{w:1.12,y:.66,same:'b'},
   hat_beret:{w:1.25,y:.50,dx:-.05},
   hat_beret_red:{w:1.25,y:.50,dx:-.05},
   hat_beret_navy:{w:1.25,y:.50,dx:-.05},
-  hat_straw:{w:1.7,y:.58,ys:.62},
-  hat_straw_blue:{w:1.7,y:.58,ys:.62},
+  // 麦わら帽子：つば（いちばん広い行）の幅と高さを、全部の向きで正面にそろえる
+  hat_straw:{w:1.7,y:.58,band:{color:'any',w:1.65,y:.48,ys:.33,yb:.55}},
+  hat_straw_blue:{w:1.7,y:.58,band:{color:'any',w:1.65,y:.48,ys:.33,yb:.44}},
   hat_bucket:{w:1.45,y:.60,ys:.62},
   // シルクハット：赤いリボンの帯で合わせる
   hat_top:{w:1.15,y:.52,band:{color:'red',w:.70,y:.16,yb:.22}},
@@ -7772,7 +7776,8 @@ const HAT_IMG_FIT={
   hat_crown:{w:.8,y:.12},
   hat_tiara:{w:.85,y:.14,yb:.34},
   hat_flower:{w:1.15,y:.26},
-  hat_catear:{w:.95,y:.30,ys:.45},
+  // ねこみみ：後ろの絵は小さめに描かれているので大きくする
+  hat_catear:{w:.95,y:.30,ys:.34,kv:{b:1.19}},
   hat_bunny:{w:.8,y:.30,ys:.45},
   // ヘルメット：いちばん広い行（ふち）で合わせる
   hat_helmet:{w:1.25,y:.58,band:{color:'any',w:1.25,y:.32,ys:.42,yb:.36}},
@@ -7812,7 +7817,7 @@ function drawHatImg(g,id,d8,hx,hy,hw){
   const side=v==='l'||v==='r',f=v==='l'?-1:1;
   if(F.same&&F.same.includes(v)){const w=hw*F.w,h=w*im.naturalHeight/im.naturalWidth;g.drawImage(im,hx-w/2,hy+hw*F.y-h,w,h);return true}   // 正面と同じ絵を同じ置き方で
   if(F.band){   // 白い帯を測って合わせる帽子（全部の向き）
-    const M=hatMetrics(im),B=M.bands[F.band.color||'white'],sc=hw*F.band.w/Math.max(1,B.bw);
+    const M=hatMetrics(im),B=M.bands[F.band.color||'white'],sc=hw*F.band.w/Math.max(1,B.bw)*((F.band.kv&&F.band.kv[v])||1);
     const by=(v==='b'&&F.band.yb!==undefined)?F.band.yb:(side&&F.band.ys!==undefined)?F.band.ys:F.band.y;   // ys＝横向きの帯の高さ
     const sy=sc*(F.band.sy||1);   // sy：縦の縮尺の倍率（見本に合わせて、横だけでなく縦の大きさも決める帽子）
     g.drawImage(im,hx-B.bcx*sc,hy+by*hw-B.by*sy,M.w*sc,M.h*sy);return true;
@@ -7826,6 +7831,7 @@ function drawHatImg(g,id,d8,hx,hy,hw){
   // 正面の絵の幅を頭の幅×F.w にする縮尺を、ほかの向きにもそのまま使う（シートごとの大きさのちがいだけ補正）
   let scale=(imf&&imf.naturalWidth?hw*F.w/imf.naturalWidth:hw*F.w/im.naturalWidth)*SHEET_K[v];
   if(side&&F.ws)scale=hw*F.ws/im.naturalWidth;else if(v==='b'&&F.wb)scale=hw*F.wb/im.naturalWidth;   // 幅を直接決めている帽子
+  if(F.kv&&F.kv[v])scale*=F.kv[v];   // kv：向きごとの大きさの倍率（描いた帽子を正面と見比べて決める）
   const w=im.naturalWidth*scale,h=im.naturalHeight*scale;
   const yoff=side?(F.ys!==undefined?F.ys:F.y):v==='b'?(F.yb!==undefined?F.yb:F.y):F.y;
   const dx=side?f*hw*(F.dx||0):0;
@@ -8430,7 +8436,7 @@ async function accConnect(make){
   if(net&&net.id&&net.secret)accSend({t:'auth',id:net.id,secret:net.secret,name:accName()});else accSend({t:'register',name:accName()});
 }
 function accRetry(){   // 切れたら、ゲームを開いているあいだは、すこしずつ間をあけてつなぎ直す
-  const net=RT.visiting?(OWN_KEEP&&OWN_KEEP.net):S&&S.net;if(!net||ACC.bad)return;
+  const net=RT.visiting?(OWN_KEEP&&OWN_KEEP.net):S&&S.net;if(!net||ACC.bad||ACC.banned)return;   // 利用停止のときはつなぎ直さない
   ACC.retry=Math.min(6,ACC.retry+1);setTimeout(()=>{if(document.visibilityState==='visible')accConnect(false)},[0,15,30,60,120,240,300][ACC.retry]*1000);
 }
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&!ACC.ws)accConnect(false)});
@@ -8455,8 +8461,10 @@ function accOnMsg(m){
       ACC.invite=m;break;
     case 'info':{const n=m.name||'';const w={reqsent:`${n}にフレンド申請を送った`,reqin:`${n}からフレンド申請が届いた！`,friended:`${n}とフレンドになった！`,mailsent:`${n}にメールを送った`,
       invited:m.online?`${n}を島に誘った！`:`${n}を誘った（いまゲームを開いていないので、10分以内に開いたら届くよ）`}[m.why];if(w)toast(w,true);
+      if(m.why==='opsrename'&&m.name&&!RT.visiting){S.name=m.name;save();updateHud&&updateHud();toast(`運営により、名前が「${m.name}」に変わりました`,true)}   // 運営の管理画面で名前を直したとき
       if(m.why==='mailsent'){ACC.draft='';accSend({t:'mailbox'})}if(m.why==='reqin'||m.why==='friended')sfx('get');if(m.why==='renamed')accSend({t:'friends'});accRefresh();break}
     case 'err':if(m.why==='auth'){ACC.bad=true;ACC.authed=false;toast('友だちIDの確認ができなかった');accRefresh();break}
+      if(m.why==='banned'){ACC.banned=true;ACC.authed=false;toast('この友だちIDは、運営により利用が止められています（フレンドとメールが使えません）',true);accRefresh();break}
       toast(FERR[m.why]||'うまくいかなかった');break;
   }
 }
@@ -8534,7 +8542,7 @@ function renderMail(body){
     if(!ACC.inbox.length)body.append(h('p',{class:'muted'},'まだメールは届いていないよ。'));
     for(const m of ACC.inbox)body.append(h('div',{class:'card mailc'+(m.read?'':' unread')},h('div',{class:'rowline',style:'margin:0'},h('b',{class:'grow'},`${m.read?'':'🆕 '}${m.fromName||'だれか'}`),h('small',{class:'muted'},fmtAt(m.at))),
       h('p',{style:'margin:6px 0;white-space:pre-wrap;word-break:break-all'},m.body),
-      h('div',{class:'rowline',style:'margin:0;justify-content:flex-end'},F.some(f=>f.id===m.from)?h('button',{class:'btn',on:()=>{RT.mailTo=m.from;ACC.draft='';refresh();setTimeout(()=>{const t=document.querySelector('#panel textarea');if(t){t.focus();t.scrollIntoView({block:'center'})}},50)}},'返信'):h('small',{class:'muted'},'（フレンドではなくなった人）'))));
+      h('div',{class:'rowline',style:'margin:0;justify-content:flex-end'},m.from==='HD-OPS'?h('small',{class:'muted'},'🌸 運営からのお知らせ'):F.some(f=>f.id===m.from)?h('button',{class:'btn',on:()=>{RT.mailTo=m.from;ACC.draft='';refresh();setTimeout(()=>{const t=document.querySelector('#panel textarea');if(t){t.focus();t.scrollIntoView({block:'center'})}},50)}},'返信'):h('small',{class:'muted'},'（フレンドではなくなった人）'))));
     const ids=ACC.inbox.filter(x=>!x.read).map(x=>x.id);
     if(ids.length){accSend({t:'mailread',ids});for(const x of ACC.inbox)x.read=true;ACC.unread=0;setTimeout(updateFriendBadge,0)}
   }else{

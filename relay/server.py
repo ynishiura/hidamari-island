@@ -13,6 +13,11 @@
    名前は 7文字まで。同じ名前はほかの人が使えない（register・auth・rename で確かめる。auth で重なっていたら前の名前のまま）
      mail{to,body} / mailbox / mailread{ids} / invite{to,code}
    相手がつないでいれば、すぐに知らせる（friends・mailnew・invite）。招待は 10分で消える
+3. 運営の管理画面（pwa/admin.html）
+     {"t":"admin","token":ADMIN_TOKEN,"op":…} → {"t":"admin","op":…,"ok":true,…}  ADMIN_TOKEN（環境変数）が無ければ使えない
+     op: stats（人数・部屋）/ players{q,page} / player{id} / ban{id,on} / rename{id,name} / mails{q} / maildel{ids} /
+         notice{to:'all'|友だちID, body}（運営からのお知らせ。ポストに届く）/ closeroom{code}
+   利用停止のアカウントは auth で {"t":"err","why":"banned"} を返す
 起動： python server.py （PORT は環境変数。無ければ 8787）
 """
 import asyncio, json, os, time, unicodedata, secrets
@@ -28,6 +33,10 @@ RATE = 40
 FRIEND_MAX, REQ_MAX = 50, 50
 MAIL_MAX, MAIL_PER_DAY = 50, 50
 INVITE_TTL = 600
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "").strip()
+OPS_ID, OPS_NAME = "HD-OPS", "運営"          # 運営からのお知らせの差出人
+NOTICE_MAX = 200
+admin_fail = {"t": 0.0}
 
 rooms = {}                   # code -> {"host": ws, "hostId": id, "members": {id: ws}, "names": {id: name}}
 online = {}                  # 友だちID -> set(ws)
@@ -159,6 +168,94 @@ async def account_op(ws, me, m):
         await send(ws, {"t": "info", "why": "invited", "name": (await run(db.names, [to])).get(to, ""), "online": bool(online.get(to))}); return
 
 
+async def admin_op(ws, m):
+    """運営の管理画面からの操作。パスワードがちがえば待たせて断る（総当たりを遅くする）"""
+    op = str(m.get("op") or "")
+
+    async def reply(**kw):
+        await send(ws, {"t": "admin", "op": op, **kw})
+    if not ADMIN_TOKEN:
+        await reply(ok=False, err="運営のパスワード（ADMIN_TOKEN）がサーバーに設定されていません"); return
+    if not secrets.compare_digest(str(m.get("token") or ""), ADMIN_TOKEN):
+        wait = max(0.0, admin_fail["t"] + 1.0 - time.time()); admin_fail["t"] = time.time() + wait
+        await asyncio.sleep(1.0 + wait)
+        await reply(ok=False, err="パスワードがちがいます"); return
+    if not db:
+        await reply(ok=False, err="保存先につながっていません"); return
+    try:
+        if op == "stats":
+            st = await run(db.admin_stats)
+            rm = [{"code": c, "host": r["names"].get(r["hostId"], "だれか"), "members": len(r["members"]),
+                   "names": list(r["names"].values())} for c, r in rooms.items()]
+            await reply(ok=True, stats=st, online=len(online), rooms=rm, store="pg" if db.pg else "sqlite"); return
+        if op == "players":
+            page = max(0, int(m.get("page") or 0))
+            items, more = await run(db.admin_players, str(m.get("q") or "")[:30], 100, page * 100)
+            for it in items:
+                it["online"] = bool(online.get(it["id"]))
+            await reply(ok=True, items=items, more=more, page=page); return
+        pid = norm_id(m.get("id")) if m.get("id") not in (None, "", "all") else None
+        if op == "player":
+            p = pid and await run(db.admin_player, pid)
+            if not p:
+                await reply(ok=False, err="その友だちIDの人はいません"); return
+            p["online"] = bool(online.get(pid))
+            await reply(ok=True, player=p); return
+        if op == "ban":
+            if not pid or not await run(db.get, pid):
+                await reply(ok=False, err="その友だちIDの人はいません"); return
+            on = bool(m.get("on"))
+            await run(db.set_banned, pid, on)
+            if on:                                   # つないでいる端末は切る
+                for w in list(online.get(pid, ())):
+                    await send(w, {"t": "err", "why": "banned"})
+                    try:
+                        await w.close()
+                    except Exception:
+                        pass
+            await reply(ok=True, id=pid, banned=on); return
+        if op == "rename":
+            nm = clean_name(m.get("name"))
+            if not pid or not await run(db.get, pid):
+                await reply(ok=False, err="その友だちIDの人はいません"); return
+            if await run(db.name_taken, nm, pid):     # 名前はほかの人と重ならないように
+                await reply(ok=False, err=f"「{nm}」は、ほかの人が使っている名前です"); return
+            await run(db.touch, pid, nm)
+            await push(pid, {"t": "info", "why": "opsrename", "name": nm})
+            await reply(ok=True, id=pid, name=nm); return
+        if op == "mails":
+            await reply(ok=True, items=await run(db.admin_mails, str(m.get("q") or "")[:40], 300)); return
+        if op == "maildel":
+            ids = [i for i in (m.get("ids") or []) if isinstance(i, int)]
+            await reply(ok=True, deleted=await run(db.admin_delete_mails, ids)); return
+        if op == "notice":
+            body = str(m.get("body") or "").strip().replace("\r", "")
+            if not body or len(body) > NOTICE_MAX:
+                await reply(ok=False, err=f"お知らせは1〜{NOTICE_MAX}文字で書いてください"); return
+            to = m.get("to")
+            ids = await run(db.all_ids) if to == "all" else ([pid] if pid and await run(db.get, pid) else [])
+            if not ids:
+                await reply(ok=False, err="送り先が見つかりません"); return
+            for i in ids:
+                await run(db.add_mail, OPS_ID, i, OPS_NAME, "", body)
+                if online.get(i):
+                    await push(i, {"t": "mailnew", "from": OPS_ID, "name": OPS_NAME, "unread": await run(db.unread, i)})
+            await reply(ok=True, sent=len(ids)); return
+        if op == "closeroom":
+            code = norm_code(m.get("code")); r = rooms.get(code) if code else None
+            if not r:
+                await reply(ok=False, err="その部屋はありません"); return
+            try:
+                await r["host"].close()
+            except Exception:
+                pass
+            await reply(ok=True); return
+        await reply(ok=False, err="わからない操作です")
+    except Exception as e:
+        print("admin_op error:", repr(e), flush=True)
+        await reply(ok=False, err="サーバーで問題が起きました")
+
+
 async def handler(ws):
     me = secrets.token_hex(4)        # 部屋の中で使う番号
     acct = None                      # 名のった友だちID
@@ -180,6 +277,9 @@ async def handler(ws):
             if not isinstance(m, dict):
                 continue
             t = m.get("t")
+            # ---- 運営の管理画面 ----
+            if t == "admin":
+                await admin_op(ws, m); continue
             # ---- フレンド・メール ----
             if t == "namecheck":
                 nm = clean_name(m.get("name"))
@@ -196,6 +296,8 @@ async def handler(ws):
                 pid = norm_id(m.get("id"))
                 if not pid or not await run(db.check, pid, str(m.get("secret") or "")):
                     await send(ws, {"t": "err", "why": "auth"}); continue
+                if await run(db.is_banned, pid):
+                    await send(ws, {"t": "err", "why": "banned"}); continue
                 acct = pid; online.setdefault(acct, set()).add(ws)
                 nm = clean_name(m.get("name"))
                 if await run(db.name_taken, nm, pid):      # 名前がほかの人と重なっていたら、前の名前のまま（返事で知らせる）

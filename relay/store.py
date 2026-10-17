@@ -82,6 +82,10 @@ class Store:
         self.q(f'''CREATE TABLE IF NOT EXISTS hd_mail (
             id {auto}, from_id TEXT NOT NULL, to_id TEXT NOT NULL, from_name TEXT, to_name TEXT,
             body TEXT NOT NULL, at BIGINT NOT NULL, read INTEGER NOT NULL DEFAULT 0)''')
+        try:                                       # 利用停止の印（運営の管理画面から）。古い表には後から足す
+            self.q('ALTER TABLE hd_players ADD COLUMN banned INTEGER NOT NULL DEFAULT 0')
+        except Exception:
+            pass
         self.q('CREATE INDEX IF NOT EXISTS hd_mail_to ON hd_mail (to_id, at)')
         self.q('CREATE INDEX IF NOT EXISTS hd_mail_from ON hd_mail (from_id, at)')
 
@@ -164,6 +168,74 @@ class Store:
     def mark_read(self, pid, ids):
         for i in ids[:100]:
             self.q('UPDATE hd_mail SET read=1 WHERE id=? AND to_id=?', (int(i), pid))
+
+    # ---- 運営（管理画面） ----
+    def is_banned(self, pid):
+        r = self.q('SELECT banned FROM hd_players WHERE id=?', (pid,), one=True)
+        return bool(r and r[0])
+
+    def set_banned(self, pid, on):
+        self.q('UPDATE hd_players SET banned=? WHERE id=?', (1 if on else 0, pid))
+
+    def admin_stats(self):
+        now = int(time.time())
+        one = lambda sql, a=(): (self.q(sql, a, one=True) or [0])[0]
+        return {
+            'players': one('SELECT COUNT(*) FROM hd_players'),
+            'active1': one('SELECT COUNT(*) FROM hd_players WHERE seen_at>?', (now - 86400,)),
+            'active7': one('SELECT COUNT(*) FROM hd_players WHERE seen_at>?', (now - 7 * 86400,)),
+            'new7': one('SELECT COUNT(*) FROM hd_players WHERE created_at>?', (now - 7 * 86400,)),
+            'banned': one('SELECT COUNT(*) FROM hd_players WHERE banned<>0'),
+            'mails': one('SELECT COUNT(*) FROM hd_mail'),
+            'mails1': one('SELECT COUNT(*) FROM hd_mail WHERE at>?', (now - 86400,)),
+        }
+
+    def admin_players(self, q='', limit=100, offset=0):
+        """名前か友だちIDの部分一致。新しくつないだ順"""
+        like = '%' + str(q or '').strip() + '%'
+        rows = self.q('SELECT id, name, data, created_at, seen_at, banned FROM hd_players WHERE (name LIKE ? OR id LIKE ?) '
+                      'ORDER BY seen_at DESC LIMIT ? OFFSET ?', (like, like.upper(), int(limit) + 1, int(offset)), many=True) or []
+        out = []
+        for r in rows[:limit]:
+            d = json.loads(r[2] or '{}')
+            out.append({'id': r[0], 'name': r[1] or 'だれか', 'friends': len(d.get('friends', [])), 'reqIn': len(d.get('reqIn', [])),
+                        'createdAt': r[3], 'seenAt': r[4], 'banned': bool(r[5])})
+        return out, len(rows) > limit
+
+    def admin_player(self, pid):
+        r = self.q('SELECT id, name, data, created_at, seen_at, banned FROM hd_players WHERE id=?', (pid,), one=True)
+        if not r:
+            return None
+        d = json.loads(r[2] or '{}')
+        names = self.names(list(dict.fromkeys(d.get('friends', []) + d.get('reqIn', []) + d.get('reqOut', []))))
+        row = lambda i: {'id': i, 'name': names.get(i, 'だれか')}
+        sent = (self.q('SELECT COUNT(*) FROM hd_mail WHERE from_id=?', (pid,), one=True) or [0])[0]
+        got = (self.q('SELECT COUNT(*) FROM hd_mail WHERE to_id=?', (pid,), one=True) or [0])[0]
+        return {'id': r[0], 'name': r[1] or 'だれか', 'createdAt': r[3], 'seenAt': r[4], 'banned': bool(r[5]),
+                'friends': [row(i) for i in d.get('friends', [])], 'reqIn': [row(i) for i in d.get('reqIn', [])],
+                'reqOut': [row(i) for i in d.get('reqOut', [])], 'mailSent': sent, 'mailGot': got}
+
+    def admin_mails(self, q='', limit=200):
+        """メールの一覧（新しい順）。q は友だちID・名前・本文の部分一致"""
+        q = str(q or '').strip()
+        if q:
+            like = '%' + q + '%'
+            rows = self.q('SELECT id, from_id, from_name, to_id, to_name, body, at, read FROM hd_mail WHERE from_id LIKE ? OR to_id LIKE ? '
+                          'OR from_name LIKE ? OR to_name LIKE ? OR body LIKE ? ORDER BY at DESC, id DESC LIMIT ?',
+                          (like.upper(), like.upper(), like, like, like, int(limit)), many=True) or []
+        else:
+            rows = self.q('SELECT id, from_id, from_name, to_id, to_name, body, at, read FROM hd_mail ORDER BY at DESC, id DESC LIMIT ?',
+                          (int(limit),), many=True) or []
+        return [{'id': r[0], 'from': r[1], 'fromName': r[2], 'to': r[3], 'toName': r[4], 'body': r[5], 'at': r[6], 'read': bool(r[7])} for r in rows]
+
+    def admin_delete_mails(self, ids):
+        n = 0
+        for i in ids[:500]:
+            self.q('DELETE FROM hd_mail WHERE id=?', (int(i),)); n += 1
+        return n
+
+    def all_ids(self):
+        return [r[0] for r in (self.q('SELECT id FROM hd_players WHERE banned=0', many=True) or [])]
 
     def purge(self):
         self.q('DELETE FROM hd_mail WHERE at<?', (int(time.time()) - MAIL_KEEP_DAYS * 86400,))

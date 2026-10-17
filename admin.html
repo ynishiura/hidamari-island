@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>ひだまり島ぐらし 運営</title>
+<!-- 運営用の管理画面。中継サーバー（hidamari-relay）に WebSocket でつなぎ、{"t":"admin","token","op",…} で操作する。
+     パスワードは中継サーバーの環境変数 ADMIN_TOKEN。この端末のタブを閉じるまで sessionStorage に覚える -->
+<style>
+  :root{
+    --bg:#eef4e6;--panel:#fffdf6;--panel-2:#f6f2e4;--line:#ded6bf;--line-2:#c9bd9a;
+    --text:#33402f;--sub:#6b7563;--faint:#9aa28f;
+    --green:#5aa870;--green-d:#3f8a58;--pink:#e98aa7;--warn:#d9573f;--ok:#3f8a58;--rad:14px;
+  }
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+    --bg:#1b2219;--panel:#232c21;--panel-2:#2a3427;--line:#3a4636;--line-2:#4d5c48;--text:#eef3e6;--sub:#b9c3ae;--faint:#8c977f;--green:#6cbf84;--green-d:#8fd6a4}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);line-height:1.65;font-family:system-ui,-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif;-webkit-font-smoothing:antialiased}
+  input,textarea,button,select{font:inherit}
+  input,textarea,select{background:var(--panel);color:var(--text);border:1px solid var(--line-2);border-radius:10px;padding:9px 12px}
+  input:focus,textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(90,168,112,.2)}
+  button{background:var(--green);color:#fff;border:0;border-radius:10px;padding:9px 16px;font-weight:600;cursor:pointer}
+  button:hover{filter:brightness(1.06)}
+  button.sub{background:transparent;color:var(--sub);border:1px solid var(--line-2);font-weight:500}
+  button.warn{background:var(--warn)}
+  button[disabled]{opacity:.5;cursor:default}
+  header{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+  header h1{margin:0 auto 0 0;font-size:18px;color:var(--green-d)}
+  header h1 small{font-size:12px;color:var(--sub);margin-left:6px}
+  header input{width:min(260px,60vw)}
+  main{max-width:1000px;margin:0 auto;padding:16px}
+  .msg{color:var(--sub);font-size:14px;margin:6px 0}
+  .msg.err{color:var(--warn)}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px}
+  .tabs button{background:var(--panel);color:var(--sub);border:1px solid var(--line-2)}
+  .tabs button.on{background:var(--green);color:#fff;border-color:var(--green)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--rad);padding:14px 16px;margin:0 0 12px}
+  h2{font-size:16px;margin:0 0 8px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .stat{background:var(--panel-2);border-radius:12px;padding:10px 12px}
+  .stat b{display:block;font-size:24px;color:var(--green-d)}
+  .stat span{font-size:12px;color:var(--sub)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .grow{flex:1;min-width:140px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;color:var(--sub);font-weight:600}
+  tr.click{cursor:pointer}tr.click:hover{background:var(--panel-2)}
+  .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid currentColor;margin-left:4px}
+  .tag.on{color:var(--ok)}.tag.ban{color:var(--warn)}
+  .mono{font-family:ui-monospace,Consolas,monospace;font-size:13px}
+  .scroll{overflow-x:auto}
+  textarea{width:100%;resize:vertical}
+  .detail dl{display:grid;grid-template-columns:8em 1fr;gap:4px 10px;margin:0 0 10px}
+  .detail dt{color:var(--sub);font-size:13px}
+  .detail dd{margin:0}
+  label.inline{display:inline-flex;gap:6px;align-items:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>ひだまり島ぐらし <small>運営</small></h1>
+  <input id="token" type="password" placeholder="運営者のパスワード" autocomplete="current-password">
+  <button id="login">表示</button>
+  <button id="reload" class="sub">更新</button>
+</header>
+<main>
+  <p class="msg" id="status">パスワードを入れて「表示」を押してください。（中継サーバーが眠っているときは、起きるまで1分ほどかかります）</p>
+  <div class="tabs" id="tabs" hidden>
+    <button data-t="stats" class="on">状況</button><button data-t="players">プレイヤー</button><button data-t="mails">メール</button><button data-t="notice">お知らせを送る</button>
+  </div>
+
+  <section class="pane" id="pane-stats" hidden>
+    <div class="card"><h2>いまの状況</h2><div class="stats" id="statGrid"></div><p class="msg" id="statNote"></p></div>
+    <div class="card"><h2>ひらいている島の門（合言葉の部屋）</h2><div class="scroll"><table><thead><tr><th>合言葉</th><th>持ち主</th><th>人数</th><th>いる人</th><th></th></tr></thead><tbody id="roomList"></tbody></table></div></div>
+  </section>
+
+  <section class="pane" id="pane-players" hidden>
+    <div class="card">
+      <div class="row"><input id="pq" class="grow" placeholder="名前か友だちID（HD-…）で探す。空なら最近つないだ順"><button id="psearch">探す</button></div>
+      <p class="msg" id="pmsg"></p>
+      <div class="scroll"><table><thead><tr><th>名前</th><th>友だちID</th><th>フレンド</th><th>最後につないだ</th><th>作った日</th></tr></thead><tbody id="plist"></tbody></table></div>
+      <div class="row" style="margin-top:8px"><button id="pprev" class="sub">前の100人</button><button id="pnext" class="sub">次の100人</button></div>
+    </div>
+    <div class="card detail" id="pdetail" hidden></div>
+  </section>
+
+  <section class="pane" id="pane-mails" hidden>
+    <div class="card">
+      <p class="msg" style="margin-top:0">プレイヤーどうしのメール（新しい順・最大300通。30日たったものは自動で消えます）。悪口などは、選んで消せます。</p>
+      <div class="row"><input id="mq" class="grow" placeholder="友だちID・名前・本文で探す"><button id="msearch">探す</button><button id="mdel" class="warn" disabled>選んだメールを消す</button></div>
+      <p class="msg" id="mmsg"></p>
+      <div class="scroll"><table><thead><tr><th></th><th>日時</th><th>差出人</th><th>宛先</th><th>本文</th></tr></thead><tbody id="mlist"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="pane" id="pane-notice" hidden>
+    <div class="card">
+      <h2>運営からのお知らせを送る</h2>
+      <p class="msg" style="margin-top:0">プレイヤーの家の前のポストに「運営」からのメールとして届きます（友だちIDを作っている人だけ）。200文字まで。</p>
+      <div class="row" style="margin-bottom:8px">
+        <label class="inline"><input type="radio" name="nto" value="all" checked> 全員（利用停止の人をのぞく）</label>
+        <label class="inline"><input type="radio" name="nto" value="one"> 1人だけ：</label><input id="nid" placeholder="HD-ABC234" style="width:12em">
+      </div>
+      <textarea id="nbody" rows="4" maxlength="200" placeholder="例：いつも遊んでくれてありがとう！ 春のイベントが始まりました。"></textarea>
+      <div class="row" style="margin-top:8px"><span class="msg grow" id="ncount">0/200</span><button id="nsend">送る</button></div>
+      <p class="msg" id="nmsg"></p>
+    </div>
+  </section>
+</main>
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const KEY = 'hidamari-admin';
+  const RELAY = (() => { try { return localStorage.getItem('hidamari-relay') || 'wss://hidamari-relay.onrender.com'; } catch (e) { return 'wss://hidamari-relay.onrender.com'; } })();
+  let token = '', ws = null, seq = 0, waiting = new Map(), tab = 'stats', page = 0, pq = '';
+  try { token = sessionStorage.getItem(KEY) || ''; } catch (e) {}
+  $('#token').value = token;
+  const fmt = s => { if (!s) return '—'; const d = new Date(s * 1000), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+  const ago = s => { if (!s) return '—'; const m = Math.floor((Date.now() / 1000 - s) / 60); return m < 1 ? 'いま' : m < 60 ? `${m}分前` : m < 1440 ? `${Math.floor(m / 60)}時間前` : `${Math.floor(m / 1440)}日前`; };
+  const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const k in attrs) { if (k === 'on') e.onclick = attrs[k]; else if (k === 'text') e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); } kids.flat().forEach(k => k != null && e.append(k)); return e; };
+  const status = (t, err) => { $('#status').textContent = t; $('#status').className = 'msg' + (err ? ' err' : ''); };
+
+  // ---- 中継サーバーにつなぐ（眠っていれば起きるまで、何度かつなぎ直す） ----
+  function open() {
+    return new Promise((res, rej) => {
+      if (ws && ws.readyState === 1) return res(ws);
+      const t0 = Date.now();
+      const tryOnce = () => {
+        const w = new WebSocket(RELAY);
+        const tm = setTimeout(() => { try { w.close(); } catch (e) {} }, 20000);
+        w.onopen = () => { clearTimeout(tm); ws = w; w.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } if (m.t !== 'admin') return; const f = waiting.get(m.op); if (f) { waiting.delete(m.op); f(m); } };
+          w.onclose = () => { if (ws === w) ws = null; }; res(w); };
+        w.onerror = () => {};
+        w.onclose = () => { clearTimeout(tm); if (ws === w) return; if (Date.now() - t0 > 90000) return rej(new Error('つながりませんでした')); status(`中継サーバーを起こしています…（${Math.round((Date.now() - t0) / 1000)}秒）`); setTimeout(tryOnce, 2500); };
+      };
+      tryOnce();
+    });
+  }
+  async function api(op, body = {}) {
+    try { await open(); } catch (e) { return { ok: false, err: e.message }; }
+    return new Promise(res => {
+      const tm = setTimeout(() => { waiting.delete(op); res({ ok: false, err: '返事がありませんでした' }); }, 30000);
+      waiting.set(op, m => { clearTimeout(tm); res(m); });
+      ws.send(JSON.stringify({ t: 'admin', token, op, ...body }));
+    });
+  }
+
+  // ---- ログイン ----
+  async function login() {
+    token = $('#token').value.trim(); if (!token) { status('パスワードを入れてください', true); return; }
+    status('つないでいます…');
+    const j = await api('stats');
+    if (!j.ok) { status(j.err || '表示できませんでした', true); $('#tabs').hidden = true; document.querySelectorAll('.pane').forEach(p => p.hidden = true); return; }
+    try { sessionStorage.setItem(KEY, token); } catch (e) {}
+    status(`つながりました（保存先：${j.store === 'pg' ? 'Neon' : '手元の SQLite'}）`);
+    $('#tabs').hidden = false; showStats(j); show(tab);
+  }
+  function show(t) {
+    tab = t; document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+    document.querySelectorAll('.pane').forEach(p => p.hidden = p.id !== 'pane-' + t);
+    if (t === 'stats') api('stats').then(j => j.ok && showStats(j));
+    if (t === 'players') loadPlayers();
+    if (t === 'mails') loadMails();
+  }
+  document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => show(b.dataset.t));
+  $('#login').onclick = login; $('#token').onkeydown = e => { if (e.key === 'Enter') login(); };
+  $('#reload').onclick = () => token ? show(tab) : login();
+
+  // ---- 状況 ----
+  function showStats(j) {
+    const s = j.stats, g = $('#statGrid'); g.innerHTML = '';
+    for (const [v, l] of [[j.online, 'いまつないでいる人'], [s.players, '友だちIDの数'], [s.active1, '24時間以内に遊んだ人'], [s.active7, '7日以内に遊んだ人'], [s.new7, '7日以内に作られたID'], [s.mails, 'メール（30日分）'], [s.mails1, '24時間のメール'], [s.banned, '利用停止']])
+      g.append(el('div', { class: 'stat' }, el('b', { text: (v || 0).toLocaleString() }), el('span', { text: l })));
+    $('#statNote').textContent = '「友だちIDの数」は、フレンドやメールを使うために友だちIDを作った人の数です（ゲームのセーブは各端末にあるので、遊んでいる人全員ではありません）。';
+    const rl = $('#roomList'); rl.innerHTML = '';
+    if (!j.rooms.length) rl.append(el('tr', {}, el('td', { colspan: 5, class: 'msg', text: 'いまひらいている島の門はありません' })));
+    for (const r of j.rooms) rl.append(el('tr', {}, el('td', { class: 'mono', text: r.code }), el('td', { text: r.host }), el('td', { text: r.members + '人' }), el('td', { text: r.names.join('、') }),
+      el('td', {}, el('button', { class: 'sub', on: async () => { if (!confirm(`合言葉「${r.code}」の門をしめますか？（いる人は自分の島に帰ります）`)) return; const x = await api('closeroom', { code: r.code }); status(x.ok ? '門をしめました' : x.err, !x.ok); show('stats'); } }, '門をしめる'))));
+  }
+
+  // ---- プレイヤー ----
+  async function loadPlayers() {
+    $('#pmsg').textContent = '読み込み中…';
+    const j = await api('players', { q: pq, page });
+    if (!j.ok) { $('#pmsg').textContent = j.err; return; }
+    const t = $('#plist'); t.innerHTML = '';
+    $('#pmsg').textContent = j.items.length ? `${page * 100 + 1}〜${page * 100 + j.items.length}人目` + (pq ? `（「${pq}」で探した結果）` : '') : '見つかりませんでした';
+    for (const p of j.items) t.append(el('tr', { class: 'click', on: () => loadPlayer(p.id) },
+      el('td', {}, p.name, p.online ? el('span', { class: 'tag on', text: 'オンライン' }) : null, p.banned ? el('span', { class: 'tag ban', text: '利用停止' }) : null),
+      el('td', { class: 'mono', text: p.id }), el('td', { text: `${p.friends}人` + (p.reqIn ? `（申請${p.reqIn}）` : '') }), el('td', { text: ago(p.seenAt) }), el('td', { text: fmt(p.createdAt).slice(0, 10) })));
+    $('#pprev').disabled = page <= 0; $('#pnext').disabled = !j.more;
+  }
+  $('#psearch').onclick = () => { pq = $('#pq').value.trim(); page = 0; loadPlayers(); };
+  $('#pq').onkeydown = e => { if (e.key === 'Enter') $('#psearch').onclick(); };
+  $('#pprev').onclick = () => { page = Math.max(0, page - 1); loadPlayers(); };
+  $('#pnext').onclick = () => { page++; loadPlayers(); };
+  async function loadPlayer(id) {
+    const d = $('#pdetail'); d.hidden = false; d.textContent = '読み込み中…';
+    const j = await api('player', { id });
+    if (!j.ok) { d.textContent = j.err; return; }
+    const p = j.player, list = a => a.length ? a.map(f => `${f.name}（${f.id}）`).join('、') : 'なし';
+    d.innerHTML = '';
+    const nameIn = el('input', { value: p.name, maxlength: 7, style: 'width:10em' });
+    d.append(el('h2', {}, `${p.name}`, p.online ? el('span', { class: 'tag on', text: 'オンライン' }) : null, p.banned ? el('span', { class: 'tag ban', text: '利用停止' }) : null),
+      el('dl', {}, el('dt', { text: '友だちID' }), el('dd', { class: 'mono', text: p.id }),
+        el('dt', { text: '作った日' }), el('dd', { text: fmt(p.createdAt) }),
+        el('dt', { text: '最後につないだ' }), el('dd', { text: `${fmt(p.seenAt)}（${ago(p.seenAt)}）` }),
+        el('dt', { text: 'フレンド' }), el('dd', { text: list(p.friends) }),
+        el('dt', { text: '届いている申請' }), el('dd', { text: list(p.reqIn) }),
+        el('dt', { text: '出している申請' }), el('dd', { text: list(p.reqOut) }),
+        el('dt', { text: 'メール' }), el('dd', { text: `送った ${p.mailSent}通 ／ 受け取った ${p.mailGot}通（30日分）` })),
+      el('div', { class: 'row' }, el('span', { class: 'msg', text: '名前を直す：' }), nameIn,
+        el('button', { class: 'sub', on: async () => { const x = await api('rename', { id: p.id, name: nameIn.value }); status(x.ok ? `名前を「${x.name}」にしました` : x.err, !x.ok); loadPlayer(p.id); loadPlayers(); } }, '名前を変える'),
+        el('button', { class: 'sub', on: () => { show('mails'); $('#mq').value = p.id; loadMails(); } }, 'この人のメールを見る'),
+        el('button', { class: 'sub', on: () => { show('notice'); document.querySelector('input[name=nto][value=one]').checked = true; $('#nid').value = p.id; } }, 'お知らせを送る'),
+        el('button', { class: p.banned ? 'sub' : 'warn', on: async () => {
+          if (!confirm(p.banned ? `${p.name}（${p.id}）の利用停止を解除しますか？` : `${p.name}（${p.id}）を利用停止にしますか？\nフレンドとメールが使えなくなります（ゲームは遊べます）。`)) return;
+          const x = await api('ban', { id: p.id, on: !p.banned }); status(x.ok ? (x.banned ? '利用停止にしました' : '利用停止を解除しました') : x.err, !x.ok); loadPlayer(p.id); loadPlayers(); } }, p.banned ? '利用停止を解除' : '利用停止にする')));
+    d.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ---- メール ----
+  let mails = [];
+  async function loadMails() {
+    $('#mmsg').textContent = '読み込み中…';
+    const j = await api('mails', { q: $('#mq').value.trim() });
+    if (!j.ok) { $('#mmsg').textContent = j.err; return; }
+    mails = j.items; const t = $('#mlist'); t.innerHTML = '';
+    $('#mmsg').textContent = `${mails.length}通`;
+    for (const m of mails) t.append(el('tr', {}, el('td', {}, el('input', { type: 'checkbox', 'data-id': m.id })), el('td', { text: fmt(m.at) }),
+      el('td', {}, m.fromName || '', el('div', { class: 'mono msg', text: m.from })), el('td', {}, m.toName || '', el('div', { class: 'mono msg', text: m.to })), el('td', { text: m.body })));
+    t.querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = () => { $('#mdel').disabled = !t.querySelector('input:checked'); });
+    $('#mdel').disabled = true;
+  }
+  $('#msearch').onclick = loadMails; $('#mq').onkeydown = e => { if (e.key === 'Enter') loadMails(); };
+  $('#mdel').onclick = async () => {
+    const ids = [...document.querySelectorAll('#mlist input:checked')].map(c => +c.dataset.id); if (!ids.length) return;
+    if (!confirm(`${ids.length}通のメールを消しますか？（受け取った人のポストからも消えます。元に戻せません）`)) return;
+    const x = await api('maildel', { ids }); $('#mmsg').textContent = x.ok ? `${x.deleted}通消しました` : x.err; loadMails();
+  };
+
+  // ---- お知らせ ----
+  $('#nbody').oninput = () => $('#ncount').textContent = `${$('#nbody').value.length}/200`;
+  $('#nsend').onclick = async () => {
+    const all = document.querySelector('input[name=nto]:checked').value === 'all', body = $('#nbody').value.trim();
+    if (!body) { $('#nmsg').textContent = 'お知らせを書いてください'; return; }
+    const to = all ? 'all' : $('#nid').value.trim();
+    if (!all && !to) { $('#nmsg').textContent = '友だちIDを入れてください'; return; }
+    if (!confirm(all ? '全員にお知らせを送りますか？' : `${to} にお知らせを送りますか？`)) return;
+    $('#nsend').disabled = true; $('#nmsg').textContent = '送っています…';
+    const x = await api('notice', { to, body, id: all ? undefined : to });
+    $('#nsend').disabled = false; $('#nmsg').textContent = x.ok ? `${x.sent}人に送りました` : x.err;
+    if (x.ok) { $('#nbody').value = ''; $('#ncount').textContent = '0/200'; }
+  };
+
+  if (token) login();
+})();
+</script>
+</body>
+</html>
