@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.077";</script>
+<script>const GAME_VERSION="1.078";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7734,7 +7734,7 @@ const HAT_IMG_FIT={
   hat_cap:{w:1.15,y:.55,m:CAP_M},hat_cap_red:{w:1.15,y:.55,m:CAP_M},hat_cap_black:{w:1.15,y:.55,m:CAP_M},
   hat_knit:{w:1.12,y:.66,same:'b'},hat_knit_blue:{w:1.12,y:.66,same:'b'},hat_knit_green:{w:1.12,y:.66,same:'b'},   // same：その向きは正面の絵をそのまま同じ大きさ・位置で使う
   hat_beret:{w:1.25,y:.50,dx:-.05},hat_beret_red:{w:1.25,y:.50,dx:-.05},hat_beret_navy:{w:1.25,y:.50,dx:-.05},
-  hat_straw:{w:1.7,y:.58,ys:.62},hat_straw_blue:{w:1.7,y:.58,ys:.62},hat_bucket:{w:1.45,y:.60,ys:.62},hat_top:{w:1.15,y:.52},hat_witch:{w:1.7,y:.56,dx:-.08},
+  hat_straw:{w:1.7,y:.58,ys:.62},hat_straw_blue:{w:1.7,y:.58,ys:.62},hat_bucket:{w:1.45,y:.60,ys:.62},hat_top:{w:1.15,y:.52,band:{color:'red',w:.70,y:.26,yb:.32}},   // 赤い帯（リボン）の幅を頭の幅の0.85倍にし、帯の中心を頭の中心に、帯の行を頭のてっぺんから頭の幅の0.40倍（後ろは0.46）に置くhat_witch:{w:1.7,y:.56,dx:-.08},
   hat_cowboy:{w:1.7,y:.58,ys:.60},hat_santa:{w:1.4,y:.6,band:{w:1.12,y:.44,yb:.56}},   // yb：後ろ向きだけ帯を少し下げる（後ろ向きの絵は帯より上が高く、同じ高さに置くと浮いて見える）   // 白い帯（ポンポンを除く、いちばん長くつながった白い行の芯の部分）の幅を頭の幅の1.12倍にし、帯の中心を頭の中心に、帯の行を頭のてっぺんから頭の幅の0.58倍に置く
   hat_chef:{w:1.15,y:.54},hat_party:{w:.7,y:.12},
   hat_ribbon:{w:.95,y:.12,dx:-.1},hat_crown:{w:.8,y:.12},hat_tiara:{w:.85,y:.14,yb:.34},hat_flower:{w:1.15,y:.26},
@@ -7751,10 +7751,13 @@ function hatMetrics(im){
   const lim=th[peak]*.5;let x0=peak,x1=peak;while(x0>0&&th[x0-1]>=lim)x0--;while(x1<w-1&&th[x1+1]>=lim)x1++;
   let top=h,bot=0;for(let x=x0;x<=x1;x++)for(let y=0;y<h;y++)if(d[(y*w+x)*4+3]>128){if(y<top)top=y;if(y>bot)bot=y}
   // 白い帯：行ごとに「白っぽい不透明な画素がつながった長さ」（3px までのとぎれは同じ帯）を調べ、いちばん長い行を帯とする（横のポンポンは離れているので入らない）
+  const bands={};
+  for(const [name,isC] of [['white',(r,g,b)=>r>190&&g>180&&b>160],['red',(r,g,b)=>r>120&&g<80&&b<80]]){
   let bw=0,by=0,bx0=0,bx1=0;
-  for(let y=0;y<h;y++){let x=0;while(x<w){const W=i=>{const j=(y*w+i)*4;return d[j+3]>128&&d[j]>190&&d[j+1]>180&&d[j+2]>160};
+  for(let y=0;y<h;y++){let x=0;while(x<w){const W=i=>{const j=(y*w+i)*4;return d[j+3]>128&&isC(d[j],d[j+1],d[j+2])};
     if(W(x)){const x0=x;while(x<w&&(W(x)||(x+3<w&&(W(x+1)||W(x+2)||W(x+3)))))x++;if(x-x0>bw){bw=x-x0;by=y;bx0=x0;bx1=x-1}}x++}}
-  m={w,h,x0,x1,cw:x1-x0+1,ccx:(x0+x1)/2,top,bot,bw,by,bcx:(bx0+bx1)/2};_hatMet.set(im,m);return m;
+  bands[name]={bw,by,bcx:(bx0+bx1)/2}}
+  m={w,h,x0,x1,cw:x1-x0+1,ccx:(x0+x1)/2,top,bot,bands,...bands.white};_hatMet.set(im,m);return m;
 }
 // 向き d8（d/u/l/r/dl/dr/ul/ur）に合う絵を、頭のてっぺん (hx,hy)・頭の幅 hw に合わせて描く。絵が無ければ false
 function drawHatImg(g,id,d8,hx,hy,hw){
@@ -7764,9 +7767,9 @@ function drawHatImg(g,id,d8,hx,hy,hw){
   const side=v==='l'||v==='r',f=v==='l'?-1:1;
   if(F.same&&F.same.includes(v)){const w=hw*F.w,h=w*im.naturalHeight/im.naturalWidth;g.drawImage(im,hx-w/2,hy+hw*F.y-h,w,h);return true}   // 正面と同じ絵を同じ置き方で
   if(F.band){   // 白い帯を測って合わせる帽子（全部の向き）
-    const M=hatMetrics(im),sc=hw*F.band.w/Math.max(1,M.bw);
+    const M=hatMetrics(im),B=M.bands[F.band.color||'white'],sc=hw*F.band.w/Math.max(1,B.bw);
     const by=(v==='b'&&F.band.yb!==undefined)?F.band.yb:F.band.y;
-    g.drawImage(im,hx-M.bcx*sc,hy+by*hw-M.by*sc,M.w*sc,M.h*sc);return true;
+    g.drawImage(im,hx-B.bcx*sc,hy+by*hw-B.by*sc,M.w*sc,M.h*sc);return true;
   }
   if(F.m&&v!=='f'){   // 山を測って合わせる帽子
     const sp=side?F.m.s:F.m.b,M=hatMetrics(im);
