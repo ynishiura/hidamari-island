@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.100";</script>
+<script>const GAME_VERSION="1.101";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7783,7 +7783,7 @@ const HAT_IMG_FIT={
   hat_helmet:{w:1.25,y:.58,band:{color:'any',w:1.25,y:.32,ys:.42,yb:.36}},
   hat_sailor:{w:1.15,y:.52,same:'lrb'},
   // イヤーマフの横：ユーザーがくれた絵（耳当て1つと、上へのびる帯）。絵全体の幅で大きさを決め、耳当て（幅の約8割）が頭の幅の約4割になるように
-  hat_earmuff:{w:1.3,y:.95,m:{s:{whole:true,cw:.58,cx:-.12,cy:.60,center:true},b:{whole:true,cw:1.15,cx:0,cy:.89}}},
+  hat_earmuff:{w:1.3,y:.95,m:{s:{whole:true,cw:.58,cx:-.12,cy:.55,center:true},b:{whole:true,cw:1.15,cx:0,cy:.84}}},
 };
 // 帽子の絵の「山」（かぶる部分）を測る：列ごとの不透明な画素の数が、いちばん多い列の半分以上ある列のつながりを山とみなす（つば・たれ・帯は細いので外れる）
 const _hatMet=new Map();
