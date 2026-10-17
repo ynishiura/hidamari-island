@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.112";</script>
+<script>const GAME_VERSION="1.113";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7780,8 +7780,8 @@ const HAT_IMG_FIT={
   hat_crown:{w:.8,y:.12},
   hat_tiara:{w:.85,y:.14,yb:.34},
   // 花かんむり：後ろ向きは正面と同じ絵を、同じ大きさ・位置で（2026-10-17）。縦だけ縮める（syv）：90% のあと、さらにその80%に（.9×.8＝.72）
-  // 花かんむりの高さ：.26 → .36 へ下げた（2026-10-17）
-  hat_flower:{w:1.15,y:.36,same:'b',syv:.72},
+  // 花かんむりの高さ：.26 → .36 → .46 へ下げた。縦はさらにその90%に（.72×.9＝.648）（2026-10-17）
+  hat_flower:{w:1.15,y:.46,same:'b',syv:.648},
   // ねこみみ：後ろの絵は小さめに描かれているので大きくする
   hat_catear:{w:.95,y:.40,ys:.44,yb:.40,kv:{b:1.19}},
   hat_bunny:{w:.8,y:.30,ys:.45},
