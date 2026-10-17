@@ -6,7 +6,7 @@
 表の名前は hd_ で始める（同じデータベースに、ほかのゲームの表があっても混ざらないように）。
 
   hd_players  1人1行。id（友だちID）・合言葉のハッシュ・名前・フレンド・申請（JSON）
-  hd_mail     メール1通1行。30日たったものは消す
+  hd_mail     メール1通1行。30日たったものは消す。gift＝付けた持ち物（品物の名前の id。1通に1つ）、gift_taken＝受け取った人が包みを開けたか
   hd_xfer     運営が発行した引継ぎコード（7日間・1回限り）
   hd_reports  プレイヤーからの通報（フレンドから届いたメール）。運営が読めるメールは、通報があった2人の、
               通報の日の前30日〜後7日のものだけ（通信の秘密。SIDERA VEIL と同じ）
@@ -95,6 +95,11 @@ class Store:
         self.q(f'''CREATE TABLE IF NOT EXISTS hd_mail (
             id {auto}, from_id TEXT NOT NULL, to_id TEXT NOT NULL, from_name TEXT, to_name TEXT,
             body TEXT NOT NULL, at BIGINT NOT NULL, read INTEGER NOT NULL DEFAULT 0)''')
+        for col in ('gift TEXT', 'gift_taken INTEGER NOT NULL DEFAULT 0'):
+            try:                                   # メールの贈り物（あとから足した列）
+                self.q(f'ALTER TABLE hd_mail ADD COLUMN {col}')
+            except Exception:
+                pass
         for col in ('banned INTEGER NOT NULL DEFAULT 0', 'play_sec BIGINT', 'device TEXT', 'save TEXT', 'save_at BIGINT'):
             try:                                   # 古い表には後から足す（もうあれば何もしない）
                 self.q(f'ALTER TABLE hd_players ADD COLUMN {col}')
@@ -167,19 +172,28 @@ class Store:
         return out
 
     # ---- メール ----
-    def add_mail(self, frm, to, from_name, to_name, body):
-        self.q('INSERT INTO hd_mail (from_id, to_id, from_name, to_name, body, at, read) VALUES (?,?,?,?,?,?,0)',
-               (frm, to, from_name, to_name, body, int(time.time())))
+    def add_mail(self, frm, to, from_name, to_name, body, gift=None):
+        self.q('INSERT INTO hd_mail (from_id, to_id, from_name, to_name, body, at, read, gift) VALUES (?,?,?,?,?,?,0,?)',
+               (frm, to, from_name, to_name, body, int(time.time()), gift))
+
+    def gifts_today(self, frm):
+        r = self.q('SELECT COUNT(*) FROM hd_mail WHERE from_id=? AND gift IS NOT NULL AND at>?', (frm, int(time.time()) - 86400), one=True)
+        return r[0] if r else 0
+
+    def take_gift(self, pid, mid):
+        """受け取った人が包みを開ける。まだ開けていなければ印を付けて品物の id を返す（1回だけ）"""
+        r = self.q('UPDATE hd_mail SET gift_taken=1 WHERE id=? AND to_id=? AND gift IS NOT NULL AND gift_taken=0 RETURNING gift', (int(mid), pid), one=True)
+        return r and r[0]
 
     def sent_today(self, frm):
         r = self.q('SELECT COUNT(*) FROM hd_mail WHERE from_id=? AND at>?', (frm, int(time.time()) - 86400), one=True)
         return r[0] if r else 0
 
     def mailbox(self, pid, n=50):
-        inbox = self.q('SELECT id, from_id, from_name, body, at, read FROM hd_mail WHERE to_id=? ORDER BY at DESC, id DESC LIMIT ?', (pid, n), many=True)
-        outbox = self.q('SELECT id, to_id, to_name, body, at FROM hd_mail WHERE from_id=? ORDER BY at DESC, id DESC LIMIT ?', (pid, n), many=True)
-        return ([{'id': r[0], 'from': r[1], 'fromName': r[2], 'body': r[3], 'at': r[4], 'read': bool(r[5])} for r in inbox],
-                [{'id': r[0], 'to': r[1], 'toName': r[2], 'body': r[3], 'at': r[4]} for r in outbox])
+        inbox = self.q('SELECT id, from_id, from_name, body, at, read, gift, gift_taken FROM hd_mail WHERE to_id=? ORDER BY at DESC, id DESC LIMIT ?', (pid, n), many=True)
+        outbox = self.q('SELECT id, to_id, to_name, body, at, gift, gift_taken FROM hd_mail WHERE from_id=? ORDER BY at DESC, id DESC LIMIT ?', (pid, n), many=True)
+        return ([{'id': r[0], 'from': r[1], 'fromName': r[2], 'body': r[3], 'at': r[4], 'read': bool(r[5]), 'gift': r[6], 'giftTaken': bool(r[7])} for r in inbox],
+                [{'id': r[0], 'to': r[1], 'toName': r[2], 'body': r[3], 'at': r[4], 'gift': r[5], 'giftTaken': bool(r[6])} for r in outbox])
 
     def unread(self, pid):
         r = self.q('SELECT COUNT(*) FROM hd_mail WHERE to_id=? AND read=0', (pid,), one=True)
@@ -316,13 +330,13 @@ class Store:
         q = str(q or '').strip()
         if q:
             like = '%' + q + '%'
-            rows = self.q('SELECT id, from_id, from_name, to_id, to_name, body, at, read FROM hd_mail WHERE from_id LIKE ? OR to_id LIKE ? '
+            rows = self.q('SELECT id, from_id, from_name, to_id, to_name, body, at, read, gift FROM hd_mail WHERE from_id LIKE ? OR to_id LIKE ? '
                           'OR from_name LIKE ? OR to_name LIKE ? OR body LIKE ? ORDER BY at DESC, id DESC LIMIT ?',
                           (like.upper(), like.upper(), like, like, like, int(limit)), many=True) or []
         else:
-            rows = self.q('SELECT id, from_id, from_name, to_id, to_name, body, at, read FROM hd_mail ORDER BY at DESC, id DESC LIMIT ?',
+            rows = self.q('SELECT id, from_id, from_name, to_id, to_name, body, at, read, gift FROM hd_mail ORDER BY at DESC, id DESC LIMIT ?',
                           (int(limit),), many=True) or []
-        return [{'id': r[0], 'from': r[1], 'fromName': r[2], 'to': r[3], 'toName': r[4], 'body': r[5], 'at': r[6], 'read': bool(r[7])} for r in rows]
+        return [{'id': r[0], 'from': r[1], 'fromName': r[2], 'to': r[3], 'toName': r[4], 'body': r[5], 'at': r[6], 'read': bool(r[7]), 'gift': r[8]} for r in rows]
 
     def admin_delete_mails(self, ids):
         n = 0

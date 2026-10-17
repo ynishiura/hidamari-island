@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.119";</script>
+<script>const GAME_VERSION="1.120";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -1374,7 +1374,7 @@ function addItem(id,n=1,quiet){
 }
 function takeItem(id,n=1){if((S.bag[id]||0)<n)return false;S.bag[id]-=n;if(S.bag[id]<=0)delete S.bag[id];if(S.held===id&&!S.bag[id])S.held=null;updateHud();reqTasksRefresh(id);return true}
 // 持ち物が変わったとき、住民に頼まれている物なら「今日のやること」を出しなおす
-function reqTasksRefresh(id){if(S&&residents().some(v=>{const f=S.friends[v.id];return f&&f.reqAsked&&!f.reqDone&&f.req===id}))renderTasks()}
+function reqTasksRefresh(id){if(S&&residents().some(v=>{const f=S.friends[v.id];return f&&f.reqAsked&&!f.reqDone&&f.req&&reqIds(f).includes(id)}))renderTasks()}
 function gainPlayerXp(a){
   if(S.lv>=MAX_LV)return;
   S.xp+=a;
@@ -1443,6 +1443,20 @@ function makeRequest(){
   if(S.lv>=3)FOSSILS.filter(f=>f.rar===1).forEach(f=>pool.push({id:f.id}));
   return pick(pool).id;
 }
+// お願いの種類（2026-10-17）：bring＝持ってきて（わたす）／show＝見せて（わたさない）／color＝○色の花がほしい（花の種類はなんでもよい）
+const REQ_COLORS=['赤','白','黄','ピンク','オレンジ'];
+function flowerIdsOfColor(c){const L=[];for(const k in FLOWER_DEF)FLOWER_DEF[k].colors.forEach((x,i)=>{if(x[0]===c)L.push(`fl_${k}_${i}`)});return L}
+function newRequest(f){
+  const r=rnd();f.reqColor=null;
+  if(r<.22){f.reqKind='color';f.reqColor=pick(REQ_COLORS);f.req=flowerIdsOfColor(f.reqColor)[0];return}
+  if(r<.5){const s=season(),pool=[...BUGS.filter(b=>b.rar<=3&&b.seasons.includes(s)),...FISH.filter(x=>x.rar<=3&&!x.places.includes('cave')&&x.seasons.includes(s))];
+    if(pool.length){f.reqKind='show';f.req=pick(pool).id;return}}
+  f.reqKind='bring';f.req=makeRequest();
+}
+const reqIds=f=>f.reqKind==='color'&&f.reqColor?flowerIdsOfColor(f.reqColor):[f.req];
+const reqHaveId=f=>reqIds(f).find(id=>(S.bag[id]||0)>0)||null;
+const reqLabel=f=>f.reqKind==='color'&&f.reqColor?`${ADJ[f.reqColor]||f.reqColor+'の'}花`:ITEMS[f.req].name;
+const reqVerb=f=>f.reqKind==='show'?'見せる':'届ける';
 function initDaily(){
   S.fruit=W.trees.map((t,i)=>t.fruit&&!S.stumps[i]&&!(S.cleared&&S.cleared[i]));
   S.rockHits=W.rocks.map(()=>0);S.chopHits=W.trees.map(()=>0);
@@ -1452,7 +1466,7 @@ function initDaily(){
   for(let i=0;i<3;i++){const p=freeTile([2]);if(p)S.dig.push([p[0],p[1],1])}
   for(let i=0;i<8;i++){const p=freeTile([1]);if(p)S.shells.push(p)}
   for(let i=0,c=0;i<90&&c<11;i++){const t=pick(W.trees),x=t.x+Math.floor(rnd()*3)-1,y=t.y+1+Math.floor(rnd()*2);if(tileAt(x,y)===2&&!W.block[ti(x,y)]&&!objAt(x,y)){S.branches.push([x,y]);c++}}
-  for(const v of residents()){const f=S.friends[v.id]||(S.friends[v.id]={pts:0,gift:0});f.talked=false;f.gifted=false;f.req=makeRequest();f.reqDone=false;f.reqAsked=false}
+  for(const v of residents()){const f=S.friends[v.id]||(S.friends[v.id]={pts:0,gift:0});f.talked=false;f.gifted=false;newRequest(f);f.reqDone=false;f.reqAsked=false}
   if(S.weather==='雨')S.flowers.forEach(f=>f.water=true);
   dailyLife();dailySurprise();   // 住民（life.js）と、毎日の小さな驚き（surprise.js）
   makeTasks();
@@ -1622,7 +1636,7 @@ function resetVillagers(){
   RT.vill=residents().map(v=>{const b=W.bld.find(b=>b.vid===v.id);return b&&{v,b,x:(b.door.x+.5)*T,y:(b.door.y+1.5)*T,dir:'down',tx:null,ty:null,wait:rnd()*3,frame:0}}).filter(Boolean);
   // 家が建った場所に植えてあった花は消す（住民が増えて家の場所が変わったセーブのため）
   // あとから住民になった人の仲よし度を用意する
-  if(S)for(const v of residents())if(!S.friends[v.id])S.friends[v.id]={pts:0,gift:0,talked:false,gifted:false,req:makeRequest(),reqDone:false};
+  if(S)for(const v of residents())if(!S.friends[v.id]){const f=S.friends[v.id]={pts:0,gift:0,talked:false,gifted:false,reqDone:false};newRequest(f)}
   if(S&&S.flowers)S.flowers=S.flowers.filter(f=>!W.bld.some(b=>f.x>=b.x-1&&f.x<=b.x+b.w&&f.y>=b.y-1&&f.y<=b.y+b.h+1));
 }
 const villagersOut=()=>S.loc==='island'&&S.min>=7*60&&S.min<21*60;
@@ -1679,9 +1693,10 @@ function talkTo(a){
   }
   // その日のお願い：まだ頼んでいなければ、住民のほうから頼む（お礼は家具）
   if(!f.reqDone&&!f.reqAsked){
-    const it=ITEMS[f.req];f.reqAsked=true;
-    lines.push(`じつはね、お願いがあるんだ。${it.name}を持ってきてくれないかな？`);
-    lines.push(`お礼に、家具をひとつあげるよ！`);
+    const lb=reqLabel(f);f.reqAsked=true;
+    if(f.reqKind==='show'){lines.push(`じつはね、お願いがあるんだ。${lb}って、見たことある？`);lines.push(`つかまえたら、ぼくに見せてほしいな！ 見るだけだから、ちゃんと返すよ。`)}
+    else if(f.reqKind==='color'){lines.push(`じつはね、お願いがあるんだ。${lb}がほしいの。`);lines.push(`花の種類は、なんでもいいよ！ お部屋にかざりたいんだ。`)}
+    else{lines.push(`じつはね、お願いがあるんだ。${lb}を持ってきてくれないかな？`);lines.push(`お礼に、家具をひとつあげるよ！`)}
     renderTasks();
   }
   showDialog(v.name,lines,()=>villagerMenu(a));
@@ -1696,16 +1711,20 @@ function requestReward(){
 function villagerMenu(a){
   const v=a.v,f=S.friends[v.id];
   const ch=[];
-  if(!f.reqDone)ch.push([(S.bag[f.req]||0)>0?`${ITEMS[f.req].name}をわたす`:'おねがい',()=>{
-    const it=ITEMS[f.req];f.reqAsked=true;
-    const have=(S.bag[f.req]||0)>0;
-    const opts=have?[[`${it.name}をわたす`,()=>{
-      takeItem(f.req);f.reqDone=true;f.pts+=4;
-      const ft=requestReward(),rw=Math.round(it.price*.5+100);S.bells+=rw;gainPlayerXp(15);sfx('get');updateHud();renderTasks();
-      showDialog(v.name,[`わあ、${it.name}！ ありがとう、${S.name}！`,`お礼に「${FURN_NAME[ft]}」と ${rw}円 をあげるね。`,'家具は、家の中の「レイアウト」から置けるよ！'],endTalk);
+  if(!f.reqDone){const hid=reqHaveId(f),lb=reqLabel(f),show=f.reqKind==='show';
+    ch.push([hid?(show?`${ITEMS[hid].name}を見せる`:`${ITEMS[hid].name}をわたす`):'おねがい',()=>{
+    f.reqAsked=true;
+    const opts=hid?[[show?`${ITEMS[hid].name}を見せる`:`${ITEMS[hid].name}をわたす`,()=>{
+      const it=ITEMS[hid];if(!show)takeItem(hid);f.reqDone=true;f.pts+=4;S.reqDoneN=(S.reqDoneN||0)+1;
+      const L=[];
+      if(show){const rw=Math.round(it.price*.3+300);S.bells+=rw;L.push(`わあ、これが${it.name}！ はじめて近くで見たよ…！`,`見せてくれてありがとう、${S.name}！ お礼に ${rw}円 をあげるね。`)}
+      else{const ft=requestReward(),rw=Math.round(it.price*.5+100);S.bells+=rw;
+        L.push(f.reqKind==='color'?`わあ、${it.name}！ すてきな色！ ありがとう、${S.name}！`:`わあ、${it.name}！ ありがとう、${S.name}！`,`お礼に「${FURN_NAME[ft]}」と ${rw}円 をあげるね。`,'家具は、家の中の「レイアウト」から置けるよ！')}
+      const em=typeof reqEmoteReward==='function'?reqEmoteReward(v):null;if(em)L.push(em);   // お礼に気持ちを教わる（fest.js）
+      gainPlayerXp(15);sfx('get');updateHud();renderTasks();showDialog(v.name,L,endTalk);
     }],['また今度',endTalk]]:[['さがしてくるね',endTalk]];
-    showDialog(v.name,[`${it.name}を持ってきてくれたら、お礼に家具をあげるね。`],null,opts);
-  }]);
+    showDialog(v.name,[show?`${lb}をつかまえたら、見せてね。見るだけだから、ちゃんと返すよ。`:f.reqKind==='color'?`${lb}を持ってきてくれたら、お礼に家具をあげるね。花の種類はなんでもいいよ。`:`${lb}を持ってきてくれたら、お礼に家具をあげるね。`],null,opts);
+  }])}
   if(!f.gifted)ch.push(['プレゼント',()=>{closeDialog();openBag('gift',a)}]);
   lifeMenu(v,f,ch);
   ch.push(['またね',endTalk]);
@@ -1716,7 +1735,7 @@ function giveGift(a,id){
   takeItem(id);f.gifted=true;
   f.pts+=it.price>=1000?4:it.price>=300?3:2;gainPlayerXp(5);sfx('get');
   const line=it.kind==='flower'?'きれいなお花！ お部屋にかざるね。':it.price>=1000?`えっ、${it.name}！？ こんなにいいもの、いいの？`:`${it.name}だ。ありがとう！`;
-  const bd=lifeBirthdayGift(v,f);   // 誕生日のプレゼント（life.js）
+  const bd=lifeBirthdayGift(v,f,it);   // 誕生日のプレゼント（life.js）
   RT.talking=a;showDialog(v.name,bd||[line],endTalk);
 }
 function endTalk(){closeDialog();RT.talking=null}
@@ -2452,7 +2471,7 @@ function render(t){
   ctx.textAlign='center';ctx.font='700 10px "Zen Maru Gothic",sans-serif';
   if(villagersOut())for(const a of RT.vill){const near=Math.hypot(a.x-S.px,a.y-S.py)<80;if(near){pill(ctx,a.x,a.y-52,a.v.name,'rgba(255,255,255,.92)','#2c3a31')}
     // お願いがある住民：まだ聞いていなければ「！」、聞いて持っていれば「♪」（ゆっくり上下する）
-    const f=S.friends[a.v.id];if(f&&!f.reqDone&&f.req&&(!f.reqAsked||(S.bag[f.req]||0)>0)){const by=a.y-(near?66:54)+Math.sin(t*3+a.x)*1.5;
+    const f=S.friends[a.v.id];if(f&&!f.reqDone&&f.req&&(!f.reqAsked||reqHaveId(f))){const by=a.y-(near?66:54)+Math.sin(t*3+a.x)*1.5;
       circ(ctx,a.x,by,6.5,'rgba(255,255,255,.95)');ctx.strokeStyle='#e8a33a';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(a.x,by,6.5,0,7);ctx.stroke();
       ctx.fillStyle='#d9771f';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(f.reqAsked?'♪':'！',a.x,by+.5);ctx.textBaseline='alphabetic'}}
   const ht=hintText();
@@ -3119,10 +3138,10 @@ function renderTasks(){
   $('tHead').textContent=`今日のやること ${done}/${S.tasks.length}${S.tasksBonus?'　達成！':''}`;
   const ul=$('tList');ul.innerHTML='';ul.hidden=!tasksOpen;
   for(const t of S.tasks){const li=document.createElement('li');li.className=t.done?'done':'';const tx=taskText(t);li.innerHTML=`<span title="${tx}">${tx}</span><b class="prog">${t.done?'済':t.prog+'/'+t.n}</b>`;ul.appendChild(li)}
-  // 住民から頼まれたお願い（お礼は家具）。持っていれば「持」、届けたら「済」
+  // 住民から頼まれたお願い（お礼がもらえる）。持っていれば「持」、届けたら「済」
   for(const v of residents()){const f=S.friends[v.id];if(!f||!f.reqAsked||!f.req)continue;
-    const li=document.createElement('li');li.className='req'+(f.reqDone?' done':'');const tx=`${v.name}に${ITEMS[f.req].name}を届ける`;
-    li.innerHTML=`<span title="${tx}（お礼は家具）">${tx}</span><b class="prog">${f.reqDone?'済':(S.bag[f.req]||0)>0?'持':'お願い'}</b>`;ul.appendChild(li)}
+    const li=document.createElement('li');li.className='req'+(f.reqDone?' done':'');const tx=`${v.name}に${reqLabel(f)}を${reqVerb(f)}`;
+    li.innerHTML=`<span title="${tx}（お礼がもらえる）">${tx}</span><b class="prog">${f.reqDone?'済':reqHaveId(f)?'持':'お願い'}</b>`;ul.appendChild(li)}
 }
 $('tHead').addEventListener('click',()=>{tasksOpen=!tasksOpen;try{localStorage.setItem('hidamari-tasks',tasksOpen?'1':'0')}catch(e){}renderTasks()});
 
@@ -6102,6 +6121,8 @@ function drawDino(g){
 // ・家に遊びに来る：♥3つ以上の住民が、ときどき自分の家に遊びに来る（9時〜19時、家の中にいる）
 // ・住民の家に入れる：7時〜21時。中で住民が迎えてくれる。夜は寝ている
 // ・引き止め：引っ越しの3日前から、引っ越しそうな住民が打ち明ける。「引き止める」と島に残る
+// ・誕生日パーティー（2026-10-17）：誕生日の日は、その住民の家の中が飾り付けられ（ガーランド・風船・ケーキ）、ほかの住民2人がお祝いに来ている。
+//   家の中でプレゼントをわたすと、みんなで拍手。はじめての誕生日プレゼントで、気持ち「ケーキ」を教わる。「誕生日は？」で誕生日を聞ける
 const vBirthday=v=>{let h=0;for(const ch of v.id)h=h*31+ch.charCodeAt(0)>>>0;return {s:h%4,d:1+(h>>3)%DAYS_PER_SEASON}};
 const isBirthday=v=>{const b=vBirthday(v);return season()===b.s&&dayInSeason()===b.d};
 const birthdayText=v=>{const b=vBirthday(v);return `${SEASONS[b.s]}の${b.d}日`};
@@ -6125,12 +6146,14 @@ function lifeMorningNews(){
 // 話しかけたときに足すセリフ（talkTo から）
 function lifeTalkLines(v,f,first){
   const L=[];
-  if(isBirthday(v)&&first)L.push(`じつは今日、${v.name}の誕生日なんだ！ 覚えててくれたらうれしいな。`);
+  if(isBirthday(v)&&W.vhouse===v.id){if(first)L.push(f.bdayGift?'プレゼント、本当にありがとう！ 今日はさいこうの誕生日だよ！':`${S.name}も、パーティーに来てくれたんだね！ うれしい！`,'ケーキもあるよ。みんなでお祝いしてくれて、しあわせだなぁ。')}
+  else if(isBirthday(v)&&first)L.push(`じつは今日、${v.name}の誕生日なんだ！ 家でパーティーをしてるから、あとで来てね！`);
   if(S.moveOut&&S.moveOut.includes(v.id)&&!f.moveTalked){f.moveTalked=true;L.push('…あのね。じつは、そろそろこの島を出ようかなって思ってるんだ。')}
   return L;
 }
 // 話のあとのメニューに足す選択肢（villagerMenu から）
 function lifeMenu(v,f,ch){
+  ch.push(['誕生日は？',()=>showDialog(v.name,isBirthday(v)?['今日だよ！ 覚えててくれたの？']:[`${birthdayText(v)}だよ。`,'その日は家でパーティーをするから、遊びに来てね！'],endTalk)]);
   if(S.moveOut&&S.moveOut.includes(v.id))ch.unshift(['引っ越すの？',()=>{
     showDialog(v.name,['うん…。新しい場所も見てみたくて。でも、迷ってるんだ。'],null,[
       ['引き止める',()=>{S.moveOut=S.moveOut.filter(id=>id!==v.id);f.pts+=3;sfx('get');
@@ -6139,11 +6162,53 @@ function lifeMenu(v,f,ch){
   }]);
 }
 // 誕生日のプレゼント（giveGift から）。特別に喜んで、お返しに家具をくれる
-function lifeBirthdayGift(v,f){
+function lifeBirthdayGift(v,f,it){
   if(!isBirthday(v)||f.bdayGift)return null;
   f.bdayGift=true;f.pts+=6;
-  const t=requestReward();
-  return [`誕生日プレゼント！？ うれしい…！ ずっと大事にするね！`,`お礼に「${FURN_NAME[t]}」をあげる。家に飾ってね！`];
+  const t=requestReward(),party=W.vhouse===v.id,L=[];
+  // 特別な返事：プレゼントによって変わる
+  const love=it&&(it.price>=1000||(it.kind==='flower'&&it.tier>=1)||['hat','top','acc'].includes(it.kind));
+  L.push(love?`わぁっ…！ ${it.name}！？ こんなにすてきなプレゼント、生まれてはじめてだよ…！`:it&&it.kind==='flower'?`${it.name}！ 誕生日にお花をもらえるなんて、うれしいなぁ…！`:`誕生日プレゼント！？ うれしい…！ ずっと大事にするね！`);
+  if(party){L.push('（お祝いに来ていたみんなが、大きな拍手をした！）');partyClap(v)}
+  const bells=party?2000:1000;S.bells+=bells;updateHud();
+  L.push(`お礼に「${FURN_NAME[t]}」と ${bells}円 をあげる。家に飾ってね！`);
+  if(!S.bdayCake){S.bdayCake=true;S.furnInv=S.furnInv||{};S.furnInv.bdcake=(S.furnInv.bdcake||0)+1;L.push('それと、パーティーのケーキの「バースデーケーキ」もどうぞ！ 家に飾れるよ。')}
+  if(!(S.emoLearned||[]).includes('cake')){S.emoLearned=[...(S.emoLearned||[]),'cake'];L.push('お祝いの気持ち「ケーキ」も教えてあげるね！');setTimeout(()=>{toast(`${v.name}から 新しい気持ち「ケーキ」を教わった！`,true);sfx('lv')},600)}
+  return L;
+}
+// ---- 誕生日パーティー（家の中） ----
+// お祝いに来る住民：その日の誕生日の住民以外から2人（日と住民で決まる）
+function partyGuests(vid){
+  const others=residents().filter(v=>v.id!==vid);if(!others.length)return [];
+  let hs=S.day*7;for(const ch of vid)hs=(hs*31+ch.charCodeAt(0))>>>0;
+  const a=others[hs%others.length],b=others[(hs>>3)%others.length];
+  return a===b?[a]:[a,b];
+}
+const PARTY_TILES=[[1,4],[5,4]];   // 家の中のマス（ox,oy から）：左右に1人ずつ
+const partyOn=()=>!!W.vhouse&&(()=>{const v=vById(W.vhouse);return v&&isBirthday(v)})();
+function partySetup(){   // 家に入ったとき：ゲストの立つマスをふさぐ（誕生日でなければ空ける）
+  if(!W.vhouse)return;const on=partyOn();
+  PARTY_TILES.forEach(([x,y],i)=>{W.block[ti(W.ox+x,W.oy+y)]=on&&i<partyGuests(W.vhouse).length?1:0});
+}
+function partyClap(v){const now=performance.now()/1000;partyGuests(v.id).forEach((g,i)=>{setTimeout(()=>{VEMO[g.id]={id:'clap',t0:performance.now()/1000}},i*250)});VEMO[v.id]={id:'heart',t0:now}}
+function drawPartyDeco(g,t){
+  const x0=(W.ox)*T,x1=(W.ox+W.w)*T,y=W.oy*T-T*.9;
+  // ガーランド（三角の旗）
+  const cols=['#f27a8a','#f6cf3a','#7cc3e8','#9be07a','#c49ae8'];
+  g.strokeStyle='rgba(120,90,60,.7)';g.lineWidth=1;g.beginPath();g.moveTo(x0+6,y);g.quadraticCurveTo((x0+x1)/2,y+14,x1-6,y);g.stroke();
+  const n=11;for(let i=0;i<n;i++){const u=(i+.5)/n,px=x0+6+(x1-x0-12)*u,py=y+14*2*u*(1-u)*2*.5+ (1-Math.pow(2*u-1,2))*7;
+    g.fillStyle=cols[i%cols.length];g.beginPath();g.moveTo(px-5,py);g.lineTo(px+5,py);g.lineTo(px,py+9);g.closePath();g.fill()}
+  // 部屋のすみの風船
+  for(const [bx,k] of [[x0+10,0],[x1-10,1]])for(let i=0;i<2;i++){const cx=bx+(i?8:-4)*(k?-1:1),cy=W.oy*T+6-i*10-Math.sin(t*2+i+k)*2;
+    g.strokeStyle='rgba(90,70,50,.6)';g.lineWidth=.8;g.beginPath();g.moveTo(cx,cy+7);g.lineTo(bx,W.oy*T+26);g.stroke();
+    ell(g,cx,cy,6,7.5,cols[(i+k*2)%cols.length]);ell(g,cx-2,cy-3,1.8,2.4,'rgba(255,255,255,.6)')}
+}
+function drawPartyCake(g,t){   // テーブル（家具の table、ox+4..5, oy+2）の上のケーキ
+  const tb=W.furn.find(f=>f.type==='table');if(!tb)return;
+  const cx=(W.ox+tb.x+tb.w/2)*T,cy=(W.oy+tb.y)*T+6;
+  ell(g,cx,cy+9,13,3.5,'rgba(0,0,0,.15)');rrect(g,cx-11,cy-2,22,11,3,'#f7e3c8');rrect(g,cx-11,cy-3,22,5,2.5,'#f49ac1');
+  for(const dx of [-6,0,6])circ(g,dx+cx,cy-4,1.8,'#e8486a');
+  for(const dx of [-4,4]){g.fillStyle='#7cc3e8';g.fillRect(cx+dx-1,cy-12,2,8);ell(g,cx+dx,cy-14+Math.sin(t*12+dx)*.4,1.6,2.6,'#f6a53a');ell(g,cx+dx,cy-13.5,.7,1.2,'#fff3b0')}
 }
 // 誕生日の家の風船（島の描画から）
 function drawBirthdayBalloons(g,b,t){
@@ -6198,8 +6263,8 @@ function vhouseMap(vid){
     room:{x0:(ox-1)*T,y0:(oy-2.6)*T,x1:(ox+w+1)*T,y1:(oy+h+4.5)*T}};
 }
 function goVHouse(vid,at){
-  W=vhouseMap(vid);S.loc='vh:'+vid;resetMapRT();
-  if(at==='door'){S.px=W.start.x;S.py=W.start.y;S.dir='up';const v=vById(vid);toast(`${v.name}の家におじゃました`)}
+  W=vhouseMap(vid);S.loc='vh:'+vid;resetMapRT();partySetup();
+  if(at==='door'){S.px=W.start.x;S.py=W.start.y;S.dir='up';const v=vById(vid);toast(isBirthday(v)?`${v.name}の家で、誕生日パーティーをしている！`:`${v.name}の家におじゃました`,isBirthday(v))}
   RT.fade=.6;updateHud();
 }
 function leaveVHouse(){
@@ -6208,19 +6273,24 @@ function leaveVHouse(){
   RT.fade=.6;updateHud();save();
 }
 const vhOwner=()=>{const v=vById(W.vhouse);return v&&{v,x:(W.owner.x+.5)*T,y:(W.owner.y+1)*T-2,dir:'down',frame:0}};
+const partyGuestAt=(x,y)=>{if(!partyOn())return null;const G=partyGuests(W.vhouse);const i=PARTY_TILES.findIndex(([px,py],k)=>k<G.length&&W.ox+px===x&&W.oy+py===y);return i>=0?G[i]:null};
 const vhDoorAt=(x,y)=>x===W.door.x&&y===W.door.y;
 function vhousePressA(fx,fy,ptx,pty){
   if(vhDoorAt(fx,fy)||vhDoorAt(ptx,pty)){leaveVHouse();return}
   if(fx===W.owner.x&&fy===W.owner.y){const a=vhOwner();a.dir={up:'down',down:'up',left:'right',right:'left'}[S.dir];talkTo(a);return}
+  const gv=partyGuestAt(fx,fy);if(gv){const ov=vById(W.vhouse),f=S.friends[ov.id];VEMO[gv.id]={id:'party',t0:performance.now()/1000};
+    showDialog(gv.name,[`${ov.name}の誕生日パーティーに来たんだ！`,f&&f.bdayGift?`${S.name}のプレゼント、${ov.name}すごく喜んでたね！`:`${S.name}は、プレゼント持ってきた？ ${ov.name}に話しかけて、わたしてあげて！`]);return}
   const f=W.furn.find(f=>!isFloor(f)&&fx>=W.ox+f.x&&fx<W.ox+f.x+f.w&&fy>=W.oy+f.y&&fy<W.oy+f.y+f.h);
   if(f)toast(`${vById(W.vhouse).name}の${FURN_NAME[f.type]}だ`);
 }
-function vhouseHint(){const [fx,fy]=facingTile(),[px,py]=ptile();if(vhDoorAt(fx,fy)||vhDoorAt(px,py))return '外に出る';if(fx===W.owner.x&&fy===W.owner.y)return '話す';return null}
+function vhouseHint(){const [fx,fy]=facingTile(),[px,py]=ptile();if(vhDoorAt(fx,fy)||vhDoorAt(px,py))return '外に出る';if(fx===W.owner.x&&fy===W.owner.y)return '話す';if(partyGuestAt(fx,fy))return '話す';return null}
 function vhouseTick(){const [px,py]=ptile();if(vhDoorAt(px,py))leaveVHouse()}
-function vhouseClick(tx,ty){if(vhDoorAt(tx,ty))return {act:false,tx,ty,stands:[[tx,ty]]};if(tx===W.owner.x&&ty===W.owner.y)return {act:true,tx,ty,stands:n4(tx,ty)};return null}
+function vhouseClick(tx,ty){if(vhDoorAt(tx,ty))return {act:false,tx,ty,stands:[[tx,ty]]};if((tx===W.owner.x&&ty===W.owner.y)||partyGuestAt(tx,ty))return {act:true,tx,ty,stands:n4(tx,ty)};return null}
 // 奥行きの順に並べる物（render の D に入れる）：住民の家の主・家に来た住民・島の誕生日の風船など
 function lifeObjects(D,ctx,t){
-  if(W.vhouse){const a=vhOwner();if(a)D.push([a.y,()=>drawAnimal(ctx,a.x,a.y,a.dir,0,a.v)])}
+  if(W.vhouse){const a=vhOwner();if(a)D.push([a.y,()=>drawAnimal(ctx,a.x,a.y,a.dir,0,a.v)]);
+    if(partyOn()){D.push([W.oy*T-T,()=>drawPartyDeco(ctx,t)]);const tb=W.furn.find(f=>f.type==='table');if(tb)D.push([(W.oy+tb.y+tb.h)*T+.5,()=>drawPartyCake(ctx,t)]);
+      partyGuests(W.vhouse).forEach((gv,i)=>{const [px,py]=PARTY_TILES[i],x=(W.ox+px+.5)*T,y=(W.oy+py+1)*T-2;D.push([y,()=>drawAnimal(ctx,x,y,i?'left':'right',0,gv)])})}}
   if(inHome()&&VIS_TILE&&visitorHere()){const v=vById(S.visitor),x=(VIS_TILE[0]+.5)*T,y=(VIS_TILE[1]+1)*T-2;D.push([y,()=>drawAnimal(ctx,x,y,'down',0,v)])}
   if(onIsland())for(const b of W.bld)if(b.type==='vh'){const v=vById(b.vid);if(v&&isBirthday(v))D.push([(b.y+b.h)*T+1,()=>drawBirthdayBalloons(ctx,b,t)])}
 }
@@ -7871,8 +7941,10 @@ const EMOTES=[['smile','にっこり'],['heart','ハート'],['music','ごきげ
 const EMOTE_SEC=2.6;
 // 住民から教わる気持ち（はじめは持っていない。住民の「好きな気持ち」を見せて喜ばせると、1つずつ教わる）
 const EMO_EXTRA=[['clap','はくしゅ'],['power','ガッツポーズ'],['shy','てれる'],['sparkle','キラキラ'],['sweat','あせ'],['idea','ひらめき']];
-const emoList=()=>[...EMOTES,...EMO_EXTRA.filter(([id])=>(S.emoLearned||[]).includes(id))];
-const emoName=id=>([...EMOTES,...EMO_EXTRA].find(e=>e[0]===id)||[0,''])[1];
+// 住民のお願いをかなえたお礼に教わる気持ち（fest.js の reqEmoteReward）
+const EMO_REQ=[['gift','プレゼント'],['flower','おはな'],['star','ほし'],['party','クラッカー'],['rainbow','にじ'],['cake','ケーキ']];
+const emoList=()=>[...EMOTES,...[...EMO_EXTRA,...EMO_REQ].filter(([id])=>(S.emoLearned||[]).includes(id))];
+const emoName=id=>([...EMOTES,...EMO_EXTRA,...EMO_REQ].find(e=>e[0]===id)||[0,''])[1];
 function drawEmote(g,id,t){   // 32×32 の中にマークを描く（t＝出てからの時間。小さな動きに使う）
   g.save();g.lineCap='round';g.lineJoin='round';
   const face=(c)=>{const q=g.createRadialGradient(13,12,2,16,16,13);q.addColorStop(0,'#fff3b0');q.addColorStop(1,c);circ(g,16,16,12.5,q);g.strokeStyle='rgba(120,80,20,.6)';g.lineWidth=1;g.beginPath();g.arc(16,16,12.5,0,7);g.stroke()};
@@ -7900,6 +7972,17 @@ function drawEmote(g,id,t){   // 32×32 の中にマークを描く（t＝出て
     case 'idea':{const gl=.5+.5*Math.sin(t*6);const r=g.createRadialGradient(16,12,1,16,12,14);r.addColorStop(0,'rgba(255,240,150,'+(.6*gl)+')');r.addColorStop(1,'rgba(255,240,150,0)');g.fillStyle=r;g.fillRect(0,0,32,32);
       circ(g,16,12,7.5,'#ffe066');g.strokeStyle='#c99a28';g.lineWidth=1;g.beginPath();g.arc(16,12,7.5,0,7);g.stroke();rrect(g,12.5,18,7,6,1.5,'#9aa3ab');g.fillStyle='#6b737b';g.fillRect(12.5,20,7,1);g.fillRect(12.5,22,7,1);
       ln('#e6a817',1.5);for(const [a,b,c,d] of [[16,1,16,-1],[6,4,4,2],[26,4,28,2],[4,12,2,12],[28,12,30,12]]){g.beginPath();g.moveTo(a,b);g.lineTo(c,d);g.stroke()}g.strokeStyle='rgba(255,255,255,.8)';g.lineWidth=1.2;g.beginPath();g.arc(14,10,3,3.4,4.4);g.stroke();break}
+    case 'gift':{const b=Math.sin(t*6)*1;rrect(g,6,13+b,20,14,2,'#e8486a');rrect(g,5,9+b,22,6,2,'#f06a86');g.fillStyle='#ffe066';g.fillRect(14,9+b,4,18);
+      ln('#ffe066',2.4);g.beginPath();g.ellipse(12,7+b,4,2.6,-.5,0,7);g.stroke();g.beginPath();g.ellipse(20,7+b,4,2.6,.5,0,7);g.stroke();break}
+    case 'flower':{const r=1+Math.sin(t*5)*.06;g.translate(16,15);g.scale(r,r);for(let i=0;i<5;i++){const a=i*Math.PI*2/5-Math.PI/2;ell(g,Math.cos(a)*6.5,Math.sin(a)*6.5,5,5,'#f49ac1')}circ(g,0,0,4.2,'#ffd84a');break}
+    case 'star':{const k=1+Math.sin(t*7)*.08;g.translate(16,16);g.scale(k,k);g.fillStyle='#f6c84a';g.strokeStyle='#c98a18';g.lineWidth=1.2;g.beginPath();
+      for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?5.5:12.5;g.lineTo(Math.cos(a)*rr,Math.sin(a)*rr)}g.closePath();g.fill();g.stroke();circ(g,-3,-3,1.6,'rgba(255,255,255,.8)');break}
+    case 'party':{g.fillStyle='#f6a53a';g.beginPath();g.moveTo(5,28);g.lineTo(13,10);g.lineTo(22,20);g.closePath();g.fill();ln('#e8486a',1.6);g.beginPath();g.moveTo(9,20);g.lineTo(16,25);g.stroke();g.beginPath();g.moveTo(11,15);g.lineTo(19,21);g.stroke();
+      const d=(t*10)%6;for(const [x,y,c] of [[22,6,'#e8486a'],[27,12,'#3a9ad9'],[17,3,'#9be07a'],[28,4,'#f6c84a']])circ(g,x+d*.3,y-d*.3,1.8,c);break}
+    case 'rainbow':{const cols=['#e8453c','#f39a3a','#f6cf3a','#7cc36a','#3a9ad9','#8a5cc7'];g.lineWidth=2.2;cols.forEach((c,i)=>{g.strokeStyle=c;g.beginPath();g.arc(16,24,13-i*2.2,Math.PI,0);g.stroke()});
+      ell(g,6,24,5,3,'#ffffff');ell(g,26,24,5,3,'#ffffff');break}
+    case 'cake':{rrect(g,6,15,20,12,3,'#f7e3c8');rrect(g,6,15,20,4,2,'#f49ac1');g.fillStyle='#e8486a';for(const x of [10,16,22])circ(g,x,14,1.8,'#e8486a');
+      g.fillStyle='#7cc3e8';g.fillRect(15,6,2,7);const fl=Math.sin(t*12)*.6;ell(g,16,4.5+fl*.3,1.8,2.6,'#f6a53a');break}
     case 'sleepy':g.fillStyle='#6a5ac8';g.font='bold 13px "Zen Maru Gothic",sans-serif';g.textAlign='center';const k=(t*1.5)%1;g.globalAlpha=.6+.4*k;g.fillText('Z',22,12-k*2);g.globalAlpha=1;g.font='bold 10px "Zen Maru Gothic",sans-serif';g.fillText('z',14,20);g.font='bold 8px "Zen Maru Gothic",sans-serif';g.fillText('z',9,27);break;
   }
   g.restore();
@@ -7968,7 +8051,7 @@ function openEmoRing(cx,cy,page){
   closeEmoRing();
   const ring=document.createElement('div');ring.id='emoRing';
   const L=emoList(),touchUI=(typeof lastPtr!=='undefined'&&lastPtr!=='mouse')||matchMedia('(pointer: coarse)').matches,paged=touchUI&&L.length>8;
-  const pages=paged?[L.slice(0,8),L.slice(8)]:[L];
+  const pages=[];if(paged)for(let i=0;i<L.length;i+=8)pages.push(L.slice(i,i+8));else pages.push(L);   // 8個ずつのページ
   emoPage=Math.max(0,Math.min(pages.length-1,page===undefined?0:page));
   const P=pages[emoPage],R=paged?66:Math.max(74,L.length*9.5),vw=innerWidth,vh=innerHeight;
   cx=Math.max(R+34,Math.min(vw-R-34,cx));cy=Math.max(R+40,Math.min(vh-R-40,cy));
@@ -8465,7 +8548,8 @@ const FERR={fid:'友だちIDの形がちがうよ（例：HD-ABC234）',nofriend
   notfriend:'フレンドにだけ送れるよ',mlen:'メールは1〜50文字で書いてね',ng:'使えない言葉が入っているので、送れなかった（悪口や、電話番号・住所・年齢などは送れないよ）',
   mday:'今日はもう送れない（1日50通まで）',server:'うまくいかなかった。もう一度ためしてね',
   nametaken:'その名前は、もうほかの人が使っているよ。能力の画面で別の名前にしてから、もう一度ためしてね',nlen:'名前は1〜7文字にしてね',
-  blocked:'この人には申請できません',report:'通報できるのは、フレンドから届いたメールです'};
+  blocked:'この人には申請できません',report:'通報できるのは、フレンドから届いたメールです',
+  gday:'贈り物を付けて送れるのは、1日10通までだよ',giftgone:'この包みは、もう開けてあるよ'};
 function accOnMsg(m){
   switch(m.t){
     case 'acct':{const net={id:m.id,secret:m.secret};if(RT.visiting&&OWN_KEEP)OWN_KEEP.net=net;else S.net=net;
@@ -8476,7 +8560,7 @@ function accOnMsg(m){
       accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();break;
     case 'friends':ACC.friends={list:m.list||[],reqIn:m.reqIn||[],reqOut:m.reqOut||[],blocked:m.blocked||[]};accRefresh();break;
     case 'mailbox':ACC.inbox=m.inbox||[];ACC.outbox=m.outbox||[];ACC.unread=ACC.inbox.filter(x=>!x.read).length;accRefresh();break;
-    case 'mailnew':ACC.unread=m.unread||ACC.unread+1;toast(`📮 ${m.name}からメールが届いた！ 家の前のポストを見てみよう`,true);sfx('get');accSend({t:'mailbox'});accRefresh();break;
+    case 'mailnew':ACC.unread=m.unread||ACC.unread+1;toast(m.gift?`🎁 ${m.name}から包みが届いた！ 家の前のポストを見てみよう`:`📮 ${m.name}からメールが届いた！ 家の前のポストを見てみよう`,true);sfx('get');accSend({t:'mailbox'});accRefresh();break;
     case 'invite':if(RT.visiting||(NET.role==='host'))break;
       setTimeout(()=>{const ask=()=>showDialog(`${m.name}からのおさそい`,[`${m.name}が、島に遊びにおいでって誘っているよ！`],null,[['遊びに行く',()=>{endTalk();netConnect('guest',m.code)}],['あとで',endTalk]]);
         if(RT.dlg||RT.panel){toast(`🌸 ${m.name}から、島へのおさそいが届いた！ 友だちの画面から行けるよ`,true);ACC.invite=m;accRefresh()}else ask()},300);
@@ -8485,8 +8569,15 @@ function accOnMsg(m){
       invited:m.online?`${n}を島に誘った！`:`${n}を誘った（いまゲームを開いていないので、10分以内に開いたら届くよ）`}[m.why];if(w)toast(w,true);
       if(m.why==='opsrename'&&m.name&&!RT.visiting){S.name=m.name;save();updateHud&&updateHud();toast(`運営により、名前が「${m.name}」に変わりました`,true)}   // 運営の管理画面で名前を直したとき
       if(m.why==='reported'){toast(m.blocked?'通報し、ブロックしました。ご協力ありがとうございます':'通報しました。ご協力ありがとうございます',true);RT.reportMid=null}
-      if(m.why==='mailsent'){ACC.draft='';accSend({t:'mailbox'})}if(m.why==='reqin'||m.why==='friended')sfx('get');if(m.why==='renamed')accSend({t:'friends'});accRefresh();break}
-    case 'err':if(m.why==='auth'){ACC.authed=false;if(!RT.visiting){S.net=null;save();ACC.auto=true;try{ACC.ws&&ACC.ws.close()}catch(e){}ACC.ws=null;setTimeout(()=>accConnect(true),500)}else{ACC.bad=true;toast('友だちIDの確認ができなかった')}accRefresh();break}   // サーバーに無い友だちID（削除された）は作り直す
+      if(m.why==='mailsent'){ACC.draft='';accSend({t:'mailbox'});
+        if(m.gift&&ACC.pendingGift===m.gift){const it=ITEMS[m.gift];takeItem(m.gift);ACC.giftSel='';save();if(it)toast(`${it.name}を包んで送った`,true)}ACC.pendingGift=null}   // 贈り物は、送れたときに持ち物から減らす
+      if(m.why==='reqin'||m.why==='friended')sfx('get');if(m.why==='renamed')accSend({t:'friends'});accRefresh();break}
+    case 'giftget':{const g=m.gift,it=ITEMS[g],mm=ACC.inbox.find(x=>x.id===m.mid);if(mm)mm.giftTaken=true;
+      if(!it){toast('包みの中身が、このゲームの版では分からなかった');accRefresh();break}
+      S.bag[g]=(S.bag[g]||0)+1;if(DEX_KINDS.includes(it.kind)&&!S.dex[g]&&!S.found[g])S.found[g]=S.day;updateHud();save();sfx('lv');   // 開けるときにポケットのあきを確かめてある
+      pushOverlay({badge:'包みを開けた',title:`${it.name}が出てきた！`,cheer:`${mm?mm.fromName||'フレンド':'フレンド'}からの贈り物`,note:it.note||'',meta:'持ち物に入れたよ',icon:g});accRefresh();break}
+    case 'err':if(m.why==='mail'||m.why==='mlen'||m.why==='ng'||m.why==='mday'||m.why==='gday'||m.why==='notfriend'||m.why==='selfharm')ACC.pendingGift=null;
+      if(m.why==='auth'){ACC.authed=false;if(!RT.visiting){S.net=null;save();ACC.auto=true;try{ACC.ws&&ACC.ws.close()}catch(e){}ACC.ws=null;setTimeout(()=>accConnect(true),500)}else{ACC.bad=true;toast('友だちIDの確認ができなかった')}accRefresh();break}   // サーバーに無い友だちID（削除された）は作り直す
       if(m.why==='nametaken'&&ACC.auto){ACC.auto=false;break}
       if(m.why==='selfharm'){dialogOnTop(()=>showDialog('メッセージを送れませんでした',String(m.msg||'').split('\n').filter(Boolean)));break}   // 自傷をほのめかす言葉：相談窓口を知らせる（SIDERA VEIL と同じ）
       if(m.why==='banned'){ACC.banned=true;ACC.authed=false;toast('この友だちIDは、運営により利用が止められています（フレンドとメールが使えません）',true);accRefresh();break}
@@ -8584,8 +8675,18 @@ function renderMail(body){
   const cnt=h('span',{class:'muted',style:'font-size:12px'},'');
   const ta=h('textarea',{maxlength:'50',rows:'2',placeholder:'50文字まで',style:'font:inherit;font-size:15px;padding:8px 10px;border-radius:10px;border:2px solid var(--line);width:100%;box-sizing:border-box;resize:none;color:var(--ink);background:#fff'});
   ta.value=ACC.draft||'';const upd=()=>{ACC.draft=ta.value;cnt.textContent=`${ta.value.length}/50`};ta.oninput=upd;upd();sel.onchange=()=>{RT.mailTo=sel.value};
+  // 贈り物：持ち物を1つ付けられる（遊びに行っているあいだは付けられない）
+  if(ACC.giftSel&&!(S.bag[ACC.giftSel]>0))ACC.giftSel='';
+  const gsel=h('select',{style:'font:inherit;font-size:14px;padding:6px 8px;border-radius:10px;border:2px solid var(--line);background:#fff;max-width:16em'},
+    h('option',{value:''},'贈り物を付けない'),...Object.keys(S.bag).filter(id=>ITEMS[id]&&S.bag[id]>0).sort((a,b)=>ITEMS[a].name.localeCompare(ITEMS[b].name,'ja')).map(id=>{const o=h('option',{value:id},`🎁 ${ITEMS[id].name}（${S.bag[id]}個）`);if(ACC.giftSel===id)o.selected=true;return o}));
+  gsel.onchange=()=>{ACC.giftSel=gsel.value;refresh()};if(RT.visiting)gsel.disabled=true;
+  const gicon=ACC.giftSel?iconCanvas(ACC.giftSel,22):null;
   body.append(h('div',{class:'card'},h('b',{},'メールを書く'),h('div',{class:'rowline',style:'margin:6px 0;gap:8px;flex-wrap:wrap'},sel,cnt),ta,
-    h('div',{class:'rowline',style:'margin:6px 0 0;justify-content:flex-end'},h('button',{class:'btn',on:()=>{const to=sel.value,b=ta.value.trim();if(!to){toast('送る相手をえらんでね');return}if(!b){toast('メールを書いてね');return}mailConsent(()=>accSend({t:'mail',to,body:b}))}},'送る'))));
+    h('div',{class:'rowline',style:'margin:6px 0 0;gap:8px;flex-wrap:wrap'},gicon,gsel,h('small',{class:'muted grow'},RT.visiting?'遊びに行っているあいだは、贈り物を付けられないよ':'持ち物を1つ、包んで送れるよ（贈り物だけなら、文は書かなくてもいい）')),
+    h('div',{class:'rowline',style:'margin:6px 0 0;justify-content:flex-end'},h('button',{class:'btn',on:()=>{const to=sel.value,b=ta.value.trim(),g=RT.visiting?'':ACC.giftSel;if(!to){toast('送る相手をえらんでね');return}if(!b&&!g){toast('メールを書いてね');return}
+      if(g&&!(S.bag[g]>0)){toast('その持ち物は、もう持っていないよ');ACC.giftSel='';refresh();return}
+      const go=()=>{ACC.pendingGift=g||null;accSend(g?{t:'mail',to,body:b,gift:g}:{t:'mail',to,body:b})};
+      mailConsent(()=>g?dialogOnTop(()=>showDialog('贈り物',[`${ITEMS[g].name}を1つ包んで、${(F.find(f=>f.id===to)||{}).name||'フレンド'}に送る？`,'送った物は、もとに戻せないよ。'],null,[['送る',()=>{endTalk();go()}],['やめる',endTalk]])):go())}},ACC.giftSel?'包んで送る':'送る'))));
   if(!F.length)body.append(h('p',{class:'muted',style:'margin:0 0 8px'},'メールはフレンドにだけ送れるよ。'));
   // 受信・送信
   const mt=RT.mailTab||'in',bar=h('div',{class:'genbar'});
@@ -8594,7 +8695,13 @@ function renderMail(body){
   if(mt==='in'){
     if(!ACC.inbox.length)body.append(h('p',{class:'muted'},'まだメールは届いていないよ。'));
     for(const m of ACC.inbox)body.append(h('div',{class:'card mailc'+(m.read?'':' unread')},h('div',{class:'rowline',style:'margin:0'},h('b',{class:'grow'},`${m.read?'':'🆕 '}${m.fromName||'だれか'}`),h('small',{class:'muted'},fmtAt(m.at))),
-      h('p',{style:'margin:6px 0;white-space:pre-wrap;word-break:break-all'},m.body),
+      m.body?h('p',{style:'margin:6px 0;white-space:pre-wrap;word-break:break-all'},m.body):null,
+      m.gift?h('div',{class:'giftbox'+(m.giftTaken?' taken':'')},m.giftTaken?[iconCanvas(m.gift,22),h('span',{class:'grow'},`包みの中身：${ITEMS[m.gift]?ITEMS[m.gift].name:'？'}（受け取りずみ）`)]:
+        [h('span',{class:'gicon'},'🎁'),h('span',{class:'grow'},'包みが入っている！'),h('button',{class:'btn',on:()=>{
+          if(RT.visiting){toast('自分の島に帰ってから開けてね');return}
+          if(bagCount()+1>bagCap()){toast(`ポケットがいっぱい！（${bagCap()}個まで）家の収納箱に預けてから開けてね`);return}
+          if(!ACC.authed){toast('サーバーにつないでいるところ。少し待ってね');return}
+          accSend({t:'mailgift',mid:m.id})}},'包みを開ける')]):null,
       h('div',{class:'rowline',style:'margin:0;justify-content:flex-end;gap:6px'},m.from==='HD-OPS'?h('small',{class:'muted'},'🌸 運営からのお知らせ'):[
         h('button',{class:'btn sub',on:()=>{RT.reportMid=RT.reportMid===m.id?null:m.id;refresh()}},'通報'),
         F.some(f=>f.id===m.from)?h('button',{class:'btn',on:()=>{RT.mailTo=m.from;ACC.draft='';refresh();setTimeout(()=>{const t=document.querySelector('#panel textarea');if(t){t.focus();t.scrollIntoView({block:'center'})}},50)}},'返信'):h('small',{class:'muted'},'（フレンドではなくなった人）')]),
@@ -8604,7 +8711,8 @@ function renderMail(body){
   }else{
     if(!ACC.outbox.length)body.append(h('p',{class:'muted'},'まだメールを送っていないよ。'));
     for(const m of ACC.outbox)body.append(h('div',{class:'card mailc'},h('div',{class:'rowline',style:'margin:0'},h('b',{class:'grow'},`→ ${m.toName||'だれか'}`),h('small',{class:'muted'},fmtAt(m.at))),
-      h('p',{style:'margin:6px 0 0;white-space:pre-wrap;word-break:break-all'},m.body)));
+      m.body?h('p',{style:'margin:6px 0 0;white-space:pre-wrap;word-break:break-all'},m.body):null,
+      m.gift?h('div',{class:'giftbox taken'},iconCanvas(m.gift,22),h('span',{class:'grow'},`🎁 ${ITEMS[m.gift]?ITEMS[m.gift].name:'？'}を付けた（${m.giftTaken?'開けてもらった':'まだ開けていない'}）`)):null));
   }
 }
 // ゲームを開いたら（友だちIDを持っている人だけ）、少しあとでつなぐ
@@ -8613,6 +8721,10 @@ setTimeout(function wait(){if(!S||RT.title){setTimeout(wait,3000);return}if(S.ne
 .fbadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e0383c;color:#fff;font:700 11px/18px sans-serif;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 #bOnline,#bMenu{position:relative}
 .fid{font-size:18px;letter-spacing:.06em;color:#3f8a58}
+.giftbox{display:flex;align-items:center;gap:8px;margin:6px 0;padding:6px 10px;border-radius:12px;background:#fff3d6;border:2px dashed #e6a93a;font-weight:700;color:#7a4a10}
+.giftbox.taken{background:#f4f1e6;border-style:solid;border-color:#e0d8c4;color:#6b6450;font-weight:500}
+.giftbox .gicon{font-size:22px;animation:giftwob 1.2s ease-in-out infinite}
+@keyframes giftwob{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
 .frow{display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap}
 .frow .grow{flex:1;min-width:8em}
 .frow .btn{padding:5px 10px;font-size:12px}
@@ -8726,7 +8838,7 @@ async function nameOk(name,btn){
 // 友だちの島に遊びに来ているときは、その島の持ち主のポストなので、見るだけで開けない。
 function postTile(){const hb=ISL&&ISL.bld&&ISL.bld.find(b=>b.type==='house');return hb?[hb.door.x+1,hb.door.y]:null}
 const postAt=(x,y)=>{const p=postTile();return !!p&&onIsland()&&p[0]===x&&p[1]===y};
-const postHasMail=()=>!RT.visiting&&(ACC.unread||0)>0;
+const postHasMail=()=>!RT.visiting&&((ACC.unread||0)>0||(ACC.inbox||[]).some(m=>m.gift&&!m.giftTaken));   // 読んでいないメールか、開けていない包みがあれば旗が立つ
 // 島を作るたびに、ポストのマスを通れなくする
 {const _gen=genWorld;genWorld=function(seed){_gen(seed);const p=postTile();if(p&&W===ISL)W.block[ti(p[0],p[1])]=1}}
 // 開く
@@ -8939,6 +9051,171 @@ function openInquiry(){
 @media (max-height:500px),(max-width:700px){#title .tlegal{flex-direction:column;align-items:flex-start;gap:4px;font-size:11px}#title .tlegal a{padding:1px 8px}}
 #title .tlegal a{color:#fff;background:rgba(30,45,40,.5);padding:2px 10px;border-radius:999px;text-decoration:underline}
 #titleTerms a{color:var(--leaf-deep,#3f8a58);text-decoration:underline;font-weight:700}
+`;document.head.append(st)}
+</script>
+<script>
+// ===================== 島のたのしみ（2026-10-17） =====================
+// 1. 釣り大会・虫取り大会：季節（7日）ごとに1回ずつ。釣り大会は季節の3日目、虫取り大会は5日目（虫の少ない冬は釣り大会）。
+//    その日の9時〜18時に、司会の住民に話しかけて「大会に出る」。3分間につかまえた数を、ほかの住民3人と競う。1〜3位はトロフィーとお金
+// 2. 博物館のごほうび：寄贈した数が 10種・50種・全部 になると、記念の家具と称号がもらえる（博物館の「展示」に進み具合）。
+//    称号はレベルの称号のかわりに使える（能力の画面に出る）
+// 3. 記念の家具：トロフィー（金・銀・銅）・記念の盾・フクロウの像・金の地球儀・バースデーケーキ（お店では売らない）
+// 4. お願いのお礼に教わる気持ち（emote.js の EMO_REQ）：はじめてかなえたとき、そのあとは3回ごとに1つ
+
+// ---- 記念の家具 ----
+Object.assign(FURN_DEF,{
+  trophy_gold:{name:'金のトロフィー',w:1,h:1,price:0,tall:true,note:'大会で1位になった記念'},
+  trophy_silver:{name:'銀のトロフィー',w:1,h:1,price:0,tall:true,note:'大会で2位になった記念'},
+  trophy_bronze:{name:'銅のトロフィー',w:1,h:1,price:0,tall:true,note:'大会で3位になった記念'},
+  mus_plaque:{name:'博物館の記念の盾',w:1,h:1,price:0,tall:true,note:'博物館に10種寄贈した記念'},
+  mus_owl:{name:'フクロウの像',w:1,h:1,price:0,tall:true,note:'博物館に50種寄贈した記念'},
+  mus_globe:{name:'金の地球儀',w:1,h:1,price:0,tall:true,note:'博物館の展示をぜんぶ埋めた記念'},
+  bdcake:{name:'バースデーケーキ',w:1,h:1,price:0,note:'誕生日パーティーの思い出'},
+});
+for(const k of ['trophy_gold','trophy_silver','trophy_bronze','mus_plaque','mus_owl','mus_globe','bdcake'])FURN_NAME[k]=FURN_DEF[k].name;
+{const shine=(g,x,y,r)=>{g.fillStyle='rgba(255,255,255,.75)';g.beginPath();g.ellipse(x,y,r*.35,r,-.4,0,7);g.fill()};
+ const trophy=(c0,c1,c2)=>(g,W,H)=>{const cx=W/2,base=H-6;
+   fShadow(g,W/2-11,base-2,22,7,3,.28);
+   g.fillStyle=fLin(g,0,base-8,0,base,[[0,'#6a4628'],[1,'#3e2814']]);fRR(g,cx-10,base-9,20,9,2);g.fill();          // 台
+   g.fillStyle=fLin(g,cx-6,0,cx+6,0,[[0,c2],[.5,c0],[1,c2]]);g.fillRect(cx-2.5,base-19,5,10);                         // 足
+   fRR(g,cx-7,base-21,14,3,1.5);g.fill();
+   g.fillStyle=fLin(g,cx-12,0,cx+12,0,[[0,c2],[.45,c0],[1,c1]]);g.beginPath();g.moveTo(cx-12,base-40);g.lineTo(cx+12,base-40);  // カップ
+   g.quadraticCurveTo(cx+12,base-22,cx,base-21);g.quadraticCurveTo(cx-12,base-22,cx-12,base-40);g.fill();
+   g.strokeStyle=c2;g.lineWidth=2.4;for(const s of [-1,1]){g.beginPath();g.arc(cx+s*13,base-33,5,s<0?Math.PI*.5:-Math.PI*.5,s<0?Math.PI*1.5:Math.PI*.5,s>0);g.stroke()}
+   ell(g,cx,base-40,12,2.6,c1);shine(g,cx-6,base-32,5);
+   g.fillStyle='#fff3b0';g.font='bold 7px sans-serif';g.textAlign='center';g.fillText('★',cx,base-29)};
+ const P={
+  trophy_gold:trophy('#ffe27a','#fff1b0','#c8961e'),
+  trophy_silver:trophy('#e8edf2','#ffffff','#9aa6b2'),
+  trophy_bronze:trophy('#e8a56a','#f7c79c','#9a5a2a'),
+  mus_plaque(g,W,H){const cx=W/2,base=H-6;fShadow(g,cx-10,base-2,20,7,3,.28);
+    g.fillStyle='#5a3a20';g.fillRect(cx-1.5,base-20,3,20);g.fillStyle=fLin(g,0,base-6,0,base,[[0,'#6a4628'],[1,'#3e2814']]);fRR(g,cx-9,base-5,18,5,2);g.fill();
+    g.fillStyle=fLin(g,cx-13,0,cx+13,0,[[0,'#7a4a24'],[.5,'#a8703c'],[1,'#7a4a24']]);g.beginPath();g.moveTo(cx-13,base-46);g.lineTo(cx+13,base-46);g.lineTo(cx+12,base-28);g.quadraticCurveTo(cx,base-18,cx-12,base-28);g.closePath();g.fill();
+    g.fillStyle=fLin(g,cx-9,0,cx+9,0,[[0,'#c8961e'],[.5,'#ffe27a'],[1,'#c8961e']]);g.beginPath();g.moveTo(cx-9,base-43);g.lineTo(cx+9,base-43);g.lineTo(cx+8,base-30);g.quadraticCurveTo(cx,base-23,cx-8,base-30);g.closePath();g.fill();
+    g.fillStyle='#7a4a10';g.font='bold 8px sans-serif';g.textAlign='center';g.fillText('10',cx,base-32)},
+  mus_owl(g,W,H){const cx=W/2,base=H-6;fShadow(g,cx-11,base-2,22,7,3,.28);
+    g.fillStyle=fLin(g,0,base-10,0,base,[[0,'#d8d2c4'],[1,'#a8a294']]);fRR(g,cx-10,base-10,20,10,2);g.fill();
+    const st=fLin(g,cx-12,0,cx+12,0,[[0,'#9aa0a6'],[.5,'#e4e8ec'],[1,'#8a9096']]);ell(g,cx,base-24,11,14,st);ell(g,cx,base-40,10,9,st);
+    g.fillStyle=st;g.beginPath();g.moveTo(cx-9,base-45);g.lineTo(cx-7,base-52);g.lineTo(cx-3,base-46);g.fill();g.beginPath();g.moveTo(cx+9,base-45);g.lineTo(cx+7,base-52);g.lineTo(cx+3,base-46);g.fill();
+    circ(g,cx-4,base-41,3.4,'#f4f6f8');circ(g,cx+4,base-41,3.4,'#f4f6f8');circ(g,cx-4,base-41,1.6,'#4a5056');circ(g,cx+4,base-41,1.6,'#4a5056');
+    g.fillStyle='#c8961e';g.beginPath();g.moveTo(cx-2,base-37);g.lineTo(cx+2,base-37);g.lineTo(cx,base-34);g.fill();
+    g.strokeStyle='rgba(90,96,102,.5)';g.lineWidth=.8;for(let i=0;i<3;i++){g.beginPath();g.arc(cx,base-26+i*5,6-i,Math.PI*.2,Math.PI*.8);g.stroke()}},
+  mus_globe(g,W,H){const cx=W/2,base=H-6;fShadow(g,cx-10,base-2,20,7,3,.28);
+    g.fillStyle=fLin(g,cx-9,0,cx+9,0,[[0,'#c8961e'],[.5,'#ffe27a'],[1,'#c8961e']]);fRR(g,cx-9,base-5,18,5,2);g.fill();g.fillRect(cx-1.5,base-14,3,10);
+    const gl=g.createRadialGradient(cx-4,base-34,2,cx,base-30,14);gl.addColorStop(0,'#bfe6ff');gl.addColorStop(1,'#3a7bd5');circ(g,cx,base-30,12,gl);
+    g.fillStyle='#7cc36a';g.beginPath();g.ellipse(cx-4,base-33,4,6,-.4,0,7);g.fill();g.beginPath();g.ellipse(cx+5,base-26,4,3,.3,0,7);g.fill();
+    g.strokeStyle='#e0b030';g.lineWidth=2;g.beginPath();g.arc(cx,base-30,15,Math.PI*.6,Math.PI*2.4);g.stroke();shine(g,cx-5,base-35,4)},
+  bdcake(g,W,H){const cx=W/2,base=H-5;fShadow(g,cx-13,base-3,26,8,3,.28);
+    g.fillStyle=fLin(g,0,base-8,0,base,[[0,'#f7f1e6'],[1,'#d8cfbe']]);fRR(g,cx-14,base-7,28,7,3);g.fill();   // お皿
+    rrect(g,cx-11,base-22,22,15,3,'#f7e3c8');rrect(g,cx-11,base-23,22,6,3,'#f49ac1');rrect(g,cx-7,base-30,14,8,2,'#f7e3c8');rrect(g,cx-7,base-31,14,4,2,'#f49ac1');
+    for(const dx of [-7,-2,3,8])circ(g,cx+dx,base-24,1.7,'#e8486a');
+    for(const dx of [-3,3]){g.fillStyle='#7cc3e8';g.fillRect(cx+dx-1,base-38,2,7);ell(g,cx+dx,base-40,1.5,2.5,'#f6a53a')}},
+ };
+ const _fp=furnPaint;furnPaint=function(g,type,FW,FH,lv){const f=P[type];if(!f)return _fp(g,type,FW,FH,lv);f(g,FW,FH,lv)};
+}
+const giveFurn=(t,n=1)=>{S.furnInv=S.furnInv||{};S.furnInv[t]=(S.furnInv[t]||0)+n};
+
+// ---- 称号（レベルの称号のかわりに使える） ----
+function addTitle(t){S.titles=S.titles||[];if(!S.titles.includes(t)){S.titles.push(t);return true}return false}
+{const _tf=titleFor;titleFor=function(lv){return S&&S.titleSel&&(S.titles||[]).includes(S.titleSel)?S.titleSel:_tf(lv)}}
+function titleCard(){
+  const T=S.titles||[];if(!T.length)return null;
+  const _lv=()=>{const t=S.titleSel;S.titleSel=null;const r=titleFor(S.lv);S.titleSel=t;return r};
+  return h('div',{class:'card'},h('b',{},'称号をえらぶ'),h('p',{class:'muted',style:'margin:4px 0 8px;font-size:13px'},'もらった称号は、能力の画面の称号のかわりに使えるよ。'),
+    h('div',{class:'genbar'},h('button',{class:'genbtn'+(!S.titleSel?' on':''),on:()=>{S.titleSel=null;save();refresh()}},`レベルの称号（${_lv()}）`),
+      ...T.map(t=>h('button',{class:'genbtn'+(S.titleSel===t?' on':''),on:()=>{S.titleSel=t;save();toast(`称号を「${t}」にした`);refresh()}},t))));
+}
+
+// ---- お願いのお礼に教わる気持ち（d5.js の villagerMenu から） ----
+function reqEmoteReward(v){
+  const n=S.reqDoneN||0;if(!(n===1||n%3===0))return null;
+  const nx=EMO_REQ.find(([e])=>!(S.emoLearned||[]).includes(e));if(!nx)return null;
+  S.emoLearned=[...(S.emoLearned||[]),nx[0]];setTimeout(()=>{toast(`${v.name}から 新しい気持ち「${nx[1]}」を教わった！`,true);sfx('lv')},500);
+  return `それと、うれしいときの気持ち「${nx[1]}」を教えてあげる！ 右クリック（スマホは長押し）の気持ちの輪から使ってね。`;
+}
+
+// ---- 博物館のごほうび ----
+const MUS_GOALS=[{n:10,furn:'mus_plaque',title:'博物館の友'},{n:50,furn:'mus_owl',title:'博物館の名誉会員'},{n:0,furn:'mus_globe',title:'島の博物学者'}];   // n:0 はぜんぶ
+const musTotal=()=>Object.values(ITEMS).filter(x=>DEX_KINDS.includes(x.kind)).length;
+const musCount=()=>Object.keys(S.dex).filter(id=>ITEMS[id]&&DEX_KINDS.includes(ITEMS[id].kind)).length;
+function musCheck(){
+  const n=musCount(),tot=musTotal();S.musGot=S.musGot||[];
+  MUS_GOALS.forEach((g,i)=>{const need=g.n||tot;if(n>=need&&!S.musGot.includes(i)){S.musGot.push(i);giveFurn(g.furn);addTitle(g.title);sfx('lv');
+    pushOverlay({badge:'博物館のごほうび',title:`寄贈 ${need}種 達成！`,cheer:`${curatorName()}「おお、すばらしい！ これはお礼じゃよ。」`,note:`記念の家具「${FURN_NAME[g.furn]}」と、称号「${g.title}」をもらった！（家具は家の「レイアウト」から置ける。称号は博物館の「展示」でえらべる）`,meta:`寄贈した数 ${n}／${tot}`,icon:'xq'});save();
+    if(RT.panel&&RT.panel.title==='ひだまり博物館')refresh()}});
+}
+{const _d=donate;donate=function(id){const r=_d(id);if(r)setTimeout(musCheck,300);return r}}
+function musCard(){
+  const n=musCount(),tot=musTotal(),got=S.musGot||[];
+  return h('div',{class:'card'},h('b',{},`寄贈した数　${n}／${tot}種`),
+    h('div',{class:'muted',style:'margin:6px 0 0;font-size:13px'},...MUS_GOALS.map((g,i)=>h('div',{},`${got.includes(i)?'✅':'⬜'} ${g.n||'ぜんぶ（'+tot+'）'}${g.n?'種':''}：${FURN_NAME[g.furn]}・称号「${g.title}」${got.includes(i)?'':`（あと${Math.max(0,(g.n||tot)-n)}種）`}`))));
+}
+{const _om=openMuseum;openMuseum=function(tab){_om(tab);const P=RT.panel;if(!P||P.title!=='ひだまり博物館')return;setTimeout(musCheck,200);
+  const r=P.render;P.render=(body,t)=>{r(body,t);if(t==='show'){const tc=titleCard();body.prepend(musCard());if(tc)body.append(tc)}};drawPanel()}}
+
+// ---- 釣り大会・虫取り大会 ----
+const TOUR_SEC=180,TOUR_HOURS=[9,18];
+const TOUR_NAME={fish:'釣り大会',bug:'虫取り大会'},TOUR_UNIT={fish:'匹',bug:'匹'},TOUR_TOOL={fish:'rod',bug:'net'};
+function tourKindToday(){
+  if(!S)return null;const d=dayInSeason();
+  if(d===3)return 'fish';
+  if(d===5){const s=season(),n=BUGS.filter(b=>b.seasons.includes(s)&&b.time!=='night').length;return n>=4?'bug':'fish'}
+  return null;
+}
+const tourHost=()=>{const R=residents();return R.length?R[S.day%R.length]:null};
+const tourOpen=()=>{const h=hour();return h>=TOUR_HOURS[0]&&h<TOUR_HOURS[1]};
+const tourDoneKey=()=>`${S.day}`;
+// 朝の知らせ
+{const _mn=lifeMorningNews;lifeMorningNews=function(){_mn();const k=tourKindToday(),hv=tourHost();if(k&&hv)setTimeout(()=>toast(`今日は${TOUR_NAME[k]}の日！ 9時から18時のあいだに、${hv.name}に話しかけて参加しよう`,true),3600)}}
+// 司会の住民のメニュー
+{const _lm=lifeMenu;lifeMenu=function(v,f,ch){_lm(v,f,ch);const k=tourKindToday(),hv=tourHost();
+  if(!k||!hv||hv.id!==v.id||W.vhouse)return;
+  if((S.tourDone||'')===tourDoneKey())return;
+  ch.unshift([`${TOUR_NAME[k]}に出る`,()=>tourAsk(v,k)]);}}
+// 話しかけたときのひとこと
+{const _tl=lifeTalkLines;lifeTalkLines=function(v,f,first){const L=_tl(v,f,first);const k=tourKindToday(),hv=tourHost();
+  if(k&&hv&&hv.id===v.id&&!W.vhouse&&(S.tourDone||'')!==tourDoneKey())L.push(tourOpen()?`今日は${TOUR_NAME[k]}の日だよ！ ${S.name}も出てみない？`:`今日は${TOUR_NAME[k]}の日なんだ。9時から18時のあいだに来てね！`);return L}}
+function tourAsk(v,k){
+  if(!tourOpen()){showDialog(v.name,[`${TOUR_NAME[k]}の受付は、9時から18時までだよ。`],endTalk);return}
+  if(!S.tools[TOUR_TOOL[k]]){showDialog(v.name,[`${TOUR_NAME[k]}には、${k==='fish'?'つりざお':'虫とり網'}が必要だよ。`],endTalk);return}
+  if(RT.tour){showDialog(v.name,['もう大会の最中だよ！ がんばって！'],endTalk);return}
+  showDialog(v.name,[`${TOUR_NAME[k]}のルールを説明するね。`,`時間は3分。そのあいだに${k==='fish'?'釣った魚':'つかまえた虫'}の数を競うよ。`,'島のなかまも3人出るよ。3位までに入ると、トロフィーとおこづかいがもらえるんだ！'],null,
+    [['はじめる！',()=>{endTalk();tourStart(v,k)}],['やめておく',endTalk]]);
+}
+function tourStart(v,k){
+  S.tourDone=tourDoneKey();save();
+  RT.tour={kind:k,host:v.id,end:performance.now()+TOUR_SEC*1000,n:0};
+  if(typeof selectTool==='function')selectTool(TOUR_TOOL[k]);else S.tool=TOUR_TOOL[k];   // 道具を持ちかえる
+  toast(`${TOUR_NAME[k]}、スタート！ 3分間で、できるだけたくさん${k==='fish'?'釣ろう':'つかまえよう'}！`,true);sfx('lv');tourBarDraw();
+}
+{const _sc=showCatch;showCatch=function(id,place){_sc(id,place);const T=RT.tour,it=ITEMS[id];if(T&&it&&it.kind===T.kind&&performance.now()<T.end){T.n++;tourBarDraw();toast(`${TOUR_NAME[T.kind]}：${T.n}${TOUR_UNIT[T.kind]}目！`)}}}
+const tourBar=document.createElement('div');tourBar.id='tourBar';tourBar.hidden=true;document.getElementById('app').append(tourBar);
+function tourBarDraw(){
+  const T=RT.tour;if(!T){tourBar.hidden=true;return}
+  const left=Math.max(0,Math.ceil((T.end-performance.now())/1000));tourBar.hidden=false;
+  tourBar.textContent=`${T.kind==='fish'?'🎣':'🦋'} ${TOUR_NAME[T.kind]}　のこり ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}　${T.n}${TOUR_UNIT[T.kind]}`;
+  if(left<=0)tourEnd();
+}
+setInterval(()=>{if(RT.tour)tourBarDraw()},500);
+function tourEnd(){
+  const T=RT.tour;if(!T)return;RT.tour=null;tourBar.hidden=true;
+  const hv=vById(T.host)||tourHost(),others=residents().filter(v=>v.id!==T.host);
+  // ほかの参加者：3人。釣りは1匹10秒前後（3分で15匹前後）なので、釣りは だいたい 8・12・16、虫は 6・9・12（±2）
+  const base=T.kind==='fish'?[8,12,16]:[6,9,12];
+  const rivals=[];for(let i=0;i<3&&others.length;i++){const v=others[(S.day+i*3)%others.length];if(rivals.some(r=>r.v===v))continue;rivals.push({v,n:Math.max(1,base[i]+Math.floor(rnd()*5)-2)})}
+  const all=[...rivals,{me:true,n:T.n}].sort((a,b)=>b.n-a.n||(a.me?-1:b.me?1:0));
+  const rank=all.findIndex(x=>x.me)+1,U=TOUR_UNIT[T.kind];
+  const L=[`${TOUR_NAME[T.kind]}、終了〜！ 結果を発表するよ！`,...all.slice(0,4).map((x,i)=>`${i+1}位：${x.me?S.name:x.v.name}（${x.n}${U}）`)];
+  const PR=[null,{t:'trophy_gold',b:5000},{t:'trophy_silver',b:3000},{t:'trophy_bronze',b:1500}][rank];
+  if(PR){giveFurn(PR.t);S.bells+=PR.b;L.push(`${S.name}は ${rank}位！ おめでとう！`,`賞品の「${FURN_NAME[PR.t]}」と ${PR.b}円 をどうぞ！（家の「レイアウト」から飾れるよ）`)}
+  else{S.bells+=500;L.push(`${S.name}は ${rank}位。おしかった！ 参加賞の 500円 をどうぞ。`,'次の大会も、また出てね！')}
+  if(rank===1&&addTitle(T.kind==='fish'?'釣り名人':'虫取り名人'))L.push(`それと、称号「${T.kind==='fish'?'釣り名人':'虫取り名人'}」をあげる！（博物館の「展示」でえらべる）`);
+  S.tourBest=S.tourBest||{};S.tourBest[T.kind]=Math.max(S.tourBest[T.kind]||0,T.n);
+  updateHud();save();sfx(rank<=3?'lv':'get');
+  setTimeout(()=>{if(RT.dlg)endTalk();if(RT.panel)closePanel();showDialog(hv?hv.name:'司会',L)},300);
+}
+{const st=document.createElement('style');st.textContent=`
+#tourBar{position:absolute;left:50%;top:calc(46px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:8;background:rgba(255,248,232,.96);border:2px solid #3a9ad9;border-radius:999px;padding:5px 16px;font:700 13px "Zen Maru Gothic",sans-serif;color:#1d4f7a;box-shadow:0 3px 0 #2a6aa0;pointer-events:none;white-space:nowrap}
 `;document.head.append(st)}
 </script>
 <script>

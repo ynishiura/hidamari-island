@@ -13,7 +13,8 @@
      メールに自傷をほのめかす言葉があれば止めて、相談窓口を知らせる（{"t":"err","why":"selfharm","msg"}）
      {"t":"namecheck","name","id"} → {"t":"name","ok"}        その名前をほかの人が使っていないか（名のらなくても聞ける）
    名前は 7文字まで。同じ名前はほかの人が使えない（register・auth・rename で確かめる。auth で重なっていたら前の名前のまま）
-     mail{to,body} / mailbox / mailread{ids} / invite{to,code}
+     mail{to,body,gift} / mailbox / mailread{ids} / invite{to,code} / mailgift{mid}（届いた包みを開ける → {"t":"giftget","mid","gift"}。1通1回だけ）
+   メールには持ち物を1つ付けられる（gift＝品物の id。1日 GIFT_PER_DAY 通まで。品物を手放すのは送った人のゲームの側）
    相手がつないでいれば、すぐに知らせる（friends・mailnew・invite）。招待は 10分で消える
 3. 運営の管理画面（pwa/admin.html）
      {"t":"admin","token":ADMIN_TOKEN,"op":…} → {"t":"admin","op":…,"ok":true,…}  ADMIN_TOKEN（環境変数）が無ければ使えない
@@ -29,7 +30,7 @@
      運営の返事（管理画面の inqreply{iid,body}）は、運営からのメールとしてポストにも届ける
 起動： python server.py （PORT は環境変数。無ければ 8787）
 """
-import asyncio, json, os, time, unicodedata, secrets
+import asyncio, json, os, re, time, unicodedata, secrets
 from http import HTTPStatus
 from websockets.asyncio.server import serve
 import ngfilter
@@ -42,6 +43,8 @@ MAX_SMALL = 4_000
 RATE = 40
 FRIEND_MAX, REQ_MAX = 50, 50
 MAIL_MAX, MAIL_PER_DAY = 50, 50
+GIFT_PER_DAY = 10
+GIFT_RE = re.compile(r'^[a-z0-9_]{1,40}$')
 INVITE_TTL = 600
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "").strip()
 OPS_ID, OPS_NAME = "HD-OPS", "運営"          # 運営からのお知らせの差出人
@@ -202,21 +205,33 @@ async def account_op(ws, me, m):
     if t == "mail":
         to = norm_id(m.get("to"))
         body = str(m.get("body") or "").strip().replace("\r", "")
+        gift = m.get("gift") if isinstance(m.get("gift"), str) and GIFT_RE.match(m.get("gift")) else None
         a = await run(db.get, me)
         if not to or not a or to not in a["friends"]:
             await send(ws, {"t": "err", "why": "notfriend"}); return
-        if not body or len(body) > 50:
+        if (not body and not gift) or len(body) > 50:
             await send(ws, {"t": "err", "why": "mlen"}); return
-        if ngfilter.has_selfharm(body):              # 自傷をほのめかす言葉：止めて、相談窓口を知らせる
+        if gift and await run(db.gifts_today, me) >= GIFT_PER_DAY:
+            await send(ws, {"t": "err", "why": "gday"}); return
+        if body and ngfilter.has_selfharm(body):              # 自傷をほのめかす言葉：止めて、相談窓口を知らせる
             await send(ws, {"t": "err", "why": "selfharm", "msg": ngfilter.SELFHARM_HELP}); return
-        if ngfilter.bad_chars(body) or ngfilter.has_ng(body):
+        if body and (ngfilter.bad_chars(body) or ngfilter.has_ng(body)):
             await send(ws, {"t": "err", "why": "ng"}); return
         if await run(db.sent_today, me) >= MAIL_PER_DAY:
             await send(ws, {"t": "err", "why": "mday"}); return
         b = await run(db.get, to)
-        await run(db.add_mail, me, to, a["name"], b["name"] if b else "だれか", body)
-        await send(ws, {"t": "info", "why": "mailsent", "name": b["name"] if b else ""})
-        await push(to, {"t": "mailnew", "from": me, "name": a["name"], "unread": await run(db.unread, to)}); return
+        await run(db.add_mail, me, to, a["name"], b["name"] if b else "だれか", body, gift)
+        await send(ws, {"t": "info", "why": "mailsent", "name": b["name"] if b else "", "gift": gift})
+        await push(to, {"t": "mailnew", "from": me, "name": a["name"], "unread": await run(db.unread, to), "gift": bool(gift)}); return
+    if t == "mailgift":
+        try:
+            mid = int(m.get("mid"))
+        except (TypeError, ValueError):
+            mid = None
+        g = mid is not None and await run(db.take_gift, me, mid)
+        if not g:
+            await send(ws, {"t": "err", "why": "giftgone"}); return
+        await send(ws, {"t": "giftget", "mid": mid, "gift": g}); return
     if t == "report":
         try:
             mail = await run(db.mail_in_inbox, me, int(m.get("mid")))
@@ -472,7 +487,7 @@ async def handler(ws):
                 if inv and time.time() - inv["at"] < INVITE_TTL and inv["code"] in rooms:
                     await send(ws, {"t": "invite", "from": inv["from"], "name": inv["name"], "code": inv["code"]})
                 continue
-            if t in ("friends", "freq", "faccept", "fdecline", "fcancel", "fremove", "mail", "mailbox", "mailread", "invite", "rename", "report", "unblock"):
+            if t in ("friends", "freq", "faccept", "fdecline", "fcancel", "fremove", "mail", "mailbox", "mailread", "mailgift", "invite", "rename", "report", "unblock"):
                 if acct and len(raw) <= MAX_SMALL:
                     try:
                         await account_op(ws, acct, m)

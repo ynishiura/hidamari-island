@@ -320,7 +320,7 @@
     mails = j.items; const t = $('#mlist'); t.innerHTML = '';
     $('#mmsg').textContent = `${mails.length}通`;
     for (const m of mails) t.append(el('tr', {}, el('td', {}, el('input', { type: 'checkbox', 'data-id': m.id })), el('td', { text: fmt(m.at) }),
-      el('td', {}, m.fromName || '', el('div', { class: 'mono msg', text: m.from })), el('td', {}, m.toName || '', el('div', { class: 'mono msg', text: m.to })), el('td', { text: m.body })));
+      el('td', {}, m.fromName || '', el('div', { class: 'mono msg', text: m.from })), el('td', {}, m.toName || '', el('div', { class: 'mono msg', text: m.to })), el('td', { text: (m.body || '') + (m.gift ? `　🎁 贈り物：${m.gift}` : '') })));
     t.querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = () => { $('#mdel').disabled = !t.querySelector('input:checked'); });
     $('#mdel').disabled = true;
   }
