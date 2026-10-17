@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.094";</script>
+<script>const GAME_VERSION="1.095";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -8428,7 +8428,7 @@ async function accConnect(make){
   const t0=performance.now();let ws=null;
   while(!ws&&performance.now()-t0<90000){ws=await tryOpen(20000);if(!ws)await new Promise(r=>setTimeout(r,2500))}
   ACC.connecting=false;
-  if(!ws){ACC.status='';accRefresh();if(make)toast('サーバーにつながらなかった。もう一度ためしてね');accRetry();return}
+  if(!ws){ACC.status='';accRefresh();if(make&&!ACC.auto)toast('サーバーにつながらなかった。もう一度ためしてね');accRetry();return}
   ACC.ws=ws;ACC.status='';ACC.retry=0;
   ws.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}accOnMsg(m)};
   ws.onclose=()=>{if(ACC.ws===ws){ACC.ws=null;ACC.authed=false;accRefresh();accRetry()}};
@@ -8448,8 +8448,8 @@ function accOnMsg(m){
   switch(m.t){
     case 'acct':{const net={id:m.id,secret:m.secret};if(RT.visiting&&OWN_KEEP)OWN_KEEP.net=net;else S.net=net;
       if(RT.visiting){const sv=load();if(sv){sv.net=net;try{localStorage.setItem(SAVE_KEY,JSON.stringify(sv))}catch(e){}}}else save();
-      ACC.id=m.id;ACC.authed=true;toast(`友だちIDができた！ ${m.id}`,true);accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();break}
-    case 'authed':ACC.id=m.id;ACC.authed=true;ACC.unread=m.unread||0;
+      ACC.id=m.id;ACC.authed=true;if(!ACC.auto)toast(`友だちIDができた！ ${m.id}`,true);ACC.auto=false;accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();if(typeof cloudSync==='function')cloudSync(true);break}
+    case 'authed':ACC.id=m.id;ACC.authed=true;ACC.unread=m.unread||0;setTimeout(()=>typeof cloudSync==='function'&&cloudSync(true),1500);
       if(m.name&&!RT.visiting&&m.name!==accName()){toast(`「${accName()}」は、もうほかの人が使っている名前なので、名前は「${m.name}」のまま。別の名前にしたいときは、能力の画面で変えてね`,true);S.name=m.name;save();updateHud&&updateHud()}   // 名前がほかの人と重なっていた
       accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();break;
     case 'friends':ACC.friends={list:m.list||[],reqIn:m.reqIn||[],reqOut:m.reqOut||[]};accRefresh();break;
@@ -8463,7 +8463,8 @@ function accOnMsg(m){
       invited:m.online?`${n}を島に誘った！`:`${n}を誘った（いまゲームを開いていないので、10分以内に開いたら届くよ）`}[m.why];if(w)toast(w,true);
       if(m.why==='opsrename'&&m.name&&!RT.visiting){S.name=m.name;save();updateHud&&updateHud();toast(`運営により、名前が「${m.name}」に変わりました`,true)}   // 運営の管理画面で名前を直したとき
       if(m.why==='mailsent'){ACC.draft='';accSend({t:'mailbox'})}if(m.why==='reqin'||m.why==='friended')sfx('get');if(m.why==='renamed')accSend({t:'friends'});accRefresh();break}
-    case 'err':if(m.why==='auth'){ACC.bad=true;ACC.authed=false;toast('友だちIDの確認ができなかった');accRefresh();break}
+    case 'err':if(m.why==='auth'){ACC.authed=false;if(!RT.visiting){S.net=null;save();ACC.auto=true;try{ACC.ws&&ACC.ws.close()}catch(e){}ACC.ws=null;setTimeout(()=>accConnect(true),500)}else{ACC.bad=true;toast('友だちIDの確認ができなかった')}accRefresh();break}   // サーバーに無い友だちID（削除された）は作り直す
+      if(m.why==='nametaken'&&ACC.auto){ACC.auto=false;break}
       if(m.why==='banned'){ACC.banned=true;ACC.authed=false;toast('この友だちIDは、運営により利用が止められています（フレンドとメールが使えません）',true);accRefresh();break}
       toast(FERR[m.why]||'うまくいかなかった');break;
   }
@@ -8564,6 +8565,74 @@ setTimeout(function wait(){if(!S||RT.title){setTimeout(wait,3000);return}if(S.ne
 .dot.on{background:#4fbf6a;box-shadow:0 0 0 3px rgba(79,191,106,.25)}
 .mailc.unread{border-color:#f0b860;background:#fffaf0}
 `;document.head.append(st)}
+</script>
+<script>
+// ===================== アカウント（友だちID）・プレイ時間・セーブの預け入れ =====================
+// 遊び始めると、友だちIDを自動で作る（フレンド・メール・運営からのお知らせ・引継ぎコードのため）。
+// プレイ時間（S.playSec）と利用端末を1分おきに、セーブを5分おき（と画面を離れたとき）に中継サーバーへ送る。
+// 運営は、預かったセーブから「引継ぎコード」（ABCD-EFGH の形・7日間・1回限り）を発行できる。
+// プレイ時間が3分未満のまま3日以上つないでいないアカウントは、サーバーで自動で消える（ゲームのセーブはこの端末に残る）。
+
+// ---- プレイ時間：ゲームの画面を見ているあいだだけ数える ----
+setInterval(()=>{if(S&&!RT.title&&!RT.visiting&&document.visibilityState==='visible')S.playSec=(S.playSec||0)+1},1000);
+
+// ---- 利用端末：OS・ブラウザ・アプリとして入れているか・画面の大きさ ----
+function devInfo(){
+  const u=navigator.userAgent||'';
+  const os=/iPhone/.test(u)?'iPhone':/iPad|Macintosh.*Mobile/.test(u)||(/Macintosh/.test(u)&&navigator.maxTouchPoints>1)?'iPad':/Android/.test(u)?'Android':/Windows/.test(u)?'Windows':/Mac OS X|Macintosh/.test(u)?'Mac':/CrOS/.test(u)?'ChromeOS':/Linux/.test(u)?'Linux':'その他';
+  const br=/Edg\//.test(u)?'Edge':/SamsungBrowser/.test(u)?'Samsung':/Firefox|FxiOS/.test(u)?'Firefox':/CriOS|Chrome\//.test(u)?'Chrome':/Safari\//.test(u)?'Safari':'その他';
+  let app=false;try{app=matchMedia('(display-mode: standalone)').matches||!!navigator.standalone}catch(e){}
+  return `${os}・${br}${app?'・アプリ':''}・${screen.width}×${screen.height}`;
+}
+
+// ---- 送る ----
+let cloudSaveAt=0;
+async function cloudSave(){
+  if(!S||RT.title||RT.visiting)return null;
+  try{const bytes=new TextEncoder().encode(JSON.stringify(Object.assign({},S,{v:S.v||2})));
+    return typeof CompressionStream==='function'?'HIDA2:'+b64u(await pipeBytes(bytes,new CompressionStream('deflate-raw'))):'HIDA0:'+b64u(bytes)}catch(e){return null}
+}
+async function cloudSync(withSave){
+  if(!ACC.authed||!S||RT.title||RT.visiting)return;
+  const m={t:'sync',play:Math.floor(S.playSec||0),dev:devInfo()};
+  if(withSave||Date.now()-cloudSaveAt>5*60*1000){const sv=await cloudSave();if(sv){m.save=sv;cloudSaveAt=Date.now()}}
+  accSend(m);
+}
+setInterval(()=>cloudSync(false),60*1000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')cloudSync(true)});
+
+// ---- 遊び始めたら、友だちIDが無ければ自動で作る ----
+setTimeout(function auto(){
+  if(!S||RT.title){setTimeout(auto,3000);return}
+  if(!S.net&&!RT.visiting&&!ACC.connecting&&!ACC.ws){ACC.auto=true;accConnect(true)}
+},6000);
+
+// ---- 引継ぎの画面に「運営から受け取った引継ぎコード」の欄を足す ----
+{const _rx=renderXfer;renderXfer=function(el){
+  _rx(el);
+  const sec=h('section',{},h('h3',{},'運営から受け取った引継ぎコードで受け取る'));
+  const msg=h('p',{class:'xmsg',role:'status','aria-live':'polite'});
+  const inp=h('input',{maxlength:'9',placeholder:'ABCD-EFGH',autocomplete:'off',style:'font:inherit;font-size:18px;letter-spacing:.12em;padding:8px 12px;border-radius:10px;border:2px solid var(--line);width:9em;text-transform:uppercase'});
+  const btn=h('button',{class:'xbtn',on:async()=>{
+    const code=inp.value.trim();if(code.replace(/[^0-9A-Za-z]/g,'').length!==8){msg.textContent='コードは「ABCD-EFGH」のような8文字です';return}
+    btn.disabled=true;msg.textContent='サーバーにつないでいます…（1分ほどかかることがあるよ）';
+    try{
+      let ws=null;const t0=performance.now();while(!ws&&performance.now()-t0<90000){ws=await tryOpen(20000);if(!ws)await new Promise(r=>setTimeout(r,2500))}
+      if(!ws)throw new Error('サーバーにつながりませんでした');
+      const got=await new Promise((res,rej)=>{const tm=setTimeout(()=>rej(new Error('返事がありませんでした')),30000);
+        ws.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}if(m.t==='claimed'){clearTimeout(tm);res(m)}else if(m.t==='err'){clearTimeout(tm);rej(new Error('コードがちがうか、期限が切れているか、もう使われています'))}};
+        ws.send(JSON.stringify({t:'claim',code}))});
+      try{ws.close()}catch(e){}
+      const s=await readXferCode(got.save);s.net={id:got.id,secret:got.secret};
+      const conf=h('div',{class:'xconf'},h('p',{},`「${xferInfo(s)}」（友だちID ${got.id}）のデータを読み込みます。`+(localStorage.getItem(SAVE_KEY)?'この端末のいまのセーブは上書きされ、もとに戻せません。':'')),
+        h('button',{class:'xbtn main',on:()=>{try{localStorage.setItem(SAVE_KEY,JSON.stringify(s));msg.textContent='読み込みました。ゲームを開き直します…';RT.quit=true;setTimeout(()=>location.reload(),600)}catch(e){msg.textContent='書きこめませんでした：'+e.message}}},'読み込む'));
+      sec.append(conf);msg.textContent='受け取りました。「読み込む」を押すと、この端末で続きから遊べます（前の端末では、もうフレンドやメールが使えなくなります）';
+    }catch(e){msg.textContent='受け取れませんでした：'+e.message}
+    btn.disabled=false;
+  }},'コードで受け取る');
+  sec.append(h('p',{},'スマホをなくしたときなどに、運営から受け取った8文字のコードで、島のくらしを取り戻せます（7日間・1回だけ使えます）。'),inp,btn,msg);
+  const last=el.querySelector('.xmsg:last-of-type');el.insertBefore(sec,last||null);
+}}
 </script>
 <script>
 // ===================== 名前の決まり =====================

@@ -80,7 +80,7 @@
     <div class="card">
       <div class="row"><input id="pq" class="grow" placeholder="名前か友だちID（HD-…）で探す。空なら最近つないだ順"><button id="psearch">探す</button></div>
       <p class="msg" id="pmsg"></p>
-      <div class="scroll"><table><thead><tr><th>名前</th><th>友だちID</th><th>フレンド</th><th>最後につないだ</th><th>作った日</th></tr></thead><tbody id="plist"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>名前</th><th>友だちID</th><th>利用端末</th><th>アカウント作成日時</th><th>プレイ時間</th><th>最終アクセス日時</th></tr></thead><tbody id="plist"></tbody></table></div>
       <div class="row" style="margin-top:8px"><button id="pprev" class="sub">前の100人</button><button id="pnext" class="sub">次の100人</button></div>
     </div>
     <div class="card detail" id="pdetail" hidden></div>
@@ -118,6 +118,7 @@
   try { token = sessionStorage.getItem(KEY) || ''; } catch (e) {}
   $('#token').value = token;
   const fmt = s => { if (!s) return '—'; const d = new Date(s * 1000), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+  const playT = s => s == null ? '—' : s < 60 ? `${s}秒` : s < 3600 ? `${Math.floor(s / 60)}分` : `${Math.floor(s / 3600)}時間${Math.floor(s % 3600 / 60)}分`;
   const ago = s => { if (!s) return '—'; const m = Math.floor((Date.now() / 1000 - s) / 60); return m < 1 ? 'いま' : m < 60 ? `${m}分前` : m < 1440 ? `${Math.floor(m / 60)}時間前` : `${Math.floor(m / 1440)}日前`; };
   const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const k in attrs) { if (k === 'on') e.onclick = attrs[k]; else if (k === 'text') e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); } kids.flat().forEach(k => k != null && e.append(k)); return e; };
   const status = (t, err) => { $('#status').textContent = t; $('#status').className = 'msg' + (err ? ' err' : ''); };
@@ -171,9 +172,9 @@
   // ---- 状況 ----
   function showStats(j) {
     const s = j.stats, g = $('#statGrid'); g.innerHTML = '';
-    for (const [v, l] of [[j.online, 'いまつないでいる人'], [s.players, '友だちIDの数'], [s.active1, '24時間以内に遊んだ人'], [s.active7, '7日以内に遊んだ人'], [s.new7, '7日以内に作られたID'], [s.mails, 'メール（30日分）'], [s.mails1, '24時間のメール'], [s.banned, '利用停止']])
+    for (const [v, l] of [[j.online, 'いまつないでいる人'], [s.players, '友だちIDの数'], [s.active1, '24時間以内に遊んだ人'], [s.active7, '7日以内に遊んだ人'], [s.new7, '7日以内に作られたID'], [s.mails, 'メール（30日分）'], [s.mails1, '24時間のメール'], [s.banned, 'ブロック中']])
       g.append(el('div', { class: 'stat' }, el('b', { text: (v || 0).toLocaleString() }), el('span', { text: l })));
-    $('#statNote').textContent = '「友だちIDの数」は、フレンドやメールを使うために友だちIDを作った人の数です（ゲームのセーブは各端末にあるので、遊んでいる人全員ではありません）。';
+    $('#statNote').textContent = '「友だちIDの数」＝アカウントの数です（Ver 1.095 からは、遊び始めると自動で作られます）。プレイ時間が3分未満のまま3日以上つないでいないアカウントは、自動で削除されます。';
     const rl = $('#roomList'); rl.innerHTML = '';
     if (!j.rooms.length) rl.append(el('tr', {}, el('td', { colspan: 5, class: 'msg', text: 'いまひらいている島の門はありません' })));
     for (const r of j.rooms) rl.append(el('tr', {}, el('td', { class: 'mono', text: r.code }), el('td', { text: r.host }), el('td', { text: r.members + '人' }), el('td', { text: r.names.join('、') }),
@@ -188,8 +189,9 @@
     const t = $('#plist'); t.innerHTML = '';
     $('#pmsg').textContent = j.items.length ? `${page * 100 + 1}〜${page * 100 + j.items.length}人目` + (pq ? `（「${pq}」で探した結果）` : '') : '見つかりませんでした';
     for (const p of j.items) t.append(el('tr', { class: 'click', on: () => loadPlayer(p.id) },
-      el('td', {}, p.name, p.online ? el('span', { class: 'tag on', text: 'オンライン' }) : null, p.banned ? el('span', { class: 'tag ban', text: '利用停止' }) : null),
-      el('td', { class: 'mono', text: p.id }), el('td', { text: `${p.friends}人` + (p.reqIn ? `（申請${p.reqIn}）` : '') }), el('td', { text: ago(p.seenAt) }), el('td', { text: fmt(p.createdAt).slice(0, 10) })));
+      el('td', {}, p.name, p.online ? el('span', { class: 'tag on', text: 'オンライン' }) : null, p.banned ? el('span', { class: 'tag ban', text: 'ブロック中' }) : null),
+      el('td', { class: 'mono', text: p.id }), el('td', { text: p.device || '—' }), el('td', { text: fmt(p.createdAt) }),
+      el('td', { text: playT(p.playSec) }), el('td', {}, fmt(p.seenAt), el('div', { class: 'msg', style: 'margin:0', text: ago(p.seenAt) }))));
     $('#pprev').disabled = page <= 0; $('#pnext').disabled = !j.more;
   }
   $('#psearch').onclick = () => { pq = $('#pq').value.trim(); page = 0; loadPlayers(); };
@@ -205,8 +207,11 @@
     const nameIn = el('input', { value: p.name, maxlength: 7, style: 'width:10em' });
     d.append(el('h2', {}, `${p.name}`, p.online ? el('span', { class: 'tag on', text: 'オンライン' }) : null, p.banned ? el('span', { class: 'tag ban', text: '利用停止' }) : null),
       el('dl', {}, el('dt', { text: '友だちID' }), el('dd', { class: 'mono', text: p.id }),
-        el('dt', { text: '作った日' }), el('dd', { text: fmt(p.createdAt) }),
-        el('dt', { text: '最後につないだ' }), el('dd', { text: `${fmt(p.seenAt)}（${ago(p.seenAt)}）` }),
+        el('dt', { text: '利用端末' }), el('dd', { text: p.device || '—（まだ届いていません）' }),
+        el('dt', { text: 'アカウント作成' }), el('dd', { text: fmt(p.createdAt) }),
+        el('dt', { text: 'プレイ時間' }), el('dd', { text: playT(p.playSec) + (p.playSec != null && p.playSec < 180 ? '（3分未満のまま3日つながないと自動で消えます）' : '') }),
+        el('dt', { text: '最終アクセス' }), el('dd', { text: `${fmt(p.seenAt)}（${ago(p.seenAt)}）` }),
+        el('dt', { text: '預かったセーブ' }), el('dd', { text: p.saveAt ? `${fmt(p.saveAt)} のもの` : 'まだありません' }),
         el('dt', { text: 'フレンド' }), el('dd', { text: list(p.friends) }),
         el('dt', { text: '届いている申請' }), el('dd', { text: list(p.reqIn) }),
         el('dt', { text: '出している申請' }), el('dd', { text: list(p.reqOut) }),
@@ -216,8 +221,20 @@
         el('button', { class: 'sub', on: () => { show('mails'); $('#mq').value = p.id; loadMails(); } }, 'この人のメールを見る'),
         el('button', { class: 'sub', on: () => { show('notice'); document.querySelector('input[name=nto][value=one]').checked = true; $('#nid').value = p.id; } }, 'お知らせを送る'),
         el('button', { class: p.banned ? 'sub' : 'warn', on: async () => {
-          if (!confirm(p.banned ? `${p.name}（${p.id}）の利用停止を解除しますか？` : `${p.name}（${p.id}）を利用停止にしますか？\nフレンドとメールが使えなくなります（ゲームは遊べます）。`)) return;
-          const x = await api('ban', { id: p.id, on: !p.banned }); status(x.ok ? (x.banned ? '利用停止にしました' : '利用停止を解除しました') : x.err, !x.ok); loadPlayer(p.id); loadPlayers(); } }, p.banned ? '利用停止を解除' : '利用停止にする')));
+          if (!confirm(p.banned ? `${p.name}（${p.id}）のブロックを解除しますか？` : `${p.name}（${p.id}）をブロックしますか？\nフレンドとメールが使えなくなります（ゲームは遊べます）。`)) return;
+          const x = await api('ban', { id: p.id, on: !p.banned }); status(x.ok ? (x.banned ? 'ブロックしました' : 'ブロックを解除しました') : x.err, !x.ok); loadPlayer(p.id); loadPlayers(); } }, p.banned ? 'ブロックを解除' : 'ブロックする'),
+        el('button', { class: 'warn', on: async () => {
+          if (!confirm(`${p.name}（${p.id}）のアカウントを削除しますか？\nフレンド・メール・預かったセーブが消え、元に戻せません（その人の端末のセーブは残ります）。`)) return;
+          if (prompt('確認のため、友だちIDを入れてください') !== p.id) { status('友だちIDがちがうので、削除しませんでした', true); return; }
+          const x = await api('delete', { id: p.id }); status(x.ok ? `${p.name}（${p.id}）を削除しました` : x.err, !x.ok); if (x.ok) $('#pdetail').hidden = true; loadPlayers(); } }, '削除する')),
+      el('div', { class: 'card', style: 'margin:12px 0 0;background:var(--panel-2)' },
+        el('h2', { text: '引継ぎコードの発行（復旧）' }),
+        el('p', { class: 'msg', style: 'margin-top:0', text: 'スマホをなくした人などに。この人が最後に預けたセーブを、新しい端末で受け取れるコードを発行します（7日間・1回限り）。受け取ると、前の端末ではフレンドとメールが使えなくなります。ゲームの「データ引継ぎ」の「運営から受け取った引継ぎコードで受け取る」に入れてもらいます。' }),
+        el('div', { class: 'row' }, el('button', { on: async ev => {
+          if (!confirm(`${p.name}（${p.id}）の引継ぎコードを発行しますか？`)) return;
+          const x = await api('xfer', { id: p.id }); const out = $('#xferOut');
+          out.textContent = x.ok ? `引継ぎコード：${x.code}（${x.days}日間・1回限り。セーブは ${fmt(x.saveAt)} のもの）` : x.err; out.className = 'msg' + (x.ok ? '' : ' err'); out.style.fontSize = x.ok ? '18px' : ''; } }, '引継ぎコードを発行する')),
+        el('p', { class: 'msg', id: 'xferOut' })));
     d.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 

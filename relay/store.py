@@ -7,8 +7,17 @@
 
   hd_players  1人1行。id（友だちID）・合言葉のハッシュ・名前・フレンド・申請（JSON）
   hd_mail     メール1通1行。30日たったものは消す
+  hd_xfer     運営が発行した引継ぎコード（7日間・1回限り）
+
+hd_players には後から足した列がある：banned（ブロック）・play_sec（プレイ時間・秒。まだ届いていなければ NULL）・
+device（利用端末）・save（ゲームのセーブ＝引継ぎコードの形）・save_at
+自動削除：プレイ時間が3分未満のまま、3日以上つないでいないアカウントは消す（play_sec が NULL のものは消さない）
 """
 import hashlib, json, os, secrets, sqlite3, threading, time
+
+XFER_DAYS = 7                 # 引継ぎコードの有効期限（日）
+AUTO_DEL_PLAY = 180           # 自動削除：プレイ時間がこれ（秒）未満で
+AUTO_DEL_DAYS = 3             #           この日数以上つないでいないアカウント
 
 ID_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'    # まぎらわしい 0・1・I・O は使わない
 MAIL_KEEP_DAYS = 30
@@ -82,10 +91,13 @@ class Store:
         self.q(f'''CREATE TABLE IF NOT EXISTS hd_mail (
             id {auto}, from_id TEXT NOT NULL, to_id TEXT NOT NULL, from_name TEXT, to_name TEXT,
             body TEXT NOT NULL, at BIGINT NOT NULL, read INTEGER NOT NULL DEFAULT 0)''')
-        try:                                       # 利用停止の印（運営の管理画面から）。古い表には後から足す
-            self.q('ALTER TABLE hd_players ADD COLUMN banned INTEGER NOT NULL DEFAULT 0')
-        except Exception:
-            pass
+        for col in ('banned INTEGER NOT NULL DEFAULT 0', 'play_sec BIGINT', 'device TEXT', 'save TEXT', 'save_at BIGINT'):
+            try:                                   # 古い表には後から足す（もうあれば何もしない）
+                self.q(f'ALTER TABLE hd_players ADD COLUMN {col}')
+            except Exception:
+                pass
+        self.q('CREATE TABLE IF NOT EXISTS hd_xfer (code TEXT PRIMARY KEY, pid TEXT NOT NULL, created_at BIGINT NOT NULL, '
+               'expires_at BIGINT NOT NULL, used INTEGER NOT NULL DEFAULT 0)')
         self.q('CREATE INDEX IF NOT EXISTS hd_mail_to ON hd_mail (to_id, at)')
         self.q('CREATE INDEX IF NOT EXISTS hd_mail_from ON hd_mail (from_id, at)')
 
@@ -193,17 +205,82 @@ class Store:
     def admin_players(self, q='', limit=100, offset=0):
         """名前か友だちIDの部分一致。新しくつないだ順"""
         like = '%' + str(q or '').strip() + '%'
-        rows = self.q('SELECT id, name, data, created_at, seen_at, banned FROM hd_players WHERE (name LIKE ? OR id LIKE ?) '
+        rows = self.q('SELECT id, name, data, created_at, seen_at, banned, play_sec, device, save_at FROM hd_players WHERE (name LIKE ? OR id LIKE ?) '
                       'ORDER BY seen_at DESC LIMIT ? OFFSET ?', (like, like.upper(), int(limit) + 1, int(offset)), many=True) or []
         out = []
         for r in rows[:limit]:
             d = json.loads(r[2] or '{}')
             out.append({'id': r[0], 'name': r[1] or 'だれか', 'friends': len(d.get('friends', [])), 'reqIn': len(d.get('reqIn', [])),
-                        'createdAt': r[3], 'seenAt': r[4], 'banned': bool(r[5])})
+                        'createdAt': r[3], 'seenAt': r[4], 'banned': bool(r[5]), 'playSec': r[6], 'device': r[7] or '', 'saveAt': r[8]})
         return out, len(rows) > limit
 
+    # ---- 端末・プレイ時間・セーブ（ゲームから定期的に届く） ----
+    def sync(self, pid, play=None, device=None, save=None):
+        now = int(time.time())
+        if play is not None:                       # プレイ時間は増えるだけ（別の端末の古い値で減らさない）
+            self.q('UPDATE hd_players SET play_sec=? WHERE id=? AND (play_sec IS NULL OR play_sec<?)', (int(play), pid, int(play)))
+        if device:
+            self.q('UPDATE hd_players SET device=? WHERE id=?', (device, pid))
+        if save:
+            self.q('UPDATE hd_players SET save=?, save_at=? WHERE id=?', (save, now, pid))
+        self.q('UPDATE hd_players SET seen_at=? WHERE id=?', (now, pid))
+
+    # ---- 引継ぎコード（運営が発行。7日間・1回限り） ----
+    def issue_xfer(self, pid):
+        r = self.q('SELECT save_at FROM hd_players WHERE id=? AND save IS NOT NULL', (pid,), one=True)
+        if not r:
+            return None, None
+        now = int(time.time())
+        for _ in range(20):
+            raw = ''.join(secrets.choice(ID_CHARS) for _ in range(8))
+            code = f'{raw[:4]}-{raw[4:]}'
+            if not self.q('SELECT 1 FROM hd_xfer WHERE code=?', (code,), one=True):
+                self.q('INSERT INTO hd_xfer (code, pid, created_at, expires_at, used) VALUES (?,?,?,?,0)', (code, pid, now, now + XFER_DAYS * 86400))
+                return code, r[0]
+        raise RuntimeError('xfer')
+
+    def claim_xfer(self, code):
+        """引継ぎコードを使う：セーブと、新しい鍵（前の端末は使えなくなる）を返す。使えなければ None"""
+        code = ''.join(c for c in str(code or '').upper() if c.isalnum())
+        code = f'{code[:4]}-{code[4:]}' if len(code) == 8 else ''
+        r = self.q('SELECT pid, expires_at, used FROM hd_xfer WHERE code=?', (code,), one=True)
+        if not r or r[2] or r[1] < time.time():
+            return None
+        p = self.q('SELECT save, name FROM hd_players WHERE id=?', (r[0],), one=True)
+        if not p or not p[0]:
+            return None
+        sec = secrets.token_urlsafe(24)
+        self.q('UPDATE hd_players SET secret_hash=? WHERE id=?', (hsec(sec), r[0]))
+        self.q('UPDATE hd_xfer SET used=1 WHERE code=?', (code,))
+        return {'id': r[0], 'secret': sec, 'save': p[0], 'name': p[1]}
+
+    # ---- アカウントの削除（運営・自動削除） ----
+    def delete_player(self, pid):
+        """アカウントと、その人のメール・引継ぎコードを消し、ほかの人のフレンド・申請からも外す"""
+        if not self.q('SELECT 1 FROM hd_players WHERE id=?', (pid,), one=True):
+            return False
+        for oid, data in (self.q('SELECT id, data FROM hd_players WHERE data LIKE ?', ('%' + pid + '%',), many=True) or []):
+            if oid == pid:
+                continue
+            d = json.loads(data or '{}')
+            for k in ('friends', 'reqIn', 'reqOut'):
+                d[k] = [x for x in d.get(k, []) if x != pid]
+            self.q('UPDATE hd_players SET data=? WHERE id=?', (json.dumps({k: d.get(k, []) for k in ('friends', 'reqIn', 'reqOut')}, ensure_ascii=False), oid))
+        self.q('DELETE FROM hd_mail WHERE from_id=? OR to_id=?', (pid, pid))
+        self.q('DELETE FROM hd_xfer WHERE pid=?', (pid,))
+        self.q('DELETE FROM hd_players WHERE id=?', (pid,))
+        return True
+
+    def auto_delete(self):
+        """プレイ時間が3分未満のまま、3日以上つないでいないアカウントを消す。消した数を返す"""
+        rows = self.q('SELECT id FROM hd_players WHERE play_sec IS NOT NULL AND play_sec<? AND seen_at<? AND banned=0',
+                      (AUTO_DEL_PLAY, int(time.time()) - AUTO_DEL_DAYS * 86400), many=True) or []
+        for (pid,) in rows:
+            self.delete_player(pid)
+        return len(rows)
+
     def admin_player(self, pid):
-        r = self.q('SELECT id, name, data, created_at, seen_at, banned FROM hd_players WHERE id=?', (pid,), one=True)
+        r = self.q('SELECT id, name, data, created_at, seen_at, banned, play_sec, device, save_at FROM hd_players WHERE id=?', (pid,), one=True)
         if not r:
             return None
         d = json.loads(r[2] or '{}')
@@ -212,6 +289,7 @@ class Store:
         sent = (self.q('SELECT COUNT(*) FROM hd_mail WHERE from_id=?', (pid,), one=True) or [0])[0]
         got = (self.q('SELECT COUNT(*) FROM hd_mail WHERE to_id=?', (pid,), one=True) or [0])[0]
         return {'id': r[0], 'name': r[1] or 'だれか', 'createdAt': r[3], 'seenAt': r[4], 'banned': bool(r[5]),
+                'playSec': r[6], 'device': r[7] or '', 'saveAt': r[8],
                 'friends': [row(i) for i in d.get('friends', [])], 'reqIn': [row(i) for i in d.get('reqIn', [])],
                 'reqOut': [row(i) for i in d.get('reqOut', [])], 'mailSent': sent, 'mailGot': got}
 
@@ -239,3 +317,7 @@ class Store:
 
     def purge(self):
         self.q('DELETE FROM hd_mail WHERE at<?', (int(time.time()) - MAIL_KEEP_DAYS * 86400,))
+        self.q('DELETE FROM hd_xfer WHERE expires_at<?', (int(time.time()) - 86400,))
+        n = self.auto_delete()
+        if n:
+            print('auto_delete:', n, flush=True)

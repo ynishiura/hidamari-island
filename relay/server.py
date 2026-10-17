@@ -15,8 +15,11 @@
    相手がつないでいれば、すぐに知らせる（friends・mailnew・invite）。招待は 10分で消える
 3. 運営の管理画面（pwa/admin.html）
      {"t":"admin","token":ADMIN_TOKEN,"op":…} → {"t":"admin","op":…,"ok":true,…}  ADMIN_TOKEN（環境変数）が無ければ使えない
-     op: stats（人数・部屋）/ players{q,page} / player{id} / ban{id,on} / rename{id,name} / mails{q} / maildel{ids} /
-         notice{to:'all'|友だちID, body}（運営からのお知らせ。ポストに届く）/ closeroom{code}
+     op: stats（人数・部屋）/ players{q,page} / player{id} / ban{id,on}（ブロック）/ delete{id}（削除）/ xfer{id}（引継ぎコード発行）/
+         rename{id,name} / mails{q} / maildel{ids} / notice{to:'all'|友だちID, body}（運営からのお知らせ。ポストに届く）/ closeroom{code}
+4. 端末・プレイ時間・セーブ・引継ぎ
+     {"t":"sync","play":秒,"dev":利用端末,"save":"HIDA2:…"}   名のった人が定期的に送る（セーブは数分おき）
+     {"t":"claim","code":"ABCD-EFGH"} → {"t":"claimed","id","secret","save","name"}  運営が発行した引継ぎコードで受け取る（前の端末は使えなくなる）
    利用停止のアカウントは auth で {"t":"err","why":"banned"} を返す
 起動： python server.py （PORT は環境変数。無ければ 8787）
 """
@@ -37,6 +40,8 @@ ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "").strip()
 OPS_ID, OPS_NAME = "HD-OPS", "運営"          # 運営からのお知らせの差出人
 NOTICE_MAX = 200
 admin_fail = {"t": 0.0}
+claim_fail = {"t": 0.0}
+SAVE_MAX = 500_000
 
 rooms = {}                   # code -> {"host": ws, "hostId": id, "members": {id: ws}, "names": {id: name}}
 online = {}                  # 友だちID -> set(ws)
@@ -214,6 +219,23 @@ async def admin_op(ws, m):
                     except Exception:
                         pass
             await reply(ok=True, id=pid, banned=on); return
+        if op == "xfer":
+            if not pid or not await run(db.get, pid):
+                await reply(ok=False, err="その友だちIDの人はいません"); return
+            code, save_at = await run(db.issue_xfer, pid)
+            if not code:
+                await reply(ok=False, err="この人のセーブがまだサーバーに届いていません（ゲームを新しい版で遊ぶと、数分おきに届きます）"); return
+            await reply(ok=True, code=code, saveAt=save_at, days=7); return
+        if op == "delete":
+            if not pid:
+                await reply(ok=False, err="その友だちIDの人はいません"); return
+            for w in list(online.get(pid, ())):
+                try:
+                    await w.close()
+                except Exception:
+                    pass
+            ok = await run(db.delete_player, pid)
+            await reply(ok=ok, **({} if ok else {"err": "その友だちIDの人はいません"})); return
         if op == "rename":
             nm = clean_name(m.get("name"))
             if not pid or not await run(db.get, pid):
@@ -280,6 +302,29 @@ async def handler(ws):
             # ---- 運営の管理画面 ----
             if t == "admin":
                 await admin_op(ws, m); continue
+            # ---- 端末・プレイ時間・セーブ ----
+            if t == "sync" and acct and db:
+                play = m.get("play"); play = int(play) if isinstance(play, (int, float)) and 0 <= play < 10 ** 9 else None
+                dev = str(m.get("dev") or "")[:120] or None
+                save = m.get("save") if isinstance(m.get("save"), str) and m["save"].startswith("HIDA") and len(m["save"]) <= SAVE_MAX else None
+                try:
+                    await run(db.sync, acct, play, dev, save)
+                except Exception as e:
+                    print("sync error:", repr(e), flush=True)
+                continue
+            # ---- 運営が発行した引継ぎコードで受け取る ----
+            if t == "claim" and db:
+                got = await run(db.claim_xfer, m.get("code"))
+                if not got:
+                    wait = max(0.0, claim_fail["t"] + 1.0 - time.time()); claim_fail["t"] = time.time() + wait
+                    await asyncio.sleep(1.0 + wait)        # 総当たりを遅くする
+                    await send(ws, {"t": "err", "why": "xfer"}); continue
+                for w in list(online.get(got["id"], ())):  # 前の端末は切る（鍵が変わったので、もうつなげない）
+                    try:
+                        await w.close()
+                    except Exception:
+                        pass
+                await send(ws, {"t": "claimed", **got}); continue
             # ---- フレンド・メール ----
             if t == "namecheck":
                 nm = clean_name(m.get("name"))
