@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.116";</script>
+<script>const GAME_VERSION="1.117";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7791,8 +7791,8 @@ const HAT_IMG_FIT={
   hat_helmet:{w:1.25,y:.58,band:{color:'any',w:1.25,y:.32,ys:.42,yb:.36}},
   hat_sailor:{w:1.15,y:.52,same:'lrb'},
   // イヤーマフの横：ユーザーがくれた絵（耳当て1つと、上へのびる帯）。絵全体の幅で大きさを決める。2026-10-17 に絵を更新したとき、前の絵と同じ倍率・同じ位置になるように、枠の中の位置と大きさのちがいから計算した値
-  // イヤーマフの正面：2026-10-17 に大きさを90%に（w 1.3→1.17）。耳当ての中心の高さが変わらないように y .95→.975
-  hat_earmuff:{w:1.17,y:.975,m:{s:{whole:true,cw:.5376,cx:-.1271,cy:.5571,center:true},b:{whole:true,cw:1.15,cx:0,cy:.84}}},
+  // イヤーマフの正面：2026-10-17 に大きさを90%に（w 1.3→1.17）。耳当ての中心の高さが変わらないように y .95→.975。そのあと少し上へ（.975→.865）
+  hat_earmuff:{w:1.17,y:.865,m:{s:{whole:true,cw:.5376,cx:-.1271,cy:.5571,center:true},b:{whole:true,cw:1.15,cx:0,cy:.84}}},
 };
 // 帽子の絵の「山」（かぶる部分）を測る：列ごとの不透明な画素の数が、いちばん多い列の半分以上ある列のつながりを山とみなす（つば・たれ・帯は細いので外れる）
 const _hatMet=new Map();
