@@ -56,6 +56,8 @@
   .detail dt{color:var(--sub);font-size:13px}
   .detail dd{margin:0}
   label.inline{display:inline-flex;gap:6px;align-items:center}
+  td.ops{white-space:nowrap}
+  td.ops button{padding:5px 10px;font-size:12px;margin-right:4px}
 </style>
 </head>
 <body>
@@ -80,7 +82,7 @@
     <div class="card">
       <div class="row"><input id="pq" class="grow" placeholder="名前か友だちID（HD-…）で探す。空なら最近つないだ順"><button id="psearch">探す</button></div>
       <p class="msg" id="pmsg"></p>
-      <div class="scroll"><table><thead><tr><th>名前</th><th>友だちID</th><th>利用端末</th><th>アカウント作成日時</th><th>プレイ時間</th><th>最終アクセス日時</th></tr></thead><tbody id="plist"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>名前</th><th>友だちID</th><th>利用端末</th><th>アカウント作成日時</th><th>プレイ時間</th><th>最終アクセス日時</th><th>操作</th></tr></thead><tbody id="plist"></tbody></table></div>
       <div class="row" style="margin-top:8px"><button id="pprev" class="sub">前の100人</button><button id="pnext" class="sub">次の100人</button></div>
     </div>
     <div class="card detail" id="pdetail" hidden></div>
@@ -212,15 +214,29 @@
     for (const p of j.items) t.append(el('tr', { class: 'click', on: () => loadPlayer(p.id) },
       el('td', {}, p.name, p.online ? el('span', { class: 'tag on', text: 'オンライン' }) : null, p.banned ? el('span', { class: 'tag ban', text: 'ブロック中' }) : null),
       el('td', { class: 'mono', text: p.id }), el('td', { text: p.device || '—' }), el('td', { text: fmt(p.createdAt) }),
-      el('td', { text: playT(p.playSec) }), el('td', {}, fmt(p.seenAt), el('div', { class: 'msg', style: 'margin:0', text: ago(p.seenAt) }))));
+      el('td', { text: playT(p.playSec) }), el('td', {}, fmt(p.seenAt), el('div', { class: 'msg', style: 'margin:0', text: ago(p.seenAt) })),
+      el('td', { class: 'ops' }, el('button', { class: p.banned ? 'sub' : 'warn', on: ev => { ev.stopPropagation(); banPlayer(p); } }, p.banned ? '解除' : 'ブロック'),
+        el('button', { class: 'warn', on: ev => { ev.stopPropagation(); deletePlayer(p); } }, '削除'))));
     $('#pprev').disabled = page <= 0; $('#pnext').disabled = !j.more;
   }
   $('#psearch').onclick = () => { pq = $('#pq').value.trim(); page = 0; loadPlayers(); };
   $('#pq').onkeydown = e => { if (e.key === 'Enter') $('#psearch').onclick(); };
   $('#pprev').onclick = () => { page = Math.max(0, page - 1); loadPlayers(); };
   $('#pnext').onclick = () => { page++; loadPlayers(); };
+  // ブロック・削除（一覧と詳しい画面の両方から使う）
+  async function banPlayer(p) {
+    if (!confirm(p.banned ? `${p.name}（${p.id}）のブロックを解除しますか？` : `${p.name}（${p.id}）をブロックしますか？\nフレンドとメールが使えなくなります（ゲームは遊べます）。`)) return;
+    const x = await api('ban', { id: p.id, on: !p.banned }); status(x.ok ? (x.banned ? `${p.name} をブロックしました` : `${p.name} のブロックを解除しました`) : x.err, !x.ok);
+    loadPlayers(); if (!$('#pdetail').hidden && $('#pdetail').dataset.id === p.id) loadPlayer(p.id);
+  }
+  async function deletePlayer(p) {
+    if (!confirm(`${p.name}（${p.id}）のアカウントを削除しますか？\nフレンド・メール・預かったセーブが消え、元に戻せません（その人の端末のセーブは残ります）。`)) return;
+    if (prompt('確認のため、友だちIDを入れてください') !== p.id) { status('友だちIDがちがうので、削除しませんでした', true); return; }
+    const x = await api('delete', { id: p.id }); status(x.ok ? `${p.name}（${p.id}）を削除しました` : x.err, !x.ok);
+    if (x.ok && $('#pdetail').dataset.id === p.id) $('#pdetail').hidden = true; loadPlayers();
+  }
   async function loadPlayer(id) {
-    const d = $('#pdetail'); d.hidden = false; d.textContent = '読み込み中…';
+    const d = $('#pdetail'); d.hidden = false; d.dataset.id = id; d.textContent = '読み込み中…';
     const j = await api('player', { id });
     if (!j.ok) { d.textContent = j.err; return; }
     const p = j.player, list = a => a.length ? a.map(f => `${f.name}（${f.id}）`).join('、') : 'なし';
@@ -241,13 +257,8 @@
         el('button', { class: 'sub', on: async () => { const x = await api('rename', { id: p.id, name: nameIn.value }); status(x.ok ? `名前を「${x.name}」にしました` : x.err, !x.ok); loadPlayer(p.id); loadPlayers(); } }, '名前を変える'),
         el('button', { class: 'sub', on: () => { show('mails'); $('#mq').value = p.id; loadMails(); } }, 'この人のメールを見る'),
         el('button', { class: 'sub', on: () => { show('notice'); document.querySelector('input[name=nto][value=one]').checked = true; $('#nid').value = p.id; } }, 'お知らせを送る'),
-        el('button', { class: p.banned ? 'sub' : 'warn', on: async () => {
-          if (!confirm(p.banned ? `${p.name}（${p.id}）のブロックを解除しますか？` : `${p.name}（${p.id}）をブロックしますか？\nフレンドとメールが使えなくなります（ゲームは遊べます）。`)) return;
-          const x = await api('ban', { id: p.id, on: !p.banned }); status(x.ok ? (x.banned ? 'ブロックしました' : 'ブロックを解除しました') : x.err, !x.ok); loadPlayer(p.id); loadPlayers(); } }, p.banned ? 'ブロックを解除' : 'ブロックする'),
-        el('button', { class: 'warn', on: async () => {
-          if (!confirm(`${p.name}（${p.id}）のアカウントを削除しますか？\nフレンド・メール・預かったセーブが消え、元に戻せません（その人の端末のセーブは残ります）。`)) return;
-          if (prompt('確認のため、友だちIDを入れてください') !== p.id) { status('友だちIDがちがうので、削除しませんでした', true); return; }
-          const x = await api('delete', { id: p.id }); status(x.ok ? `${p.name}（${p.id}）を削除しました` : x.err, !x.ok); if (x.ok) $('#pdetail').hidden = true; loadPlayers(); } }, '削除する')),
+        el('button', { class: p.banned ? 'sub' : 'warn', on: () => banPlayer(p) }, p.banned ? 'ブロックを解除' : 'ブロックする'),
+        el('button', { class: 'warn', on: () => deletePlayer(p) }, '削除する')),
       el('div', { class: 'card', style: 'margin:12px 0 0;background:var(--panel-2)' },
         el('h2', { text: '引継ぎコードの発行（復旧）' }),
         el('p', { class: 'msg', style: 'margin-top:0', text: 'スマホをなくした人などに。この人が最後に預けたセーブを、新しい端末で受け取れるコードを発行します（7日間・1回限り）。受け取ると、前の端末ではフレンドとメールが使えなくなります。ゲームの「データ引継ぎ」の「運営から受け取った引継ぎコードで受け取る」に入れてもらいます。' }),
