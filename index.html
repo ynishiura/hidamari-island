@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.085";</script>
+<script>const GAME_VERSION="1.086";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7730,16 +7730,40 @@ const SHEET_K={f:1,b:.78,l:1.0,r:1.0};   // 後ろ向きのシートは、ほか
 //   center＝山の中心（丸い物）を cy に合わせる, whole＝絵全体で合わせる
 const CAP_M={s:{cw:1.0,cx:.02,cy:.64},b:{cw:1.04,cx:0,cy:.62}};
 const HAT_IMG_FIT={
-  // ws/wb：横向き・後ろ向きの絵の幅を直接決める（頭の幅の何倍か）。シートの縮尺が正面とちがう帽子だけ
-  hat_cap:{w:1.15,y:.55,m:CAP_M},hat_cap_red:{w:1.15,y:.55,m:CAP_M},hat_cap_black:{w:1.15,y:.55,m:CAP_M},
-  hat_knit:{w:1.12,y:.66,same:'b'},hat_knit_blue:{w:1.12,y:.66,same:'b'},hat_knit_green:{w:1.12,y:.66,same:'b'},   // same：その向きは正面の絵をそのまま同じ大きさ・位置で使う
-  hat_beret:{w:1.25,y:.50,dx:-.05},hat_beret_red:{w:1.25,y:.50,dx:-.05},hat_beret_navy:{w:1.25,y:.50,dx:-.05},
-  hat_straw:{w:1.7,y:.58,ys:.62},hat_straw_blue:{w:1.7,y:.58,ys:.62},hat_bucket:{w:1.45,y:.60,ys:.62},hat_top:{w:1.15,y:.52,band:{color:'red',w:.70,y:.16,yb:.22}},   // 赤い帯（リボン）の幅を頭の幅の0.85倍にし、帯の中心を頭の中心に、帯の行を頭のてっぺんから頭の幅の0.40倍（後ろは0.46）に置くhat_witch:{w:1.7,y:.56,band:{color:'base',w:1.45,y:.52,yb:.56}},   // つばのすぐ上の山の下端の幅を頭の幅の1.2倍に（頭より広い）。つばは頭からはみ出る   // つばを除いた山の幅を頭の幅の1.1倍に（頭をおおう）。つばは頭からはみ出る   // つばの幅を頭の幅の1.7倍に、全向き同じ
-  hat_cowboy:{w:1.7,y:.58,ys:.60},hat_santa:{w:1.4,y:.6,band:{w:1.12,y:.44,yb:.56}},   // yb：後ろ向きだけ帯を少し下げる（後ろ向きの絵は帯より上が高く、同じ高さに置くと浮いて見える）   // 白い帯（ポンポンを除く、いちばん長くつながった白い行の芯の部分）の幅を頭の幅の1.12倍にし、帯の中心を頭の中心に、帯の行を頭のてっぺんから頭の幅の0.58倍に置く
-  hat_chef:{w:1.15,y:.54},hat_party:{w:.7,y:.12},
-  hat_ribbon:{w:.95,y:.12,dx:-.1},hat_crown:{w:.8,y:.12},hat_tiara:{w:.85,y:.14,yb:.34},hat_flower:{w:1.15,y:.26},
-  hat_catear:{w:.95,y:.30,ys:.45},hat_bunny:{w:.8,y:.30,ys:.45},
-  hat_helmet:{w:1.25,y:.58,band:{color:'any',w:1.25,y:.32,ys:.42,yb:.36}},   // いちばん広い行（ふち）の幅を頭の幅の1.25倍に、全向き同じhat_sailor:{w:1.15,y:.52,same:'lrb'},hat_earmuff:{w:1.3,y:.95,m:{s:{cw:.42,cx:-.18,cy:.60,center:true},b:{whole:true,cw:1.15,cx:0,cy:.95}}},
+  // 1行に1つの帽子。注釈は必ず行の前に書く（行の後ろに // を書くと、その後ろの設定が注釈あつかいになって読まれなくなる）
+  // ws/wb：横向き・後ろ向きの絵の幅を直接決める（頭の幅の何倍か）。m：山の幅で合わせる。same：その向きは正面の絵を同じ大きさ・位置で使う
+  // band：帯（white 白い帯／red 赤い帯／any いちばん広い行＝つば・ふち／crown 山の幅／base 山の下端）を測り、帯の幅を頭の幅の w 倍・帯の中心を頭の中心・帯の行を頭のてっぺんから y（横 ys・後ろ yb）倍の位置に置く。sy は縦の縮尺の倍率
+  hat_cap:{w:1.15,y:.55,m:CAP_M},
+  hat_cap_red:{w:1.15,y:.55,m:CAP_M},
+  hat_cap_black:{w:1.15,y:.55,m:CAP_M},
+  hat_knit:{w:1.12,y:.66,same:'b'},
+  hat_knit_blue:{w:1.12,y:.66,same:'b'},
+  hat_knit_green:{w:1.12,y:.66,same:'b'},
+  hat_beret:{w:1.25,y:.50,dx:-.05},
+  hat_beret_red:{w:1.25,y:.50,dx:-.05},
+  hat_beret_navy:{w:1.25,y:.50,dx:-.05},
+  hat_straw:{w:1.7,y:.58,ys:.62},
+  hat_straw_blue:{w:1.7,y:.58,ys:.62},
+  hat_bucket:{w:1.45,y:.60,ys:.62},
+  // シルクハット：赤いリボンの帯で合わせる
+  hat_top:{w:1.15,y:.52,band:{color:'red',w:.70,y:.16,yb:.22}},
+  // 魔女の帽子：ユーザーの見本（tools/raw/hats/witch_target.jpg）を画素で測った値。つば＝頭の幅の1.48倍、とんがりの先からつばまで＝頭の幅の0.96倍、つばの行＝目の中心より頭の幅の0.34倍上
+  hat_witch:{w:1.7,y:.56,band:{color:'any',w:1.48,sy:.85,y:.35,yb:.39}},
+  hat_cowboy:{w:1.7,y:.58,ys:.60},
+  // サンタ帽：下の白い帯（ポンポンを除く）で合わせる。後ろ向きの絵は帯より上が高いので、後ろだけ帯を下げる
+  hat_santa:{w:1.4,y:.6,band:{w:1.12,y:.44,yb:.56}},
+  hat_chef:{w:1.15,y:.54},
+  hat_party:{w:.7,y:.12},
+  hat_ribbon:{w:.95,y:.12,dx:-.1},
+  hat_crown:{w:.8,y:.12},
+  hat_tiara:{w:.85,y:.14,yb:.34},
+  hat_flower:{w:1.15,y:.26},
+  hat_catear:{w:.95,y:.30,ys:.45},
+  hat_bunny:{w:.8,y:.30,ys:.45},
+  // ヘルメット：いちばん広い行（ふち）で合わせる
+  hat_helmet:{w:1.25,y:.58,band:{color:'any',w:1.25,y:.32,ys:.42,yb:.36}},
+  hat_sailor:{w:1.15,y:.52,same:'lrb'},
+  hat_earmuff:{w:1.3,y:.95,m:{s:{cw:.42,cx:-.18,cy:.60,center:true},b:{whole:true,cw:1.15,cx:0,cy:.95}}},
 };
 // 帽子の絵の「山」（かぶる部分）を測る：列ごとの不透明な画素の数が、いちばん多い列の半分以上ある列のつながりを山とみなす（つば・たれ・帯は細いので外れる）
 const _hatMet=new Map();
@@ -7774,7 +7798,8 @@ function drawHatImg(g,id,d8,hx,hy,hw){
   if(F.band){   // 白い帯を測って合わせる帽子（全部の向き）
     const M=hatMetrics(im),B=M.bands[F.band.color||'white'],sc=hw*F.band.w/Math.max(1,B.bw);
     const by=(v==='b'&&F.band.yb!==undefined)?F.band.yb:(side&&F.band.ys!==undefined)?F.band.ys:F.band.y;   // ys＝横向きの帯の高さ
-    g.drawImage(im,hx-B.bcx*sc,hy+by*hw-B.by*sc,M.w*sc,M.h*sc);return true;
+    const sy=sc*(F.band.sy||1);   // sy：縦の縮尺の倍率（見本に合わせて、横だけでなく縦の大きさも決める帽子）
+    g.drawImage(im,hx-B.bcx*sc,hy+by*hw-B.by*sy,M.w*sc,M.h*sy);return true;
   }
   if(F.m&&v!=='f'){   // 山を測って合わせる帽子
     const sp=side?F.m.s:F.m.b,M=hatMetrics(im);
