@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.120";</script>
+<script>const GAME_VERSION="1.121";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -1844,12 +1844,17 @@ function updateFishing(dt){
   if(F.state==='wait'){
     if(F.t>F.biteAt-1.2&&F.nib===0){F.nib=1;sfx('nib')}
     if(F.t>F.biteAt-.6&&F.nib===1){F.nib=2;sfx('nib')}
-    if(F.t>=F.biteAt){F.state='bite';F.t=0;sfx('bite')}
-  }else if(F.state==='bite'&&F.t>F.win){toast('逃げられた…アタリの瞬間にボタンを押そう');RT.fishing=null}
+    if(F.t>=F.biteAt){F.state='bite';F.t=0;sfx('bite');
+      // アタリ：釣りのミニゲーム（minigame.js）。ゲージの成功の場所の広さは、釣りの腕とつりざおで広がる。レアな魚ほど針が速い
+      if(typeof MG!=='undefined'){F.game=true;MG.open('fish',{rar:F.fish.rar,zoneMul:clamp(F.win/.6,.6,1.8)},r=>{
+        if(RT.fishing!==F)return;
+        if(r.ok)reel(true);else{RT.fishing=null;toast(r.canceled?'釣りをやめた':`逃げられた…${F.fish.rar>=4?'大物だった！':''} 針が緑の場所にきたら止めよう`)}})}}
+  }else if(F.state==='bite'&&!F.game&&F.t>F.win){toast('逃げられた…アタリの瞬間にボタンを押そう');RT.fishing=null}
 }
-function reel(){
+function reel(won){
   const F=RT.fishing;
   if(F.state==='wait'){toast('早すぎた！ 魚が逃げてしまった');RT.fishing=null;return}
+  if(F.game&&!won)return;   // ミニゲームの最中は、ミニゲームで決める
   const f=F.fish;RT.fishing=null;
   if(addItem(f.id,1,true)){S.stats.fish++;gainSkill('fish',4+f.rar*5);task('fish');sfx('get');showCatch(f.id,F.place)}
 }
@@ -3169,10 +3174,11 @@ function drawShadows(g,t){
 // ===================== 洞窟 =====================
 let CAVES={};
 const CAVE_FLOORS=[null,
-  {name:'入り口の間',ore:{copper:80,iron:18,silver:2},enemy:{slime:40,bat:35,spider:15,boar:10},cap:6},
-  {name:'鉄の回廊',ore:{copper:25,iron:55,silver:15,crystal:5},enemy:{bat:30,rslime:35,slime:5,spider:15,boar:15},cap:9},
-  {name:'地底湖',ore:{iron:25,silver:50,gold:15,crystal:10},enemy:{rslime:30,bat:20,ghost:20,golem:10,spider:10,fslime:10},cap:12},
-  {name:'黄金の最深部',ore:{silver:30,gold:55,crystal:15},enemy:{golem:30,rslime:15,ghost:15,bat:10,fslime:25,drake:4},cap:15},
+  // 敵の数の上限（cap）：2026-10-17 に増やした（昼も夜も同じ。島の夜より多く・早く出る）
+  {name:'入り口の間',ore:{copper:80,iron:18,silver:2},enemy:{slime:40,bat:35,spider:15,boar:10},cap:9},
+  {name:'鉄の回廊',ore:{copper:25,iron:55,silver:15,crystal:5},enemy:{bat:30,rslime:35,slime:5,spider:15,boar:15},cap:12},
+  {name:'地底湖',ore:{iron:25,silver:50,gold:15,crystal:10},enemy:{rslime:30,bat:20,ghost:20,golem:10,spider:10,fslime:10},cap:15},
+  {name:'黄金の最深部',ore:{silver:30,gold:55,crystal:15},enemy:{golem:30,rslime:15,ghost:15,bat:10,fslime:25,drake:4},cap:18},
 ];
 const ORE={
   copper:{item:'copper',hp:2,xp:3,col:'#d07a3a',name:'銅'},
@@ -3314,17 +3320,18 @@ function useStairs(kind){
 function spawnCaveEnemy(initial){
   const F=CAVE_FLOORS[caveFloor()];if(!F)return;
   const ptx=Math.floor(S.px/T),pty=Math.floor(S.py/T);
-  for(let k=0;k<60;k++){
-    const x=2+Math.floor(rnd()*(MW-4)),y=2+Math.floor(rnd()*(MH-4)),i=ti(x,y);
+  // 主人公のまわり（20マス以内）に出す。22マスより遠い敵は消えるので、地図全体に出すとすぐ消えてしまっていた（2026-10-17 に直した）
+  for(let k=0;k<80;k++){
+    const x=clamp(ptx+Math.floor(rnd()*41)-20,2,MW-3),y=clamp(pty+Math.floor(rnd()*31)-15,2,MH-3),i=ti(x,y);
     if(W.tiles[i]!==8||W.block[i])continue;
     if(Math.abs(x-ptx)+Math.abs(y-pty)<(initial?10:9))continue;
-    if(rnd()>.25+.75*(W.dist[i]/W.maxD))continue; // 奥ほど敵が多い
+    if(rnd()>.45+.55*(W.dist[i]/W.maxD))continue; // 奥ほど敵が多い（入り口の近くにも出る）
     spawnEnemy(weightedR(rnd,Object.keys(F.enemy),t=>F.enemy[t]),(x+.5)*T,(y+.5)*T);return;
   }
 }
 function updateCave(dt){
   const F=CAVE_FLOORS[caveFloor()];
-  if(RT.enemies.length<F.cap&&rnd()<dt*.04)spawnCaveEnemy(false);
+  if(RT.enemies.length<F.cap&&rnd()<dt*.2)spawnCaveEnemy(false);   // 約5秒に1体（島の夜のスライムは約7秒に1体・4体まで）
 }
 function mineNode(fx,fy){
   if(!inMap(fx,fy))return false;
@@ -9219,6 +9226,302 @@ function tourEnd(){
 `;document.head.append(st)}
 </script>
 <script>
+// ===================== ミニゲーム（2026-10-17） =====================
+// ゲームの外（サンプルのページ）でもそのまま動くように、ゲームの関数は「あれば使う」だけにしてある。
+//   MG.open(種類, 設定, 終わったときの関数({ok, canceled}))
+//   種類：fish（釣り：左右に振れるゲージを、成功の場所で止める。レアな魚ほど速い）
+//         pin（鍵開け・ピン式：上下に動くピンを、いちばん上で止めて全部そろえる。有名な「タンブラー」方式）
+//         angle（鍵開け・角度さがし式：ピックの角度を動かして鍵を回す。正しい角度ほど深く回る。無理に回すとピックが折れる）
+//         dial（鍵開け・ダイヤル式：金庫のダイヤルを回し、カチッと鳴る数字で止めて番号をそろえる）
+//   設定：fish {rar:1〜6, zoneMul:成功の場所の広さの倍率}　鍵開け {level:1〜4（洞窟の階）}
+// 操作：決める＝スペース・Enter・Z・画面の大きなボタン・絵をタップ ／ 左右＝←→・A D・画面の◀▶ ／ やめる＝Esc・「やめる」
+const MG=(()=>{
+  const W=360,H=200;
+  let cur=null;
+  const snd=k=>{try{if(typeof sfx==='function')sfx(k)}catch(e){}};
+  const rand=()=>Math.random();
+  const ov=document.createElement('div');ov.id='mgOv';ov.hidden=true;
+  ov.innerHTML='<div class="mgBox"><div class="mgHead"><b class="mgTitle"></b><button class="mgX" type="button">やめる</button></div><canvas class="mgCv" width="720" height="400"></canvas><div class="mgMsg"></div><div class="mgBtns"></div></div>';
+  (document.getElementById('app')||document.body).append(ov);
+  const cv=ov.querySelector('.mgCv'),g=cv.getContext('2d'),msg=ov.querySelector('.mgMsg'),btns=ov.querySelector('.mgBtns');
+  const st=document.createElement('style');st.textContent=`
+#mgOv{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(20,30,25,.55);touch-action:none;-webkit-user-select:none;user-select:none}
+#mgOv[hidden]{display:none}
+#mgOv .mgBox{width:min(94vw,560px,calc((100vh - 150px)*1.8 + 24px));max-height:100vh;overflow:auto;background:#fbf7ec;border:3px solid #5aa870;border-radius:22px;box-shadow:0 6px 0 #3f8a58;padding:10px 12px 12px;box-sizing:border-box;font-family:"Zen Maru Gothic",system-ui,sans-serif;color:#33402f}
+#mgOv .mgHead{display:flex;align-items:center;gap:8px;margin:0 2px 6px}
+#mgOv .mgTitle{flex:1;font-size:17px}
+#mgOv .mgX{border:2px solid #c9bfa5;background:#fff;border-radius:999px;padding:4px 12px;font:inherit;font-size:13px;color:#6b7563;cursor:pointer}
+#mgOv .mgCv{width:100%;aspect-ratio:9/5;display:block;border-radius:14px;background:#24323a;touch-action:none}
+#mgOv .mgMsg{min-height:1.5em;margin:6px 2px 0;font-size:13px;text-align:center;color:#556050}
+#mgOv .mgBtns{display:flex;gap:8px;justify-content:center;margin-top:8px}
+#mgOv .mgBtns button{font:inherit;font-weight:900;font-size:16px;border:0;border-radius:999px;padding:10px 18px;cursor:pointer;background:#f2b134;color:#3a2a10;box-shadow:0 3px 0 #c8851c;touch-action:none}
+#mgOv .mgBtns button.side{background:#e8eef0;color:#33402f;box-shadow:0 3px 0 #b5c0c4;min-width:3.2em}
+#mgOv .mgBtns button:active,#mgOv .mgBtns button.on{transform:translateY(2px);box-shadow:0 1px 0 #c8851c}
+`;document.head.append(st);
+
+  // ---- 共通の描き方 ----
+  const rr=(x,y,w,h,r,c)=>{g.fillStyle=c;g.beginPath();g.roundRect(x,y,w,h,r);g.fill()};
+  const txt=(s,x,y,size,c,al='center',wt='700')=>{g.fillStyle=c;g.font=`${wt} ${size}px "Zen Maru Gothic",sans-serif`;g.textAlign=al;g.textBaseline='middle';g.fillText(s,x,y)};
+  const lin=(x0,y0,x1,y1,stops)=>{const l=g.createLinearGradient(x0,y0,x1,y1);stops.forEach(([o,c])=>l.addColorStop(o,c));return l};
+  const tri=p=>{const q=p%2;return q<1?q:2-q};   // 0→1→0 と行き来する
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+  // ---- 釣り ----
+  const FISH={
+    title:'釣りあげろ！',
+    init(o){const rar=clamp(o.rar||1,1,6),zw=clamp((.30-.035*(rar-1))*(o.zoneMul||1),.08,.42);
+      return {rar,speed:.55+.22*rar,zw,zc:zw/2+.06+rand()*(1-zw-.12),ph:rand()*2,t:0,stop:null,limit:7,name:o.name||''}},
+    msg:s=>`針がゲージの<b>緑の場所</b>にきたら、止めよう！（スペース・クリック・タップ）${s.rar>=4?'　<b style="color:#c8282a">大物だ、速いぞ！</b>':''}`,
+    buttons:[['act','止める！','main']],
+    update(s,dt){if(s.stop!==null)return;s.t+=dt;s.ph+=dt*s.speed*2;if(s.t>s.limit){s.stop=tri(s.ph);s.res=false;s.why='timeout';finish(false,.8)}},
+    act(s,k,down){if(k!=='act'||!down||s.stop!==null)return;s.stop=tri(s.ph);const ok=Math.abs(s.stop-s.zc)<=s.zw/2;s.res=ok;snd(ok?'get':'hurt');finish(ok,.9)},
+    draw(s,t){
+      g.fillStyle=lin(0,0,0,H,[[0,'#2f6f9a'],[1,'#163a55']]);g.fillRect(0,0,W,H);
+      for(let i=0;i<6;i++){g.strokeStyle='rgba(255,255,255,.08)';g.lineWidth=2;g.beginPath();for(let x=0;x<=W;x+=8)g.lineTo(x,30+i*28+Math.sin(x*.05+t*1.5+i)*3);g.stroke()}
+      // 魚のかげ（あばれる）
+      const sh=s.stop===null?Math.sin(t*(6+s.rar*2))*6:0;g.fillStyle='rgba(10,25,40,.55)';g.beginPath();g.ellipse(W/2+sh,62,26+s.rar*3,9+s.rar,0,0,7);g.fill();
+      g.beginPath();g.moveTo(W/2+sh+24+s.rar*3,62);g.lineTo(W/2+sh+40+s.rar*3,52);g.lineTo(W/2+sh+40+s.rar*3,72);g.fill();
+      txt(s.rar>=5?'★ 伝説級の大物 ★':s.rar>=4?'大物！':'アタリ！',W/2,22,14,'#fff3b0');
+      // ゲージ
+      const X=30,Y=118,GW=W-60,GH=26;
+      rr(X-4,Y-4,GW+8,GH+8,12,'#0e1c26');rr(X,Y,GW,GH,9,lin(X,0,X+GW,0,[[0,'#3a4a55'],[.5,'#4b5d68'],[1,'#3a4a55']]));
+      const zx=X+GW*(s.zc-s.zw/2),zw=GW*s.zw;rr(zx,Y,zw,GH,6,lin(0,Y,0,Y+GH,[[0,'#8ee08a'],[1,'#3fae4a']]));
+      g.fillStyle='rgba(255,255,255,.55)';g.fillRect(X+GW*s.zc-1,Y+3,2,GH-6);
+      const p=s.stop===null?tri(s.ph):s.stop,nx=X+GW*p;
+      g.fillStyle='#fff';g.beginPath();g.moveTo(nx,Y-2);g.lineTo(nx-7,Y-14);g.lineTo(nx+7,Y-14);g.closePath();g.fill();
+      rr(nx-2,Y-2,4,GH+4,2,s.stop===null?'#ffffff':s.res?'#ffe066':'#ff6b6b');
+      txt(`のこり ${Math.max(0,Math.ceil(s.limit-s.t))}秒`,W-34,Y+GH+20,11,'#cfe3ef','right','500');
+      if(s.stop!==null)txt(s.res?'釣れた！':s.why==='timeout'?'逃げられた…':'おしい！ 逃げられた…',W/2,176,20,s.res?'#ffe066':'#ffb0a8','center','900');
+    }};
+
+  // ---- 鍵開け：ピン（タンブラー）式 ----
+  const PIN={
+    title:'鍵開け（ピン式）',
+    init(o){const lv=clamp(o.level||1,1,4),n=Math.min(5,2+lv);
+      return {lv,n,i:0,set:[],pins:Array.from({length:n},()=>({sp:1.1+lv*.25+rand()*.9,ph:rand()*6})),miss:0,maxMiss:3,t:0,flash:0,done:false}},
+    msg:s=>`光っているピンが<b>いちばん上</b>に来た瞬間に止めよう。全部そろえると開く。（失敗できるのは あと${s.maxMiss-s.miss}回）`,
+    buttons:[['act','止める！','main']],
+    h(s,k,t){const p=s.pins[k],v=(Math.sin(t*p.sp*2+p.ph)+1)/2;return Math.pow(v,.6)},   // 上のほうで少しゆっくりになる
+    update(s,dt){s.t+=dt;s.flash=Math.max(0,s.flash-dt)},
+    act(s,k,down){if(k!=='act'||!down||s.done)return;const hgt=PIN.h(s,s.i,s.t);
+      if(hgt>=.86){s.set.push(s.i);s.i++;snd('get');if(s.i>=s.n){s.done=true;finish(true,.7)}}
+      else{s.miss++;s.flash=.35;snd('hurt');if(s.miss>=s.maxMiss){s.done=true;finish(false,.8)}}},
+    draw(s,t){
+      g.fillStyle=lin(0,0,0,H,[[0,'#3a3f46'],[1,'#22262b']]);g.fillRect(0,0,W,H);
+      // 錠の中（シリンダー）
+      rr(30,40,W-60,120,14,lin(0,40,0,160,[[0,'#c9a24a'],[1,'#8a6a24']]));rr(40,112,W-80,40,10,'#5a4518');
+      const gap=(W-100)/s.n;
+      for(let k=0;k<s.n;k++){const x=50+gap*k+gap/2,setk=s.set.includes(k),cur=k===s.i&&!s.done;
+        const hgt=setk?1:PIN.h(s,k,s.t),py=118-hgt*52;
+        rr(x-10,46,20,74,6,'#2a2014');                                                       // 穴
+        g.strokeStyle='#b8b8b8';g.lineWidth=1.4;g.beginPath();for(let y=48;y<py-16;y+=4)g.lineTo(x+(((y/4)|0)%2?-5:5),y);g.stroke();   // ばね
+        rr(x-8,py-16,16,16,3,setk?'#ffd84a':cur?'#ff9a5a':'#c0c6cc');                             // 上ピン
+        rr(x-8,py,16,26,4,setk?'#f2b134':'#8d949b');                                             // 下ピン
+        if(cur){g.strokeStyle=`rgba(255,240,150,${.5+.5*Math.sin(t*10)})`;g.lineWidth=2;g.strokeRect(x-12,44,24,78)}
+      }
+      g.strokeStyle='rgba(255,255,255,.35)';g.setLineDash([4,4]);g.beginPath();g.moveTo(40,66);g.lineTo(W-40,66);g.stroke();g.setLineDash([]);
+      txt('↓ 点線の高さで止める',W-36,30,10,'#fff3b0','right','500');
+      // ピック
+      g.strokeStyle='#d8dde2';g.lineWidth=4;g.lineCap='round';const px=50+gap*Math.min(s.i,s.n-1)+gap/2;g.beginPath();g.moveTo(0,150);g.lineTo(px-6,150);g.lineTo(px,140);g.stroke();
+      txt(`${s.set.length}／${s.n} ピン`,W/2,180,13,'#fff','center','900');
+      if(s.flash>0){g.fillStyle=`rgba(255,80,80,${s.flash})`;g.fillRect(0,0,W,H)}
+      if(s.done)txt(s.miss>=s.maxMiss?'失敗…ピックがすべった':'カチャッ！ 開いた！',W/2,24,18,s.miss>=s.maxMiss?'#ffb0a8':'#ffe066','center','900');
+    }};
+
+  // ---- 鍵開け：角度さがし式 ----
+  const ANGLE={
+    title:'鍵開け（角度さがし式）',
+    init(o){const lv=clamp(o.level||1,1,4);return {lv,a:90,target:15+rand()*150,tol:Math.max(6,15-lv*2.2),r:0,turning:false,picks:3,dur:.7,shake:0,left:false,right:false,done:false,broke:0}},
+    msg:s=>`◀▶ でピックの角度を動かし、<b>「回す」を押したまま</b>にする。正しい角度ほど深く回る。ガタガタしたら手をはなそう。（ピック のこり ${s.picks}本）`,
+    buttons:[['left','◀','side'],['act','回す','main'],['right','▶','side']],
+    update(s,dt){if(s.done)return;
+      if(!s.turning){if(s.left)s.a=clamp(s.a-dt*70,0,180);if(s.right)s.a=clamp(s.a+dt*70,0,180)}
+      s.broke=Math.max(0,s.broke-dt);
+      const off=Math.abs(s.a-s.target),maxR=off<=s.tol?1:clamp(1-(off-s.tol)/50,0,.95);
+      if(s.turning){s.r=Math.min(maxR,s.r+dt*1.1);
+        if(s.r>=1){s.done=true;snd('get');finish(true,.7);return}
+        if(s.r>=maxR-.001){s.shake=.2;s.dur-=dt;if(s.dur<=0){s.picks--;s.broke=.6;snd('hurt');s.turning=false;s.dur=.7;s.r=0;if(s.picks<=0){s.done=true;finish(false,.9)}}}
+        else s.shake=0}
+      else{s.r=Math.max(0,s.r-dt*2.5);s.shake=0}},
+    act(s,k,down){if(s.done)return;if(k==='act')s.turning=down&&s.broke<=0;if(k==='left')s.left=down;if(k==='right')s.right=down},
+    point(s,fx){if(!s.turning&&!s.done)s.a=clamp(fx*180,0,180)},
+    draw(s,t){
+      g.fillStyle=lin(0,0,0,H,[[0,'#4a3a2a'],[1,'#2a2018']]);g.fillRect(0,0,W,H);
+      const cx=W/2,cy=118,R=64,rot=s.r*Math.PI/2,jx=s.shake?Math.sin(t*80)*1.6:0;
+      // 錠の面
+      g.save();g.translate(cx+jx,cy);g.rotate(rot);
+      g.fillStyle=lin(-R,-R,R,R,[[0,'#e8d27a'],[.5,'#c9a24a'],[1,'#8a6a24']]);g.beginPath();g.arc(0,0,R,0,7);g.fill();
+      g.strokeStyle='rgba(90,60,20,.6)';g.lineWidth=3;g.beginPath();g.arc(0,0,R-6,0,7);g.stroke();
+      g.fillStyle='#1d1610';g.beginPath();g.arc(0,-8,9,0,7);g.fill();g.beginPath();g.moveTo(-5,-4);g.lineTo(5,-4);g.lineTo(8,22);g.lineTo(-8,22);g.closePath();g.fill();
+      g.restore();
+      // テンションレンチ（下）
+      g.strokeStyle='#9aa3ab';g.lineWidth=5;g.lineCap='round';g.beginPath();g.moveTo(cx+jx+Math.sin(rot)*20,cy+Math.cos(rot)*14);g.lineTo(cx+jx+40+Math.sin(rot)*30,cy+Math.cos(rot)*14+44);g.stroke();
+      // ピック（上から角度 a で差しこむ）
+      const ang=Math.PI+s.a/180*Math.PI,len=90;g.strokeStyle=s.broke>0?'rgba(220,120,120,.6)':'#e8eef2';g.lineWidth=3.5;
+      g.beginPath();g.moveTo(cx+jx,cy-8);g.lineTo(cx+jx+Math.cos(ang)*len,cy-8+Math.sin(ang)*len);g.stroke();
+      // 目盛り
+      g.strokeStyle='rgba(255,255,255,.15)';g.lineWidth=1;for(let d=0;d<=180;d+=15){const a=Math.PI+d/180*Math.PI;g.beginPath();g.moveTo(cx+Math.cos(a)*(R+8),cy-8+Math.sin(a)*(R+8));g.lineTo(cx+Math.cos(a)*(R+14),cy-8+Math.sin(a)*(R+14));g.stroke()}
+      // 回った量
+      rr(20,182,W-40,8,4,'#1a120c');rr(20,182,(W-40)*s.r,8,4,s.r>=.999?'#ffe066':'#8ee08a');
+      for(let i=0;i<3;i++){g.globalAlpha=i<s.picks?1:.2;g.strokeStyle='#e8eef2';g.lineWidth=3;g.beginPath();g.moveTo(W-70+i*18,24);g.lineTo(W-58+i*18,10);g.stroke()}g.globalAlpha=1;
+      txt('ピック',W-50,36,9,'#cfc2a8','center','500');
+      if(s.broke>0)txt('ポキッ！ ピックが折れた',W/2,22,15,'#ffb0a8','center','900');
+      if(s.done)txt(s.picks<=0?'失敗…ピックがなくなった':'カチャッ！ 開いた！',W/2,22,18,s.picks<=0?'#ffb0a8':'#ffe066','center','900');
+    }};
+
+  // ---- 鍵開け：ダイヤル式 ----
+  const DIAL={
+    title:'鍵開け（ダイヤル式）',
+    init(o){const lv=clamp(o.level||1,1,4),n=lv<=1?2:lv<=3?3:4;const code=[];while(code.length<n){const c=Math.floor(rand()*40);if(!code.length||Math.abs(c-code[code.length-1])>5)code.push(c)}
+      return {lv,n,code,k:0,v:rand()*40,left:false,right:false,miss:0,maxMiss:3,flash:0,done:false,click:0,last:-1}},
+    msg:s=>`◀▶ でダイヤルを回す。近づくと音が大きくなり、<b>カチッ</b>と光った数字で「決める」。（番号 ${s.k+1}／${s.n}・失敗できるのは あと${s.maxMiss-s.miss}回）`,
+    buttons:[['left','◀','side'],['act','決める','main'],['right','▶','side']],
+    num:s=>((Math.round(s.v)%40)+40)%40,
+    update(s,dt){s.flash=Math.max(0,s.flash-dt);s.click=Math.max(0,s.click-dt);if(s.done)return;
+      if(s.left)s.v-=dt*9;if(s.right)s.v+=dt*9;
+      const n=DIAL.num(s);if(n!==s.last){s.last=n;if(n===s.code[s.k]){s.click=.5;snd('nib')}}},
+    act(s,k,down){if(s.done)return;if(k==='left')s.left=down;if(k==='right')s.right=down;
+      if(k==='act'&&down){if(DIAL.num(s)===s.code[s.k]){s.k++;snd('get');if(s.k>=s.n){s.done=true;finish(true,.7)}}
+        else{s.miss++;s.flash=.35;snd('hurt');if(s.miss>=s.maxMiss){s.done=true;finish(false,.8)}}}},
+    drag(s,da){if(!s.done)s.v+=da/(Math.PI*2)*40},
+    draw(s,t){
+      g.fillStyle=lin(0,0,0,H,[[0,'#3c4650'],[1,'#20262c']]);g.fillRect(0,0,W,H);
+      const cx=128,cy=104,R=70,n=DIAL.num(s),d=s.code[s.k],dist=s.done?0:Math.min(...[Math.abs(n-d),40-Math.abs(n-d)]);
+      // 扉
+      rr(20,14,W-40,176,14,lin(0,14,0,190,[[0,'#7d8790'],[1,'#4f5860']]));
+      // ダイヤル
+      g.save();g.translate(cx,cy);g.fillStyle=lin(-R,-R,R,R,[[0,'#eef2f5'],[1,'#9aa3ab']]);g.beginPath();g.arc(0,0,R,0,7);g.fill();
+      g.rotate(-s.v/40*Math.PI*2);
+      for(let i=0;i<40;i++){const a=i/40*Math.PI*2-Math.PI/2;g.strokeStyle='#3a4248';g.lineWidth=i%5?1:2;g.beginPath();g.moveTo(Math.cos(a)*(R-4),Math.sin(a)*(R-4));g.lineTo(Math.cos(a)*(R-(i%5?10:14)),Math.sin(a)*(R-(i%5?10:14)));g.stroke();
+        if(i%5===0){g.save();g.translate(Math.cos(a)*(R-24),Math.sin(a)*(R-24));g.rotate(a+Math.PI/2);txt(String(i),0,0,10,'#222','center','700');g.restore()}}
+      g.fillStyle='#5a646c';g.beginPath();g.arc(0,0,20,0,7);g.fill();g.restore();
+      g.fillStyle='#e8486a';g.beginPath();g.moveTo(cx,cy-R-2);g.lineTo(cx-6,cy-R-12);g.lineTo(cx+6,cy-R-12);g.closePath();g.fill();
+      txt(String(n).padStart(2,'0'),cx,cy,18,'#fff','center','900');
+      // 聞き耳（音の大きさ）
+      const lvl=s.done?0:clamp(1-dist/8,0,1);txt('音の大きさ',272,34,11,'#dfe6ea','center','500');
+      for(let i=0;i<8;i++){const on=i<Math.round(lvl*8);rr(232+i*10,108-i*7,8,8+i*7,2,on?(i>=7?'#ffe066':'#8ee08a'):'#2e363c')}
+      const lamp=s.click>0?'#ffe066':'#4a3a10';g.fillStyle=lamp;g.beginPath();g.arc(272,140,10,0,7);g.fill();txt(s.click>0?'カチッ！':'',272,160,12,'#ffe066','center','900');
+      // そろえた番号
+      for(let i=0;i<s.n;i++){rr(228+i*22,170,18,16,3,i<s.k?'#ffd84a':'#2e363c');txt(i<s.k?String(s.code[i]):'?',237+i*22,178,10,i<s.k?'#3a2a10':'#8a949b','center','900')}
+      if(s.flash>0){g.fillStyle=`rgba(255,80,80,${s.flash})`;g.fillRect(0,0,W,H)}
+      if(s.done)txt(s.miss>=s.maxMiss?'失敗…':'ガチャン！ 開いた！',W/2,24,18,s.miss>=s.maxMiss?'#ffb0a8':'#ffe066','center','900');
+    }};
+
+  const KINDS={fish:FISH,pin:PIN,angle:ANGLE,dial:DIAL};
+  let raf=0,lastT=0;
+  function frame(ts){if(!cur)return;raf=requestAnimationFrame(frame);const dt=Math.min(.05,(ts-lastT)/1000||0);lastT=ts;cur.K.update(cur.s,dt);
+    g.setTransform(cv.width/W,0,0,cv.height/H,0,0);cur.K.draw(cur.s,ts/1000);msg.innerHTML=cur.K.msg(cur.s);
+    if(cur.endAt&&ts/1000>=cur.endAt){const c=cur;close();c.done({ok:c.ok,canceled:false})}}
+  function finish(ok,delay){if(!cur||cur.endAt)return;cur.ok=ok;cur.endAt=performance.now()/1000+delay}
+  function close(){cur=null;cancelAnimationFrame(raf);ov.hidden=true;try{if(typeof RT!=='undefined')RT.mg=false}catch(e){}}
+  function open(kind,opt,done){
+    const K=KINDS[kind];if(!K)return false;if(cur)close();
+    cur={kind,K,s:K.init(opt||{}),done:done||(()=>{}),ok:false,endAt:0};
+    ov.querySelector('.mgTitle').textContent=(opt&&opt.title)||K.title;
+    btns.innerHTML='';
+    for(const [k,label,cls] of K.buttons){const b=document.createElement('button');b.type='button';b.textContent=label;if(cls==='side')b.className='side';
+      const dn=e=>{e.preventDefault();b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}if(cur)cur.K.act(cur.s,k,true)};
+      const up=e=>{b.classList.remove('on');if(cur)cur.K.act(cur.s,k,false)};
+      b.addEventListener('pointerdown',dn);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);btns.append(b)}
+    ov.hidden=false;try{if(typeof RT!=='undefined')RT.mg=true}catch(e){}
+    lastT=performance.now();raf=requestAnimationFrame(frame);return true;
+  }
+  // 中止
+  ov.querySelector('.mgX').onclick=()=>{if(!cur)return;const c=cur;close();c.done({ok:false,canceled:true})};
+  // 絵をさわる：釣り・ピンは「止める」、角度は角度を動かして押しているあいだ回す、ダイヤルはなぞって回す
+  let drag=null;
+  const fx=e=>{const r=cv.getBoundingClientRect();return clamp((e.clientX-r.left)/r.width,0,1)};
+  const angAt=e=>{const r=cv.getBoundingClientRect();return Math.atan2((e.clientY-r.top)/r.height*H-104,(e.clientX-r.left)/r.width*W-128)};
+  cv.addEventListener('pointerdown',e=>{if(!cur)return;e.preventDefault();try{cv.setPointerCapture(e.pointerId)}catch(_){}const k=cur.kind;
+    if(k==='fish'||k==='pin')cur.K.act(cur.s,'act',true);
+    else if(k==='angle'){cur.K.point(cur.s,fx(e));cur.K.act(cur.s,'act',true);drag='angle'}
+    else if(k==='dial'){drag={a:angAt(e)}}});
+  cv.addEventListener('pointermove',e=>{if(!cur)return;
+    if(cur.kind==='angle'&&!cur.s.turning)cur.K.point(cur.s,fx(e));
+    if(cur.kind==='dial'&&drag&&drag.a!==undefined){const a=angAt(e);let da=a-drag.a;if(da>Math.PI)da-=Math.PI*2;if(da<-Math.PI)da+=Math.PI*2;drag.a=a;cur.K.drag(cur.s,-da)}});
+  const pup=()=>{if(cur&&cur.kind==='angle'&&drag==='angle')cur.K.act(cur.s,'act',false);if(cur&&(cur.kind==='fish'||cur.kind==='pin'))cur.K.act(cur.s,'act',false);drag=null};
+  cv.addEventListener('pointerup',pup);cv.addEventListener('pointercancel',pup);
+  // キー（ゲームの操作より先に受けとって、ゲームには渡さない）
+  const KEYMAP={Space:'act',Enter:'act',KeyZ:'act',ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right'};
+  const onKey=down=>e=>{if(!cur)return;if(e.code==='Escape'&&down){ov.querySelector('.mgX').click();e.preventDefault();e.stopImmediatePropagation();return}
+    const k=KEYMAP[e.code];e.preventDefault();e.stopImmediatePropagation();if(!k||(down&&e.repeat))return;cur.K.act(cur.s,k,down)};
+  addEventListener('keydown',onKey(true),true);addEventListener('keyup',onKey(false),true);
+  return {open,get active(){return !!cur},get state(){return cur&&cur.s},kinds:Object.keys(KINDS)};   // state：確かめ用（読むだけ）
+})();
+</script>
+<script>
+// ===================== 洞窟の宝箱（2026-10-17） =====================
+// 洞窟の各階に、日ごとに1〜3個の宝箱がランダムに出る（入り口から離れた床。深い階ほど多い）。その日のうちは同じ場所にある。
+// 宝箱に向かって A（話す・調べる）で、鍵開けのミニゲーム（minigame.js）。鍵の種類は宝箱ごとに ピン式・角度さがし式・ダイヤル式 のどれか。
+// 階が深いほど鍵がむずかしく、中身も良くなる。失敗しても、もう一度ためせる（体力を5使う）
+const CHEST_LOCK={pin:'ピン式',angle:'角度さがし式',dial:'ダイヤル式'};
+const CHEST_LOOT=[null,
+  [['copper',3],['iron',2],['mstone',1],['copper_bar',1],['xq',1]],
+  [['iron',3],['silver',2],['mstone',2],['iron_bar',1],['xq',1]],
+  [['silver',3],['gold',1],['mstone',2],['silver_bar',1],['xq',2]],
+  [['gold',2],['silver',3],['gold_bar',1],['mstone_bar',1],['xq',2]],
+];
+function caveChests(f){
+  const C=S.caveChests||(S.caveChests={day:0,floors:{}});
+  if(C.day!==S.day){   // 日が変わったら、前の日の宝箱を片づけて作り直す
+    for(const [fl,list] of Object.entries(C.floors||{})){const M=CAVES[fl];if(M)for(const c of list)M.block[ti(c.x,c.y)]=0}
+    C.day=S.day;C.floors={};
+  }
+  if(!C.floors[f]){
+    const list=[],n=1+(rnd()<.5?1:0)+(f>=3&&rnd()<.5?1:0),dx=W.up.x,dy=W.up.y;
+    const near=(x,y,p)=>p&&Math.abs(x-p.x)+Math.abs(y-p.y)<4;
+    for(let k=0;k<400&&list.length<n;k++){
+      const x=2+Math.floor(rnd()*(MW-4)),y=2+Math.floor(rnd()*(MH-4)),i=ti(x,y);
+      if(W.tiles[i]!==8||W.block[i]||W.dist[i]<10||near(x,y,W.up)||near(x,y,W.down))continue;
+      if(list.some(c=>Math.abs(c.x-x)+Math.abs(c.y-y)<10))continue;
+      if(!walkable(x,y+1)&&!walkable(x+1,y)&&!walkable(x-1,y)&&!walkable(x,y-1))continue;
+      list.push({x,y,lock:pick(['pin','angle','dial']),open:false});
+    }
+    C.floors[f]=list;
+  }
+  return C.floors[f];
+}
+const chestAt=(x,y)=>inCave()?caveChests(caveFloor()).find(c=>c.x===x&&c.y===y):null;
+{const _gc=goCave;goCave=function(f,at){_gc(f,at);for(const c of caveChests(f))W.block[ti(c.x,c.y)]=1}}
+function openChest(c){
+  if(c.open){toast('空っぽの宝箱だ');return}
+  if(bagCount()+3>bagCap()){toast(`ポケットがいっぱいに近い（${bagCap()}個まで）。少しあけてから開けよう`);return}
+  const f=caveFloor();
+  MG.open(c.lock,{level:f,title:`宝箱の鍵開け（${CHEST_LOCK[c.lock]}）`},r=>{
+    if(r.canceled){toast('鍵開けをやめた');return}
+    if(!r.ok){useSta(5);toast('鍵開けに失敗した… もう一度ためせるよ（体力を5使った）');return}
+    c.open=true;sfx('lv');
+    const bells=Math.round((250+rnd()*450)*f/10)*10;S.bells+=bells;
+    const pool=CHEST_LOOT[f]||CHEST_LOOT[1],got=[],ids=[],used=new Set();
+    for(let i=0;i<2;i++){let e;for(let k=0;k<10;k++){e=pick(pool);if(!used.has(e[0]))break}used.add(e[0]);if(ITEMS[e[0]]&&addItem(e[0],e[1],true)){got.push(`${ITEMS[e[0]].name} ×${e[1]}`);ids.push(e[0])}}
+    gainPlayerXp(10+f*6);updateHud();save();
+    pushOverlay({badge:'宝箱を開けた',title:`${bells}円 と お宝を手に入れた！`,cheer:`地下${f}階の宝箱`,note:got.join('・'),meta:`鍵：${CHEST_LOCK[c.lock]}`,icon:ids[0]||'gold'});
+  });
+}
+// A で調べる
+{const _sp=surprisePressA;surprisePressA=function(fx,fy,ptx,pty){const c=chestAt(fx,fy);if(c){openChest(c);return true}return _sp(fx,fy,ptx,pty)}}
+{const _ht=hintText;hintText=function(){if(inCave()&&!RT.fishing){const [fx,fy]=facingTile();const c=chestAt(fx,fy);if(c)return c.open?'空の宝箱':'宝箱を開ける'}return _ht()}}
+// 描く（奥行きの順に並べる物に入れる）
+function drawChest(g,c,t){
+  const x=(c.x+.5)*T,y=(c.y+1)*T-4,w=30,h=20;
+  g.fillStyle='rgba(0,0,0,.28)';g.beginPath();g.ellipse(x,y+1,17,5,0,0,7);g.fill();
+  const wood=g.createLinearGradient(0,y-h,0,y);wood.addColorStop(0,'#a8683a');wood.addColorStop(1,'#6a3e1e');
+  g.fillStyle=wood;g.beginPath();g.roundRect(x-w/2,y-h,w,h,3);g.fill();
+  g.fillStyle='#d8b04a';g.fillRect(x-w/2,y-h+6,w,2.5);g.fillRect(x-w/2+5,y-h,2.5,h);g.fillRect(x+w/2-7.5,y-h,2.5,h);
+  if(c.open){   // ふたが開いている
+    g.fillStyle='#3a2410';g.beginPath();g.roundRect(x-w/2+2,y-h-3,w-4,6,2);g.fill();
+    g.fillStyle=wood;g.beginPath();g.roundRect(x-w/2,y-h-15,w,10,[4,4,1,1]);g.fill();g.fillStyle='#d8b04a';g.fillRect(x-w/2,y-h-8,w,2);
+  }else{
+    g.fillStyle=wood;g.beginPath();g.roundRect(x-w/2-1,y-h-8,w+2,11,[6,6,2,2]);g.fill();g.fillStyle='#d8b04a';g.fillRect(x-w/2-1,y-h-2,w+2,2.5);
+    // 鍵の形：ピン式＝金の錠前、角度さがし式＝銀の鍵穴、ダイヤル式＝丸いダイヤル
+    if(c.lock==='dial'){g.fillStyle='#cfd6dc';g.beginPath();g.arc(x,y-h+4,5,0,7);g.fill();g.strokeStyle='#5a646c';g.lineWidth=1;g.beginPath();g.moveTo(x,y-h+4);g.lineTo(x+Math.cos(t*2)*4,y-h+4+Math.sin(t*2)*4);g.stroke()}
+    else{g.fillStyle=c.lock==='pin'?'#f2c84a':'#d8dee4';g.beginPath();g.roundRect(x-5,y-h,10,10,2);g.fill();g.fillStyle='#2a1a0a';g.beginPath();g.arc(x,y-h+4,1.6,0,7);g.fill();g.fillRect(x-.8,y-h+4,1.6,4)}
+    const k=.5+.5*Math.sin(t*3+c.x);g.fillStyle=`rgba(255,240,160,${.25*k})`;g.beginPath();g.arc(x+11,y-h-8,2+k,0,7);g.fill();   // きらり
+  }
+}
+{const _lo=lifeObjects;lifeObjects=function(D,ctx,t){_lo(D,ctx,t);if(inCave())for(const c of caveChests(caveFloor()))D.push([(c.y+1)*T-4,()=>drawChest(ctx,c,t)])}}
+</script>
+<script>
 // ===================== クリック移動・クリックアクション =====================
 const walkable=(x,y)=>inMap(x,y)&&!W.block[ti(x,y)];
 const ptile=()=>[Math.floor(S.px/T),Math.floor((S.py-4)/T)];
@@ -9420,7 +9723,7 @@ function loop(ts){
   requestAnimationFrame(loop);
   const dt=Math.min(.05,(ts-last)/1000||0);last=ts;
   if(S){
-    const paused=RT.title||!!RT.dlg||!!RT.panel||RT.catchShow||!!RT.layout;
+    const paused=RT.title||!!RT.dlg||!!RT.panel||RT.catchShow||!!RT.layout||!!RT.mg;   // RT.mg：ミニゲームの最中（minigame.js）
     if(!paused){
       let mx=0,my=0;if(keys.has('l'))mx--;if(keys.has('r'))mx++;if(keys.has('u'))my--;if(keys.has('d'))my++;
       let run=keys.has('run');
