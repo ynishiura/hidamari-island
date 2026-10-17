@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.109";</script>
+<script>const GAME_VERSION="1.110";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7770,7 +7770,8 @@ const HAT_IMG_FIT={
   // サンタ帽：下の白い帯（ポンポンを除く）で合わせる。後ろ向きの絵は帯より上が高いので、後ろだけ帯を下げる
   hat_santa:{w:1.4,y:.6,band:{w:1.12,y:.44,yb:.56}},
   // コック帽：下の筒（いちばん下から6行上）の幅を頭の幅の1.1倍に、筒の中心を頭の中心に
-  hat_chef:{w:1.15,y:.54,band:{color:'bottom',w:1.05,y:.36,yb:.36}},
+  // コック帽：2026-10-17 に大きさを80%に（帯の幅 1.05→.84。かぶる部分の高さはそのまま）
+  hat_chef:{w:1.15,y:.54,band:{color:'bottom',w:.84,y:.36,yb:.36}},
   hat_party:{w:.7,y:.12},
   // 大きなリボン：2026-10-17 に大きさを0.8倍（.95→.76）、少し下へ（.12→.18）。そのあと正面と後ろを下へ（y .21・yb .24 では見た目が変わらなかったので、y .30・yb .36）。横は .18 のまま
   // 横向きは横方向だけ縮める（sxs）。70% のあと、さらにその80%に（.7×.8＝.56）
@@ -7778,8 +7779,8 @@ const HAT_IMG_FIT={
   hat_ribbon:{w:.76,y:.30,ys:.30,yb:.36,dx:-.1,sxs:.56},
   hat_crown:{w:.8,y:.12},
   hat_tiara:{w:.85,y:.14,yb:.34},
-  // 花かんむり：後ろ向きは正面と同じ絵を、同じ大きさ・位置で（2026-10-17）
-  hat_flower:{w:1.15,y:.26,same:'b'},
+  // 花かんむり：後ろ向きは正面と同じ絵を、同じ大きさ・位置で（2026-10-17）。縦だけ90%に（syv）
+  hat_flower:{w:1.15,y:.26,same:'b',syv:.9},
   // ねこみみ：後ろの絵は小さめに描かれているので大きくする
   hat_catear:{w:.95,y:.40,ys:.44,yb:.40,kv:{b:1.19}},
   hat_bunny:{w:.8,y:.30,ys:.45},
@@ -7820,7 +7821,7 @@ function drawHatImg(g,id,d8,hx,hy,hw){
   const im=gi(`${id}_${v}`);if(!im||!im.naturalWidth)return false;
   const F=HAT_IMG_FIT[id]||{w:1.2,y:.5},imf=gi(`${id}_f`);
   const side=v==='l'||v==='r',f=v==='l'?-1:1;
-  if(F.same&&F.same.includes(v)){const w=hw*F.w,h=w*im.naturalHeight/im.naturalWidth;g.drawImage(im,hx-w/2,hy+hw*F.y-h,w,h);return true}   // 正面と同じ絵を同じ置き方で
+  if(F.same&&F.same.includes(v)){const w=hw*F.w,h=w*im.naturalHeight/im.naturalWidth*(F.syv||1);g.drawImage(im,hx-w/2,hy+hw*F.y-h,w,h);return true}   // 正面と同じ絵を同じ置き方で
   if(F.band){   // 白い帯を測って合わせる帽子（全部の向き）
     const M=hatMetrics(im),B=M.bands[F.band.color||'white'],sc=hw*F.band.w/Math.max(1,B.bw)*((F.band.kv&&F.band.kv[v])||1);
     const by=(v==='b'&&F.band.yb!==undefined)?F.band.yb:(side&&F.band.ys!==undefined)?F.band.ys:F.band.y;   // ys＝横向きの帯の高さ
@@ -7837,7 +7838,7 @@ function drawHatImg(g,id,d8,hx,hy,hw){
   let scale=(imf&&imf.naturalWidth?hw*F.w/imf.naturalWidth:hw*F.w/im.naturalWidth)*SHEET_K[v];
   if(side&&F.ws)scale=hw*F.ws/im.naturalWidth;else if(v==='b'&&F.wb)scale=hw*F.wb/im.naturalWidth;   // 幅を直接決めている帽子
   if(F.kv&&F.kv[v])scale*=F.kv[v];   // kv：向きごとの大きさの倍率（描いた帽子を正面と見比べて決める）
-  const w=im.naturalWidth*scale*(side&&F.sxs?F.sxs:1),h=im.naturalHeight*scale;   // sxs：横向きの絵だけ、横方向に縮める倍率（高さはそのまま）
+  const w=im.naturalWidth*scale*(side&&F.sxs?F.sxs:1),h=im.naturalHeight*scale*(F.syv||1);   // sxs：横向きの絵だけ、横方向に縮める倍率（高さはそのまま）。syv：全部の向きで、縦方向だけ縮める倍率（下の端の位置はそのまま）
   const yoff=side?(F.ys!==undefined?F.ys:F.y):v==='b'?(F.yb!==undefined?F.yb:F.y):F.y;
   const dx=side?f*hw*(F.dx||0):0;
   g.drawImage(im,hx+dx-w/2,hy+hw*yoff-h,w,h);
