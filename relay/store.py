@@ -12,7 +12,7 @@
               通報の日の前30日〜後7日のものだけ（通信の秘密。SIDERA VEIL と同じ）
   hd_inquiries  ゲーム内の「お問い合わせ」。運営の返事は、運営からのメールとしてポストに届ける
   hd_envs     アカウントごとの利用環境（2026-10-17〜）：IP（元に戻せない形 ip_hash と、末尾を伏せた形 ip_mask）・端末とブラウザ・回線の種類、最初と最後に使った日時、回数
-  hd_regs     新しく作ったアカウントの記録（IP の ip_hash と日時）。同じ IP から作れる数の上限に使う（31日で消す）
+  hd_regs     新しく作ったアカウントの記録（IP の ip_hash・端末 did と日時）。作れる数の上限に使う（90日で消す。期間を推し量られないよう、制限の30日より長く残す）
   hd_meta     設定（ip_hash の「塩」など）
 アカウント作成の制限：利用停止中のアカウントが使った IP・端末からは作れない。同じ IP か同じ端末からは 48時間に1つ・30日で2つまで
   （端末＝ゲームがブラウザに保存する「端末の識別番号」did。モバイル回線と Wi-Fi を切りかえても同じ端末だと分かる）
@@ -507,7 +507,7 @@ class Store:
     def purge(self):
         self.q('DELETE FROM hd_mail WHERE at<?', (int(time.time()) - MAIL_KEEP_DAYS * 86400,))
         self.q('DELETE FROM hd_xfer WHERE expires_at<?', (int(time.time()) - 86400,))
-        self.q('DELETE FROM hd_regs WHERE at<?', (int(time.time()) - 31 * 86400,))
+        self.q('DELETE FROM hd_regs WHERE at<?', (int(time.time()) - 90 * 86400,))
         self.q('DELETE FROM hd_envs WHERE last_at<?', (int(time.time()) - ENV_KEEP_DAYS * 86400,))
         n = self.auto_delete()
         if n:

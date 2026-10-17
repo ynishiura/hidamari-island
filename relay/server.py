@@ -126,11 +126,9 @@ def env_of(m):
     return dev, net, did_of(m)
 
 
-REG_MSG = {
-    "regban": "この端末・通信環境からは、新しい友だちIDを作れません（利用停止中のアカウントと同じ端末・通信環境のため）。",
-    "reg48": "この端末・通信環境からは、しばらく新しい友だちIDを作れません（同じ端末・通信環境から作れるのは48時間に1つまで）。",
-    "reg30": "この端末・通信環境からは、しばらく新しい友だちIDを作れません（同じ端末・通信環境から作れるのは30日で2つまで）。",
-}
+# 断るときの知らせは、どの制限でも同じ文にする（数や理由が分かると、待てばよい・ブロックされた端末だと分かってしまうため。2026-10-17 ユーザーの指示）
+REG_MSG_ALL = "この端末・通信環境からは、しばらく新しい友だちIDを作れません。"
+REG_MSG = {"regban": REG_MSG_ALL, "reg48": REG_MSG_ALL, "reg30": REG_MSG_ALL}
 
 
 def jst(ts=None):
@@ -508,7 +506,8 @@ async def handler(ws):
                 ip = client_ip(ws)
                 why = await run(db.reg_check, ip, did_of(m))
                 if why:
-                    await send(ws, {"t": "err", "why": "regblock", "kind": why, "msg": REG_MSG[why]}); continue
+                    print("register refused:", why, flush=True)   # 理由はサーバーの記録にだけ残す
+                    await send(ws, {"t": "err", "why": "regblock", "msg": REG_MSG[why]}); continue
                 if await run(db.name_taken, nm, None):
                     await send(ws, {"t": "err", "why": "nametaken"}); continue
                 pid, sec = await run(db.create, nm)
