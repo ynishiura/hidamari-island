@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.121";</script>
+<script>const GAME_VERSION="1.122";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -9238,7 +9238,23 @@ function tourEnd(){
 const MG=(()=>{
   const W=360,H=200;
   let cur=null;
-  const snd=k=>{try{if(typeof sfx==='function')sfx(k)}catch(e){}};
+  // ---- 音：ゲームの中ではゲームの音の設定（音のオン・オフ、音量）に従う。ゲームの外（サンプル）では自分で鳴らす ----
+  let ownAC=null;
+  const audio=()=>{
+    try{
+      if(typeof soundOn!=='undefined'){if(!soundOn||typeof AC==='undefined'||!AC)return null;return {c:AC,out:typeof audioOut==='function'?audioOut(AC):AC.destination}}
+      const AX=window.AudioContext||window.webkitAudioContext;if(!AX)return null;
+      if(!ownAC)ownAC=new AX();if(ownAC.state==='suspended')ownAC.resume();return {c:ownAC,out:ownAC.destination};
+    }catch(e){return null}};
+  // 短い「カチ」：高い音をすぐ消す（vol 0〜1、hz 高さ）
+  const tick=(vol,hz,len=.03,type='square')=>{const A=audio();if(!A)return;const t0=A.c.currentTime,o=A.c.createOscillator(),gn=A.c.createGain();
+    o.type=type;o.frequency.setValueAtTime(hz,t0);o.frequency.exponentialRampToValueAtTime(hz*.5,t0+len);
+    gn.gain.setValueAtTime(Math.max(.0001,.12*vol),t0);gn.gain.exponentialRampToValueAtTime(.0001,t0+len);o.connect(gn).connect(A.out);o.start(t0);o.stop(t0+len+.02)};
+  const notes=(list,type='triangle',vol=.07)=>{const A=audio();if(!A)return;let t0=A.c.currentTime;for(const [hz,d] of list){const o=A.c.createOscillator(),gn=A.c.createGain();o.type=type;o.frequency.value=hz;
+    gn.gain.setValueAtTime(vol,t0);gn.gain.exponentialRampToValueAtTime(.001,t0+d+.04);o.connect(gn).connect(A.out);o.start(t0);o.stop(t0+d+.06);t0+=d}};
+  const buzz=n=>{try{navigator.vibrate&&navigator.vibrate(n)}catch(e){}};
+  const snd=k=>{try{if(typeof sfx==='function'&&typeof soundOn!=='undefined'){sfx(k);return}}catch(e){}
+    if(k==='get')notes([[660,.08],[880,.12]]);else if(k==='hurt')notes([[180,.12],[140,.14]],'square',.05);else if(k==='nib')tick(.6,1400)};
   const rand=()=>Math.random();
   const ov=document.createElement('div');ov.id='mgOv';ov.hidden=true;
   ov.innerHTML='<div class="mgBox"><div class="mgHead"><b class="mgTitle"></b><button class="mgX" type="button">やめる</button></div><canvas class="mgCv" width="720" height="400"></canvas><div class="mgMsg"></div><div class="mgBtns"></div></div>';
@@ -9340,7 +9356,7 @@ const MG=(()=>{
       const off=Math.abs(s.a-s.target),maxR=off<=s.tol?1:clamp(1-(off-s.tol)/50,0,.95);
       if(s.turning){s.r=Math.min(maxR,s.r+dt*1.1);
         if(s.r>=1){s.done=true;snd('get');finish(true,.7);return}
-        if(s.r>=maxR-.001){s.shake=.2;s.dur-=dt;if(s.dur<=0){s.picks--;s.broke=.6;snd('hurt');s.turning=false;s.dur=.7;s.r=0;if(s.picks<=0){s.done=true;finish(false,.9)}}}
+        if(s.r>=maxR-.001){if(s.shake===0)tick(.35,320,.06,'sawtooth');s.shake=.2;s.dur-=dt;if(s.dur<=0){s.picks--;s.broke=.6;snd('hurt');s.turning=false;s.dur=.7;s.r=0;if(s.picks<=0){s.done=true;finish(false,.9)}}}
         else s.shake=0}
       else{s.r=Math.max(0,s.r-dt*2.5);s.shake=0}},
     act(s,k,down){if(s.done)return;if(k==='act')s.turning=down&&s.broke<=0;if(k==='left')s.left=down;if(k==='right')s.right=down},
@@ -9377,16 +9393,19 @@ const MG=(()=>{
     msg:s=>`◀▶ でダイヤルを回す。近づくと音が大きくなり、<b>カチッ</b>と光った数字で「決める」。（番号 ${s.k+1}／${s.n}・失敗できるのは あと${s.maxMiss-s.miss}回）`,
     buttons:[['left','◀','side'],['act','決める','main'],['right','▶','side']],
     num:s=>((Math.round(s.v)%40)+40)%40,
+    near:s=>{const n=DIAL.num(s),d=s.code[s.k];if(d===undefined)return 0;const dist=Math.min(Math.abs(n-d),40-Math.abs(n-d));return clamp(1-dist/8,0,1)},
     update(s,dt){s.flash=Math.max(0,s.flash-dt);s.click=Math.max(0,s.click-dt);if(s.done)return;
       if(s.left)s.v-=dt*9;if(s.right)s.v+=dt*9;
-      const n=DIAL.num(s);if(n!==s.last){s.last=n;if(n===s.code[s.k]){s.click=.5;snd('nib')}}},
+      const n=DIAL.num(s);if(n!==s.last){s.last=n;const c=DIAL.near(s);
+        if(n===s.code[s.k]){s.click=.6;tick(1,900,.05);setTimeout(()=>tick(1,1300,.04),55);buzz(40)}   // ぴったり：はっきりした「カチッ」と振動
+        else tick(.12+.55*c*c,1600+1400*c,.025)}},                                                      // 1目盛りごとの「カチ」：近いほど大きく高い
     act(s,k,down){if(s.done)return;if(k==='left')s.left=down;if(k==='right')s.right=down;
       if(k==='act'&&down){if(DIAL.num(s)===s.code[s.k]){s.k++;snd('get');if(s.k>=s.n){s.done=true;finish(true,.7)}}
         else{s.miss++;s.flash=.35;snd('hurt');if(s.miss>=s.maxMiss){s.done=true;finish(false,.8)}}}},
     drag(s,da){if(!s.done)s.v+=da/(Math.PI*2)*40},
     draw(s,t){
       g.fillStyle=lin(0,0,0,H,[[0,'#3c4650'],[1,'#20262c']]);g.fillRect(0,0,W,H);
-      const cx=128,cy=104,R=70,n=DIAL.num(s),d=s.code[s.k],dist=s.done?0:Math.min(...[Math.abs(n-d),40-Math.abs(n-d)]);
+      const n=DIAL.num(s),d=s.code[s.k],dist=s.done?0:Math.min(...[Math.abs(n-d),40-Math.abs(n-d)]),near=s.done?0:DIAL.near(s),cx=128+(near>.6&&!s.done?Math.sin(t*60)*near*1.2:0),cy=104,R=70;
       // 扉
       rr(20,14,W-40,176,14,lin(0,14,0,190,[[0,'#7d8790'],[1,'#4f5860']]));
       // ダイヤル
@@ -9398,9 +9417,10 @@ const MG=(()=>{
       g.fillStyle='#e8486a';g.beginPath();g.moveTo(cx,cy-R-2);g.lineTo(cx-6,cy-R-12);g.lineTo(cx+6,cy-R-12);g.closePath();g.fill();
       txt(String(n).padStart(2,'0'),cx,cy,18,'#fff','center','900');
       // 聞き耳（音の大きさ）
-      const lvl=s.done?0:clamp(1-dist/8,0,1);txt('音の大きさ',272,34,11,'#dfe6ea','center','500');
+      const lvl=near;txt('音の大きさ',272,34,11,'#dfe6ea','center','500');
       for(let i=0;i<8;i++){const on=i<Math.round(lvl*8);rr(232+i*10,108-i*7,8,8+i*7,2,on?(i>=7?'#ffe066':'#8ee08a'):'#2e363c')}
-      const lamp=s.click>0?'#ffe066':'#4a3a10';g.fillStyle=lamp;g.beginPath();g.arc(272,140,10,0,7);g.fill();txt(s.click>0?'カチッ！':'',272,160,12,'#ffe066','center','900');
+      g.fillStyle=s.click>0?'#ffe066':`rgba(255,224,102,${.12+.5*lvl})`;g.beginPath();g.arc(272,140,10+(s.click>0?3:0),0,7);g.fill();
+      txt(s.click>0?'カチッ！ ここで決める':lvl>=.75?'とても近い':lvl>=.4?'近い':'遠い',272,162,s.click>0?12:10,s.click>0?'#ffe066':'#dfe6ea','center',s.click>0?'900':'500');
       // そろえた番号
       for(let i=0;i<s.n;i++){rr(228+i*22,170,18,16,3,i<s.k?'#ffd84a':'#2e363c');txt(i<s.k?String(s.code[i]):'?',237+i*22,178,10,i<s.k?'#3a2a10':'#8a949b','center','900')}
       if(s.flash>0){g.fillStyle=`rgba(255,80,80,${s.flash})`;g.fillRect(0,0,W,H)}
