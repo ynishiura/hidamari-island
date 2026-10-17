@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.090";</script>
+<script>const GAME_VERSION="1.091";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7740,15 +7740,15 @@ const SHEET_K={f:1,b:.78,l:1.0,r:1.0};   // 後ろ向きのシートは、ほか
 // m：横向き・後ろ向きを「絵のかぶる部分（つばやたれを除いた山の部分）」を測って合わせる帽子。
 //   cw＝山の幅（頭の幅の何倍）, cx＝山の中心の前後のずれ（頭の幅に対する割合。横向きはプラスで前）, cy＝山の下のふちを頭のてっぺんからどれだけ下げるか
 //   center＝山の中心（丸い物）を cy に合わせる, whole＝絵全体で合わせる
-// キャップ：山（つばを除いたかぶる部分）の幅を、どの向きも頭の幅の1.12倍にそろえる（正面は絵の96%が山なので w=1.17）。横は山を少し後ろへ寄せて、後ろ髪がはみ出ないように
-const CAP_M={s:{cw:1.12,cx:-.04,cy:.66},b:{cw:1.12,cx:0,cy:.64}};
+// キャップ：横向きの山（つばを除いたかぶる部分）の幅を頭の幅の1.12倍にし、正面・後ろは帽子の高さが横と同じになる大きさにそろえる（正面 w=1.075・後ろ cw=.99）。横は山を少し後ろへ寄せて、後ろ髪がはみ出ないように
+const CAP_M={s:{cw:1.12,cx:-.04,cy:.66},b:{cw:.99,cx:0,cy:.66}};   // 後ろは帽子の高さが横と同じになる幅（絵の高さ 75/幅 95 と、横の 54/72 から）
 const HAT_IMG_FIT={
   // 1行に1つの帽子。注釈は必ず行の前に書く（行の後ろに // を書くと、その後ろの設定が注釈あつかいになって読まれなくなる）
   // ws/wb：横向き・後ろ向きの絵の幅を直接決める（頭の幅の何倍か）。m：山の幅で合わせる。same：その向きは正面の絵を同じ大きさ・位置で使う
   // band：帯（white 白い帯／red 赤い帯／any いちばん広い行＝つば・ふち／crown 山の幅／base 山の下端）を測り、帯の幅を頭の幅の w 倍・帯の中心を頭の中心・帯の行を頭のてっぺんから y（横 ys・後ろ yb）倍の位置に置く。sy は縦の縮尺の倍率
-  hat_cap:{w:1.17,y:.56,m:CAP_M},
-  hat_cap_red:{w:1.17,y:.56,m:CAP_M},
-  hat_cap_black:{w:1.17,y:.56,m:CAP_M},
+  hat_cap:{w:1.075,y:.61,m:CAP_M},
+  hat_cap_red:{w:1.075,y:.61,m:CAP_M},
+  hat_cap_black:{w:1.075,y:.61,m:CAP_M},
   hat_knit:{w:1.12,y:.66,same:'b'},
   hat_knit_blue:{w:1.12,y:.66,same:'b'},
   hat_knit_green:{w:1.12,y:.66,same:'b'},
