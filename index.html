@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.086";</script>
+<script>const GAME_VERSION="1.087";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7748,11 +7748,12 @@ const HAT_IMG_FIT={
   // シルクハット：赤いリボンの帯で合わせる
   hat_top:{w:1.15,y:.52,band:{color:'red',w:.70,y:.16,yb:.22}},
   // 魔女の帽子：ユーザーの見本（tools/raw/hats/witch_target.jpg）を画素で測った値。つば＝頭の幅の1.48倍、とんがりの先からつばまで＝頭の幅の0.96倍、つばの行＝目の中心より頭の幅の0.34倍上
-  hat_witch:{w:1.7,y:.56,band:{color:'any',w:1.48,sy:.85,y:.35,yb:.39}},
+  hat_witch:{w:1.7,y:.56,band:{color:'any',w:1.58,sy:.85,y:.37,yb:.41}},
   hat_cowboy:{w:1.7,y:.58,ys:.60},
   // サンタ帽：下の白い帯（ポンポンを除く）で合わせる。後ろ向きの絵は帯より上が高いので、後ろだけ帯を下げる
   hat_santa:{w:1.4,y:.6,band:{w:1.12,y:.44,yb:.56}},
-  hat_chef:{w:1.15,y:.54},
+  // コック帽：下の筒（いちばん下から6行上）の幅を頭の幅の1.1倍に、筒の中心を頭の中心に
+  hat_chef:{w:1.15,y:.54,band:{color:'bottom',w:1.05,y:.36,yb:.36}},
   hat_party:{w:.7,y:.12},
   hat_ribbon:{w:.95,y:.12,dx:-.1},
   hat_crown:{w:.8,y:.12},
@@ -7785,7 +7786,9 @@ function hatMetrics(im){
   // base＝つばのすぐ上の「山の下端」の幅：いちばん広い行（つば）から上へ、幅がつばの8割以上の行（つばの厚み）を抜けた2行上の幅
   {const wid=[],lo=[],hi=[];for(let y=0;y<h;y++){let a=-1,b=-1;for(let x=0;x<w;x++)if(d[(y*w+x)*4+3]>128){if(a<0)a=x;b=x}wid.push(a<0?0:b-a+1);lo.push(a);hi.push(b)}
     let y=bands.any.by;const mx=wid[y];while(y>0&&wid[y]>=mx*.8)y--;y=Math.max(0,y-2);
-    bands.base={bw:wid[y],bcx:(lo[y]+hi[y])/2,by:bands.any.by}}   // crown＝つばを除いた山の幅（列の厚みがいちばん厚い列の半分以上ある列のつながり）。高さの基準はつば（いちばん広い行）
+    bands.base={bw:wid[y],bcx:(lo[y]+hi[y])/2,by:bands.any.by};
+    // bottom＝帽子のいちばん下から6行上の幅（コック帽の筒など、下がまっすぐな帽子のかぶる部分）
+    let yb=h-1;while(yb>0&&!wid[yb])yb--;yb=Math.max(0,yb-6);bands.bottom={bw:wid[yb],bcx:(lo[yb]+hi[yb])/2,by:yb}}   // crown＝つばを除いた山の幅（列の厚みがいちばん厚い列の半分以上ある列のつながり）。高さの基準はつば（いちばん広い行）
   m={w,h,x0,x1,cw:x1-x0+1,ccx:(x0+x1)/2,top,bot,bands,...bands.white};_hatMet.set(im,m);return m;
 }
 // 向き d8（d/u/l/r/dl/dr/ul/ur）に合う絵を、頭のてっぺん (hx,hy)・頭の幅 hw に合わせて描く。絵が無ければ false
