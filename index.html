@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.107";</script>
+<script>const GAME_VERSION="1.108";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7774,7 +7774,8 @@ const HAT_IMG_FIT={
   hat_party:{w:.7,y:.12},
   // 大きなリボン：2026-10-17 に大きさを0.8倍（.95→.76）、少し下へ（.12→.18）。そのあと正面と後ろを下へ（y .21・yb .24 では見た目が変わらなかったので、y .30・yb .36）。横は .18 のまま
   // 横向きは横方向だけ縮める（sxs）。70% のあと、さらにその80%に（.7×.8＝.56）
-  hat_ribbon:{w:.76,y:.30,ys:.18,yb:.36,dx:-.1,sxs:.56},
+  // 横向きの高さは .18 → .30 へ下げた（2026-10-17）
+  hat_ribbon:{w:.76,y:.30,ys:.30,yb:.36,dx:-.1,sxs:.56},
   hat_crown:{w:.8,y:.12},
   hat_tiara:{w:.85,y:.14,yb:.34},
   hat_flower:{w:1.15,y:.26},
