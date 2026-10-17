@@ -20,7 +20,7 @@
 
 hd_players には後から足した列がある：banned（ブロック）・play_sec（プレイ時間・秒。まだ届いていなければ NULL）・
 device（利用端末）・save（ゲームのセーブ＝引継ぎコードの形）・save_at
-自動削除：プレイ時間が3分未満のまま、3日以上つないでいないアカウントは消す（play_sec が NULL のものは消さない）。
+自動削除：総プレイ時間（ゲームの S.playSec。遊んだ時間の合計）が3分未満のまま、3日以上つないでいないアカウントは消す（play_sec が NULL のものは消さない）。
   さらに、最後につないでから30日つないでいないアカウントも消す（2026-10-17〜）。どちらも利用停止中のアカウントは消さない（ブロック逃れを止める記録を残すため）
 友だちIDは、アカウントごとに1つで変わらない。運営の「アカウント作成の代行」は、hd_xfer の kind='id' のコード（受け取ると友だちIDだけが入る）
 """
@@ -345,7 +345,7 @@ class Store:
         return True
 
     def auto_delete(self):
-        """プレイ時間が3分未満のまま3日以上つないでいない、または最後につないでから30日つないでいないアカウントを消す（利用停止中は消さない）。消した数を返す"""
+        """総プレイ時間が3分未満のまま3日以上つないでいない、または最後につないでから30日つないでいないアカウントを消す（利用停止中は消さない）。消した数を返す"""
         now = int(time.time())
         rows = self.q('SELECT id FROM hd_players WHERE banned=0 AND ((play_sec IS NOT NULL AND play_sec<? AND seen_at<?) OR seen_at<?)',
                       (AUTO_DEL_PLAY, now - AUTO_DEL_DAYS * 86400, now - IDLE_DEL_DAYS * 86400), many=True) or []

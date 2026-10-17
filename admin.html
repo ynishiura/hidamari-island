@@ -82,7 +82,7 @@
     <div class="card">
       <div class="row"><input id="pq" class="grow" placeholder="名前か友だちID（HD-…）で探す。空なら最近つないだ順"><button id="psearch">探す</button></div>
       <p class="msg" id="pmsg"></p>
-      <div class="scroll"><table><thead><tr><th>名前</th><th>友だちID</th><th>利用端末</th><th>アカウント作成日時</th><th>プレイ時間</th><th>最終アクセス日時</th><th>操作</th></tr></thead><tbody id="plist"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>名前</th><th>友だちID</th><th>利用端末</th><th>アカウント作成日時</th><th>総プレイ時間</th><th>最終アクセス日時</th><th>操作</th></tr></thead><tbody id="plist"></tbody></table></div>
       <div class="row" style="margin-top:8px"><button id="pprev" class="sub">前の100人</button><button id="pnext" class="sub">次の100人</button></div>
     </div>
     <div class="card detail" id="pdetail" hidden></div>
@@ -203,7 +203,7 @@
     const s = j.stats, g = $('#statGrid'); g.innerHTML = '';
     for (const [v, l] of [[j.online, 'いまつないでいる人'], [s.players, '友だちIDの数'], [s.active1, '24時間以内に遊んだ人'], [s.active7, '7日以内に遊んだ人'], [s.new7, '7日以内に作られたID'], [s.mails, 'メール（30日分）'], [s.mails1, '24時間のメール'], [s.banned, 'ブロック中']])
       g.append(el('div', { class: 'stat' }, el('b', { text: (v || 0).toLocaleString() }), el('span', { text: l })));
-    $('#statNote').textContent = '「友だちIDの数」＝アカウントの数です（Ver 1.095 からは、遊び始めると自動で作られます）。プレイ時間が3分未満のまま3日以上つないでいないアカウントと、最後につないでから30日つないでいないアカウントは、自動で削除されます（ブロック中のアカウントは消しません）。';
+    $('#statNote').textContent = '「友だちIDの数」＝アカウントの数です（Ver 1.095 からは、遊び始めると自動で作られます）。総プレイ時間が3分未満のまま3日以上つないでいないアカウントと、最後につないでから30日つないでいないアカウントは、自動で削除されます（ブロック中のアカウントは消しません）。';
     const rl = $('#roomList'); rl.innerHTML = '';
     if (!j.rooms.length) rl.append(el('tr', {}, el('td', { colspan: 5, class: 'msg', text: 'いまひらいている島の門はありません' })));
     for (const r of j.rooms) rl.append(el('tr', {}, el('td', { class: 'mono', text: r.code }), el('td', { text: r.host }), el('td', { text: r.members + '人' }), el('td', { text: r.names.join('、') }),
@@ -279,7 +279,7 @@
       el('dl', {}, el('dt', { text: '友だちID' }), el('dd', { class: 'mono', text: p.id }),
         el('dt', { text: '利用端末' }), el('dd', { text: p.device || '—（まだ届いていません）' }),
         el('dt', { text: 'アカウント作成' }), el('dd', { text: fmt(p.createdAt) }),
-        el('dt', { text: 'プレイ時間' }), el('dd', { text: playT(p.playSec) + (p.playSec != null && p.playSec < 180 ? '（3分未満のまま3日つながないと自動で消えます）' : '') }),
+        el('dt', { text: '総プレイ時間' }), el('dd', { text: playT(p.playSec) + (p.playSec != null && p.playSec < 180 ? '（総プレイ時間が3分未満のまま3日つながないと自動で消えます）' : '') }),
         el('dt', { text: '最終アクセス' }), el('dd', { text: `${fmt(p.seenAt)}（${ago(p.seenAt)}）` }),
         el('dt', { text: '預かったセーブ' }), el('dd', { text: p.saveAt ? `${fmt(p.saveAt)} のもの` : 'まだありません' }),
         el('dt', { text: 'フレンド' }), el('dd', { text: list(p.friends) }),
