@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.118";</script>
+<script>const GAME_VERSION="1.119";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7793,7 +7793,8 @@ const HAT_IMG_FIT={
   // イヤーマフの横：ユーザーがくれた絵（耳当て1つと、上へのびる帯）。絵全体の幅で大きさを決める。2026-10-17 に絵を更新したとき、前の絵と同じ倍率・同じ位置になるように、枠の中の位置と大きさのちがいから計算した値
   // イヤーマフの正面：2026-10-17 に大きさを90%に（w 1.3→1.17）。耳当ての中心の高さが変わらないように y .95→.975。そのあと少し上へ（.975→.865）
   // そのあと4方向とも少しだけ上へ（頭の幅の9%：正面 y .865→.775、横 cy .5571→.4671、後ろ cy .84→.75）
-  hat_earmuff:{w:1.17,y:.775,m:{s:{whole:true,cw:.5376,cx:-.1271,cy:.4671,center:true},b:{whole:true,cw:1.15,cx:0,cy:.75}}},
+  // 正面と後ろ向きは、左右の耳当ての間を頭の幅の12%だけ広げる（spread。耳当ての形はそのまま、まん中の帯を伸ばす）
+  hat_earmuff:{w:1.17,y:.775,spread:{f:.12,b:.12},m:{s:{whole:true,cw:.5376,cx:-.1271,cy:.4671,center:true},b:{whole:true,cw:1.15,cx:0,cy:.75}}},
 };
 // 帽子の絵の「山」（かぶる部分）を測る：列ごとの不透明な画素の数が、いちばん多い列の半分以上ある列のつながりを山とみなす（つば・たれ・帯は細いので外れる）
 const _hatMet=new Map();
@@ -7820,12 +7821,21 @@ function hatMetrics(im){
     let yb=h-1;while(yb>0&&!wid[yb])yb--;yb=Math.max(0,yb-6);bands.bottom={bw:wid[yb],bcx:(lo[yb]+hi[yb])/2,by:yb}}   // crown＝つばを除いた山の幅（列の厚みがいちばん厚い列の半分以上ある列のつながり）。高さの基準はつば（いちばん広い行）
   m={w,h,x0,x1,cw:x1-x0+1,ccx:(x0+x1)/2,top,bot,bands,...bands.white};_hatMet.set(im,m);return m;
 }
+// 絵を描く。e（画素）があれば、左右の3割はそのままで、まん中の4割だけを横に e だけ伸ばす（イヤーマフの左右の耳当ての間を広げるため。中心はそのまま）
+function hatPut(g,im,x,y,w,h,e){
+  if(!e){g.drawImage(im,x,y,w,h);return}
+  const W=im.naturalWidth,H=im.naturalHeight,sl=Math.round(W*.3),dl=w*sl/W,x0=x-e/2;
+  g.drawImage(im,0,0,sl,H,x0,y,dl+.5,h);                                   // 左
+  g.drawImage(im,sl,0,W-2*sl,H,x0+dl,y,w+e-2*dl,h);                          // まん中（伸ばす）
+  g.drawImage(im,W-sl,0,sl,H,x0+w+e-dl-.5,y,dl+.5,h);                        // 右
+}
 // 向き d8（d/u/l/r/dl/dr/ul/ur）に合う絵を、頭のてっぺん (hx,hy)・頭の幅 hw に合わせて描く。絵が無ければ false
+// spread：{f,b} 正面・後ろ向きで、まん中を頭の幅の何倍だけ横に広げるか（hatPut）
 function drawHatImg(g,id,d8,hx,hy,hw){
   const v=d8.includes('l')?'l':d8.includes('r')?'r':d8[0]==='u'?'b':'f';
   const im=gi(`${id}_${v}`);if(!im||!im.naturalWidth)return false;
   const F=HAT_IMG_FIT[id]||{w:1.2,y:.5},imf=gi(`${id}_f`);
-  const side=v==='l'||v==='r',f=v==='l'?-1:1;
+  const side=v==='l'||v==='r',f=v==='l'?-1:1,ex=hw*((F.spread&&F.spread[v])||0);
   if(F.same&&F.same.includes(v)){const w0=hw*F.w,h=w0*im.naturalHeight/im.naturalWidth*(F.syv||1),w=w0*(F.sxv||1);g.drawImage(im,hx-w/2,hy+hw*F.y-h,w,h);return true}   // 正面と同じ絵を同じ置き方で
   if(F.band){   // 白い帯を測って合わせる帽子（全部の向き）
     const M=hatMetrics(im),B=M.bands[F.band.color||'white'],sc=hw*F.band.w/Math.max(1,B.bw)*((F.band.kv&&F.band.kv[v])||1);
@@ -7837,7 +7847,7 @@ function drawHatImg(g,id,d8,hx,hy,hw){
     const sp=side?F.m.s:F.m.b,M=hatMetrics(im);
     const cw=sp.whole?M.w:M.cw,ccx=sp.whole?M.w/2:M.ccx,bot=sp.whole?M.h:M.bot;
     const sc=hw*sp.cw/cw,x=hx+f*sp.cx*hw-ccx*sc,y=hy+sp.cy*hw-(sp.center?(bot-cw/2):bot)*sc;
-    g.drawImage(im,x,y,M.w*sc,M.h*sc);return true;
+    hatPut(g,im,x,y,M.w*sc,M.h*sc,ex);return true;
   }
   // 正面の絵の幅を頭の幅×F.w にする縮尺を、ほかの向きにもそのまま使う（シートごとの大きさのちがいだけ補正）
   let scale=(imf&&imf.naturalWidth?hw*F.w/imf.naturalWidth:hw*F.w/im.naturalWidth)*SHEET_K[v];
@@ -7846,7 +7856,7 @@ function drawHatImg(g,id,d8,hx,hy,hw){
   const w=im.naturalWidth*scale*(side&&F.sxs?F.sxs:1)*(F.sxv||1),h=im.naturalHeight*scale*(F.syv||1);   // sxs：横向きの絵だけ、横方向に縮める倍率（高さはそのまま）。syv：全部の向きで、縦方向だけ縮める倍率（下の端の位置はそのまま）。sxv：全部の向きで、横方向だけ縮める倍率（中心はそのまま）
   const yoff=side?(F.ys!==undefined?F.ys:F.y):v==='b'?(F.yb!==undefined?F.yb:F.y):F.y;
   const dx=side?f*hw*(F.dx||0):0;
-  g.drawImage(im,hx+dx-w/2,hy+hw*yoff-h,w,h);
+  hatPut(g,im,hx+dx-w/2,hy+hw*yoff-h,w,h,ex);
   return true;
 }
 // 持ち物・お店・装備の小さな絵も、正面の絵を使う
