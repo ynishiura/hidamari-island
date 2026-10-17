@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.110";</script>
+<script>const GAME_VERSION="1.111";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7770,8 +7770,8 @@ const HAT_IMG_FIT={
   // サンタ帽：下の白い帯（ポンポンを除く）で合わせる。後ろ向きの絵は帯より上が高いので、後ろだけ帯を下げる
   hat_santa:{w:1.4,y:.6,band:{w:1.12,y:.44,yb:.56}},
   // コック帽：下の筒（いちばん下から6行上）の幅を頭の幅の1.1倍に、筒の中心を頭の中心に
-  // コック帽：2026-10-17 に大きさを80%に（帯の幅 1.05→.84。かぶる部分の高さはそのまま）
-  hat_chef:{w:1.15,y:.54,band:{color:'bottom',w:.84,y:.36,yb:.36}},
+  // コック帽：2026-10-17 に大きさを80%に（帯の幅 1.05→.84。かぶる部分の高さはそのまま）。そのあと全部の向きを少し上へ（.36→.24）
+  hat_chef:{w:1.15,y:.54,band:{color:'bottom',w:.84,y:.24,yb:.24}},
   hat_party:{w:.7,y:.12},
   // 大きなリボン：2026-10-17 に大きさを0.8倍（.95→.76）、少し下へ（.12→.18）。そのあと正面と後ろを下へ（y .21・yb .24 では見た目が変わらなかったので、y .30・yb .36）。横は .18 のまま
   // 横向きは横方向だけ縮める（sxs）。70% のあと、さらにその80%に（.7×.8＝.56）
@@ -7779,8 +7779,8 @@ const HAT_IMG_FIT={
   hat_ribbon:{w:.76,y:.30,ys:.30,yb:.36,dx:-.1,sxs:.56},
   hat_crown:{w:.8,y:.12},
   hat_tiara:{w:.85,y:.14,yb:.34},
-  // 花かんむり：後ろ向きは正面と同じ絵を、同じ大きさ・位置で（2026-10-17）。縦だけ90%に（syv）
-  hat_flower:{w:1.15,y:.26,same:'b',syv:.9},
+  // 花かんむり：後ろ向きは正面と同じ絵を、同じ大きさ・位置で（2026-10-17）。縦だけ縮める（syv）：90% のあと、さらにその80%に（.9×.8＝.72）
+  hat_flower:{w:1.15,y:.26,same:'b',syv:.72},
   // ねこみみ：後ろの絵は小さめに描かれているので大きくする
   hat_catear:{w:.95,y:.40,ys:.44,yb:.40,kv:{b:1.19}},
   hat_bunny:{w:.8,y:.30,ys:.45},
