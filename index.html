@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.105";</script>
+<script>const GAME_VERSION="1.106";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7773,7 +7773,8 @@ const HAT_IMG_FIT={
   hat_chef:{w:1.15,y:.54,band:{color:'bottom',w:1.05,y:.36,yb:.36}},
   hat_party:{w:.7,y:.12},
   // 大きなリボン：2026-10-17 に大きさを0.8倍（.95→.76）、少し下へ（.12→.18）。そのあと正面と後ろを下へ（y .21・yb .24 では見た目が変わらなかったので、y .30・yb .36）。横は .18 のまま
-  hat_ribbon:{w:.76,y:.30,ys:.18,yb:.36,dx:-.1},
+  // 横向きは横方向だけ70%に（sxs）
+  hat_ribbon:{w:.76,y:.30,ys:.18,yb:.36,dx:-.1,sxs:.7},
   hat_crown:{w:.8,y:.12},
   hat_tiara:{w:.85,y:.14,yb:.34},
   hat_flower:{w:1.15,y:.26},
@@ -7834,7 +7835,7 @@ function drawHatImg(g,id,d8,hx,hy,hw){
   let scale=(imf&&imf.naturalWidth?hw*F.w/imf.naturalWidth:hw*F.w/im.naturalWidth)*SHEET_K[v];
   if(side&&F.ws)scale=hw*F.ws/im.naturalWidth;else if(v==='b'&&F.wb)scale=hw*F.wb/im.naturalWidth;   // 幅を直接決めている帽子
   if(F.kv&&F.kv[v])scale*=F.kv[v];   // kv：向きごとの大きさの倍率（描いた帽子を正面と見比べて決める）
-  const w=im.naturalWidth*scale,h=im.naturalHeight*scale;
+  const w=im.naturalWidth*scale*(side&&F.sxs?F.sxs:1),h=im.naturalHeight*scale;   // sxs：横向きの絵だけ、横方向に縮める倍率（高さはそのまま）
   const yoff=side?(F.ys!==undefined?F.ys:F.y):v==='b'?(F.yb!==undefined?F.yb:F.y):F.y;
   const dx=side?f*hw*(F.dx||0):0;
   g.drawImage(im,hx+dx-w/2,hy+hw*yoff-h,w,h);
