@@ -8,6 +8,8 @@
   hd_players  1人1行。id（友だちID）・合言葉のハッシュ・名前・フレンド・申請（JSON）
   hd_mail     メール1通1行。30日たったものは消す
   hd_xfer     運営が発行した引継ぎコード（7日間・1回限り）
+  hd_reports  プレイヤーからの通報（フレンドから届いたメール）。運営が読めるメールは、通報があった2人の、
+              通報の日の前30日〜後7日のものだけ（通信の秘密。SIDERA VEIL と同じ）
 
 hd_players には後から足した列がある：banned（ブロック）・play_sec（プレイ時間・秒。まだ届いていなければ NULL）・
 device（利用端末）・save（ゲームのセーブ＝引継ぎコードの形）・save_at
@@ -98,6 +100,8 @@ class Store:
                 pass
         self.q('CREATE TABLE IF NOT EXISTS hd_xfer (code TEXT PRIMARY KEY, pid TEXT NOT NULL, created_at BIGINT NOT NULL, '
                'expires_at BIGINT NOT NULL, used INTEGER NOT NULL DEFAULT 0)')
+        self.q(f'CREATE TABLE IF NOT EXISTS hd_reports (id {auto}, reporter TEXT NOT NULL, target TEXT NOT NULL, mail_id BIGINT, '
+               'reason TEXT, detail TEXT, body TEXT, mail_at BIGINT, at BIGINT NOT NULL)')
         self.q('CREATE INDEX IF NOT EXISTS hd_mail_to ON hd_mail (to_id, at)')
         self.q('CREATE INDEX IF NOT EXISTS hd_mail_from ON hd_mail (from_id, at)')
 
@@ -122,14 +126,14 @@ class Store:
         if not r:
             return None
         d = json.loads(r[1] or '{}')
-        for k in ('friends', 'reqIn', 'reqOut'):
+        for k in ('friends', 'reqIn', 'reqOut', 'blocked'):
             d.setdefault(k, [])
         d['name'] = r[0] or 'だれか'
         return d
 
     def put(self, pid, d):
         name = d.get('name')
-        data = {k: d[k] for k in ('friends', 'reqIn', 'reqOut')}
+        data = {k: d.get(k, []) for k in ('friends', 'reqIn', 'reqOut', 'blocked')}
         self.q('UPDATE hd_players SET data=?, name=? WHERE id=?', (json.dumps(data, ensure_ascii=False), name, pid))
 
     def touch(self, pid, name=None):
@@ -263,9 +267,10 @@ class Store:
             if oid == pid:
                 continue
             d = json.loads(data or '{}')
-            for k in ('friends', 'reqIn', 'reqOut'):
+            for k in ('friends', 'reqIn', 'reqOut', 'blocked'):
                 d[k] = [x for x in d.get(k, []) if x != pid]
-            self.q('UPDATE hd_players SET data=? WHERE id=?', (json.dumps({k: d.get(k, []) for k in ('friends', 'reqIn', 'reqOut')}, ensure_ascii=False), oid))
+            self.q('UPDATE hd_players SET data=? WHERE id=?', (json.dumps({k: d.get(k, []) for k in ('friends', 'reqIn', 'reqOut', 'blocked')}, ensure_ascii=False), oid))
+        self.q('DELETE FROM hd_reports WHERE reporter=? OR target=?', (pid, pid))
         self.q('DELETE FROM hd_mail WHERE from_id=? OR to_id=?', (pid, pid))
         self.q('DELETE FROM hd_xfer WHERE pid=?', (pid,))
         self.q('DELETE FROM hd_players WHERE id=?', (pid,))
@@ -294,7 +299,15 @@ class Store:
                 'reqOut': [row(i) for i in d.get('reqOut', [])], 'mailSent': sent, 'mailGot': got}
 
     def admin_mails(self, q='', limit=200):
-        """メールの一覧（新しい順）。q は友だちID・名前・本文の部分一致"""
+        """運営が見られるメールの一覧（新しい順）：通報があった2人の、通報の日の前30日〜後7日のものだけ（通信の秘密）。
+        q は友だちID・名前・本文の部分一致"""
+        pairs = self.reported_pairs()
+        if not pairs:
+            return []
+        ok = lambda m: any(t - 30 * 86400 <= m['at'] <= t + 7 * 86400 for t in pairs.get(frozenset((m['from'], m['to'])), ()))
+        return [m for m in self._admin_mails_all(q, 5000) if ok(m)][:limit]
+
+    def _admin_mails_all(self, q='', limit=200):
         q = str(q or '').strip()
         if q:
             like = '%' + q + '%'
@@ -311,6 +324,29 @@ class Store:
         for i in ids[:500]:
             self.q('DELETE FROM hd_mail WHERE id=?', (int(i),)); n += 1
         return n
+
+    # ---- 通報 ----
+    def mail_in_inbox(self, pid, mid):
+        r = self.q('SELECT id, from_id, from_name, body, at FROM hd_mail WHERE id=? AND to_id=?', (int(mid), pid), one=True)
+        return r and {'id': r[0], 'from': r[1], 'fromName': r[2], 'body': r[3], 'at': r[4]}
+
+    def add_report(self, reporter, target, mail, reason, detail):
+        self.q('INSERT INTO hd_reports (reporter, target, mail_id, reason, detail, body, mail_at, at) VALUES (?,?,?,?,?,?,?,?)',
+               (reporter, target, mail['id'], reason, detail, mail['body'], mail['at'], int(time.time())))
+
+    def reports(self, limit=200):
+        rows = self.q('SELECT id, reporter, target, reason, detail, body, mail_at, at FROM hd_reports ORDER BY at DESC, id DESC LIMIT ?',
+                      (int(limit),), many=True) or []
+        names = self.names(list({x for r in rows for x in (r[1], r[2])}))
+        return [{'id': r[0], 'reporter': r[1], 'reporterName': names.get(r[1], '（削除された人）'), 'target': r[2],
+                 'targetName': names.get(r[2], '（削除された人）'), 'reason': r[3], 'detail': r[4], 'body': r[5], 'mailAt': r[6], 'at': r[7]} for r in rows]
+
+    def reported_pairs(self):
+        """通報があった2人の組 → 通報の時刻の並び"""
+        out = {}
+        for a, b, at in (self.q('SELECT reporter, target, at FROM hd_reports', many=True) or []):
+            out.setdefault(frozenset((a, b)), []).append(int(at))
+        return out
 
     def all_ids(self):
         return [r[0] for r in (self.q('SELECT id FROM hd_players WHERE banned=0', many=True) or [])]

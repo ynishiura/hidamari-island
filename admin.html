@@ -68,7 +68,7 @@
 <main>
   <p class="msg" id="status">パスワードを入れて「表示」を押してください。（中継サーバーが眠っているときは、起きるまで1分ほどかかります）</p>
   <div class="tabs" id="tabs" hidden>
-    <button data-t="stats" class="on">状況</button><button data-t="players">プレイヤー</button><button data-t="mails">メール</button><button data-t="notice">お知らせを送る</button>
+    <button data-t="stats" class="on">状況</button><button data-t="players">プレイヤー</button><button data-t="reports">通報</button><button data-t="mails">メール</button><button data-t="notice">お知らせを送る</button>
   </div>
 
   <section class="pane" id="pane-stats" hidden>
@@ -88,10 +88,19 @@
 
   <section class="pane" id="pane-mails" hidden>
     <div class="card">
-      <p class="msg" style="margin-top:0">プレイヤーどうしのメール（新しい順・最大300通。30日たったものは自動で消えます）。悪口などは、選んで消せます。</p>
+      <p class="msg" style="margin-top:0">見られるのは、<b>通報があった2人の、通報の日の前30日〜後7日のメールだけ</b>です（通信の秘密。SIDERA VEIL と同じ）。通報への対応と不正の調査に必要な範囲で確認してください。悪口などは、選んで消せます。</p>
       <div class="row"><input id="mq" class="grow" placeholder="友だちID・名前・本文で探す"><button id="msearch">探す</button><button id="mdel" class="warn" disabled>選んだメールを消す</button></div>
       <p class="msg" id="mmsg"></p>
       <div class="scroll"><table><thead><tr><th></th><th>日時</th><th>差出人</th><th>宛先</th><th>本文</th></tr></thead><tbody id="mlist"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="pane" id="pane-reports" hidden>
+    <div class="card">
+      <h2>プレイヤーからの通報</h2>
+      <p class="msg" style="margin-top:0">フレンドから届いたメールを、受け取った人が通報したものです（新しい順）。「この2人のメールを見る」で、通報の日の前30日〜後7日のやり取りを確認できます。</p>
+      <p class="msg" id="rmsg"></p>
+      <div id="rlist"></div>
     </div>
   </section>
 
@@ -164,6 +173,7 @@
     if (t === 'stats') api('stats').then(j => j.ok && showStats(j));
     if (t === 'players') loadPlayers();
     if (t === 'mails') loadMails();
+    if (t === 'reports') loadReports();
   }
   document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => show(b.dataset.t));
   $('#login').onclick = login; $('#token').onkeydown = e => { if (e.key === 'Enter') login(); };
@@ -236,6 +246,25 @@
           out.textContent = x.ok ? `引継ぎコード：${x.code}（${x.days}日間・1回限り。セーブは ${fmt(x.saveAt)} のもの）` : x.err; out.className = 'msg' + (x.ok ? '' : ' err'); out.style.fontSize = x.ok ? '18px' : ''; } }, '引継ぎコードを発行する')),
         el('p', { class: 'msg', id: 'xferOut' })));
     d.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ---- 通報 ----
+  async function loadReports() {
+    $('#rmsg').textContent = '読み込み中…';
+    const j = await api('reports');
+    if (!j.ok) { $('#rmsg').textContent = j.err; return; }
+    const l = $('#rlist'); l.innerHTML = '';
+    $('#rmsg').textContent = j.items.length ? `${j.items.length}件` : 'まだ通報はありません';
+    for (const r of j.items) l.append(el('div', { class: 'card', style: 'background:var(--panel-2)' },
+      el('div', { class: 'row' }, el('b', { class: 'grow', text: `${fmt(r.at)}　理由：${r.reason}` })),
+      el('dl', { class: 'detail', style: 'display:grid;grid-template-columns:8em 1fr;gap:4px 10px;margin:6px 0' },
+        el('dt', { text: '通報した人' }), el('dd', {}, `${r.reporterName}（`, el('span', { class: 'mono', text: r.reporter }), '）'),
+        el('dt', { text: '通報された人' }), el('dd', {}, `${r.targetName}（`, el('span', { class: 'mono', text: r.target }), '）'),
+        el('dt', { text: '届いたメール' }), el('dd', { text: `${r.body}（${fmt(r.mailAt)}）` }),
+        r.detail ? el('dt', { text: 'くわしく' }) : null, r.detail ? el('dd', { text: r.detail }) : null),
+      el('div', { class: 'row' },
+        el('button', { class: 'sub', on: () => { show('mails'); $('#mq').value = r.target; loadMails(); } }, 'この2人のメールを見る'),
+        el('button', { class: 'sub', on: () => { show('players'); loadPlayer(r.target); } }, '通報された人の記録'))));
   }
 
   // ---- メール ----

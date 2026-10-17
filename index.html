@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.095";</script>
+<script>const GAME_VERSION="1.096";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -8443,7 +8443,8 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 const FERR={fid:'友だちIDの形がちがうよ（例：HD-ABC234）',nofriend:'その友だちIDの人が見つからない',already:'もうフレンドだよ',fmax:'フレンドがいっぱい（50人まで）',
   notfriend:'フレンドにだけ送れるよ',mlen:'メールは1〜50文字で書いてね',ng:'使えない言葉が入っているので、送れなかった（悪口や、電話番号・住所・年齢などは送れないよ）',
   mday:'今日はもう送れない（1日50通まで）',server:'うまくいかなかった。もう一度ためしてね',
-  nametaken:'その名前は、もうほかの人が使っているよ。能力の画面で別の名前にしてから、もう一度ためしてね',nlen:'名前は1〜7文字にしてね'};
+  nametaken:'その名前は、もうほかの人が使っているよ。能力の画面で別の名前にしてから、もう一度ためしてね',nlen:'名前は1〜7文字にしてね',
+  blocked:'この人には申請できません',report:'通報できるのは、フレンドから届いたメールです'};
 function accOnMsg(m){
   switch(m.t){
     case 'acct':{const net={id:m.id,secret:m.secret};if(RT.visiting&&OWN_KEEP)OWN_KEEP.net=net;else S.net=net;
@@ -8452,7 +8453,7 @@ function accOnMsg(m){
     case 'authed':ACC.id=m.id;ACC.authed=true;ACC.unread=m.unread||0;setTimeout(()=>typeof cloudSync==='function'&&cloudSync(true),1500);
       if(m.name&&!RT.visiting&&m.name!==accName()){toast(`「${accName()}」は、もうほかの人が使っている名前なので、名前は「${m.name}」のまま。別の名前にしたいときは、能力の画面で変えてね`,true);S.name=m.name;save();updateHud&&updateHud()}   // 名前がほかの人と重なっていた
       accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();break;
-    case 'friends':ACC.friends={list:m.list||[],reqIn:m.reqIn||[],reqOut:m.reqOut||[]};accRefresh();break;
+    case 'friends':ACC.friends={list:m.list||[],reqIn:m.reqIn||[],reqOut:m.reqOut||[],blocked:m.blocked||[]};accRefresh();break;
     case 'mailbox':ACC.inbox=m.inbox||[];ACC.outbox=m.outbox||[];ACC.unread=ACC.inbox.filter(x=>!x.read).length;accRefresh();break;
     case 'mailnew':ACC.unread=m.unread||ACC.unread+1;toast(`📮 ${m.name}からメールが届いた！ 家の前のポストを見てみよう`,true);sfx('get');accSend({t:'mailbox'});accRefresh();break;
     case 'invite':if(RT.visiting||(NET.role==='host'))break;
@@ -8462,9 +8463,11 @@ function accOnMsg(m){
     case 'info':{const n=m.name||'';const w={reqsent:`${n}にフレンド申請を送った`,reqin:`${n}からフレンド申請が届いた！`,friended:`${n}とフレンドになった！`,mailsent:`${n}にメールを送った`,
       invited:m.online?`${n}を島に誘った！`:`${n}を誘った（いまゲームを開いていないので、10分以内に開いたら届くよ）`}[m.why];if(w)toast(w,true);
       if(m.why==='opsrename'&&m.name&&!RT.visiting){S.name=m.name;save();updateHud&&updateHud();toast(`運営により、名前が「${m.name}」に変わりました`,true)}   // 運営の管理画面で名前を直したとき
+      if(m.why==='reported'){toast(m.blocked?'通報し、ブロックしました。ご協力ありがとうございます':'通報しました。ご協力ありがとうございます',true);RT.reportMid=null}
       if(m.why==='mailsent'){ACC.draft='';accSend({t:'mailbox'})}if(m.why==='reqin'||m.why==='friended')sfx('get');if(m.why==='renamed')accSend({t:'friends'});accRefresh();break}
     case 'err':if(m.why==='auth'){ACC.authed=false;if(!RT.visiting){S.net=null;save();ACC.auto=true;try{ACC.ws&&ACC.ws.close()}catch(e){}ACC.ws=null;setTimeout(()=>accConnect(true),500)}else{ACC.bad=true;toast('友だちIDの確認ができなかった')}accRefresh();break}   // サーバーに無い友だちID（削除された）は作り直す
       if(m.why==='nametaken'&&ACC.auto){ACC.auto=false;break}
+      if(m.why==='selfharm'){dialogOnTop(()=>showDialog('メッセージを送れませんでした',String(m.msg||'').split('\n').filter(Boolean)));break}   // 自傷をほのめかす言葉：相談窓口を知らせる（SIDERA VEIL と同じ）
       if(m.why==='banned'){ACC.banned=true;ACC.authed=false;toast('この友だちIDは、運営により利用が止められています（フレンドとメールが使えません）',true);accRefresh();break}
       toast(FERR[m.why]||'うまくいかなかった');break;
   }
@@ -8516,11 +8519,38 @@ function renderFriendPlay(body){
       ...F.list.map(f=>h('div',{class:'frow'},h('span',{class:'dot'+(f.online?' on':'')},''),h('span',{class:'grow'},f.name,h('small',{class:'muted'},` ${f.id}${f.online?'・あそんでいる':''}`)),
         h('button',{class:'btn',on:()=>inviteFriend(f)},'島に誘う'),
         h('button',{class:'btn sub',title:'フレンドをやめる',on:()=>{if(confirm(`${f.name}とのフレンドをやめますか？`))accSend({t:'fremove',id:f.id})}},'✕')))));
+    if((F.blocked||[]).length)body.append(h('div',{class:'card'},h('b',{},`ブロックした人（${F.blocked.length}）`),...F.blocked.map(r=>h('div',{class:'frow'},h('span',{class:'grow'},r.name,h('small',{class:'muted'},` ${r.id}`)),
+      h('button',{class:'btn sub',on:()=>{if(confirm(`${r.name}のブロックを解除しますか？`))accSend({t:'unblock',id:r.id})}},'解除')))));
     if(F.reqOut.length)body.append(h('div',{class:'card'},h('b',{},`申請中（${F.reqOut.length}）`),...F.reqOut.map(r=>h('div',{class:'frow'},h('span',{class:'grow'},r.name,h('small',{class:'muted'},` ${r.id}`)),h('button',{class:'btn sub',on:()=>accSend({t:'fcancel',id:r.id})},'取り消す')))));
   }
   body.append(h('h3',{style:'margin:16px 0 8px;font-size:15px'},'合言葉で遊ぶ'));
   renderPlayGate(body);
 }
+// 通報（SIDERA VEIL と同じ）：理由・くわしく・ブロック。運営は、通報があった2人のメールだけを確認できる
+const REPORT_REASONS=['迷惑・宣伝','暴言・いやがらせ','不適切な内容','なりすまし','その他'];
+function reportForm(m){
+  const sel=h('select',{style:'font:inherit;font-size:14px;padding:6px 8px;border-radius:10px;border:2px solid var(--line);background:#fff'},...REPORT_REASONS.map(r=>h('option',{},r)));
+  const ta=h('textarea',{maxlength:'500',rows:'2',placeholder:'くわしく（なくてもかまいません）',style:'font:inherit;font-size:14px;padding:6px 10px;border-radius:10px;border:2px solid var(--line);width:100%;box-sizing:border-box;resize:none;background:#fff'});
+  const blk=h('input',{type:'checkbox',checked:''});
+  return h('div',{class:'card',style:'margin:8px 0 0;border-color:#e0a0a0;background:#fff6f4'},
+    h('b',{},'このメールを運営に通報します'),
+    h('div',{class:'rowline',style:'margin:6px 0;gap:8px'},h('span',{class:'muted'},'理由'),sel),ta,
+    h('label',{style:'display:flex;gap:6px;align-items:center;margin:6px 0'},blk,'この人をブロックする（フレンドをやめ、申請やメールが届かなくなります）'),
+    h('div',{class:'rowline',style:'margin:0;justify-content:flex-end;gap:8px'},h('button',{class:'btn sub',on:()=>{RT.reportMid=null;refresh()}},'やめる'),
+      h('button',{class:'btn',style:'background:#d9573f',on:()=>{if(!ACC.authed){toast('サーバーにつないでいるところ。少し待ってね');return}accSend({t:'report',mid:m.id,reason:sel.value,detail:ta.value.trim(),block:blk.checked})}},'通報する')));
+}
+// はじめてメールを書くときの同意（SIDERA VEIL と同じ内容）
+function mailConsent(go){
+  if(S.flags&&S.flags.msgConsent){go();return}
+  dialogOnTop(()=>showDialog('メッセージ機能のご利用について',['フレンドとのメールは、運営者のサーバーを通じて相手に届けます。使う前に、次のことに同意してください。',
+    '(1) 送るメールに使えない言葉が含まれていないかを、プログラムで自動的に確かめます。',
+    '(2) 通報されたメールと、通報の日の前30日から後7日までの間に同じ相手との間で送られたメールは、通報への対応と不正行為の調査に必要な限度で、運営者が確認します。それ以外の目的で内容を見ることはありません。',
+    '本名・住所・連絡先など、個人を特定できる情報は書かないでください。'],null,[
+    ['同意して使う',()=>{endTalk();S.flags=S.flags||{};S.flags.msgConsent=Date.now();save();go()}],['やめる',()=>endTalk()]]));
+}
+// ポストの画面（パネル）を開いたまま出す会話の窓は、パネルより手前に出す
+function dialogOnTop(fn){fn();const d=$('dialog');if(d)d.classList.add('top')}
+{const _sd=showDialog;showDialog=function(...a){const d=$('dialog');if(d)d.classList.remove('top');return _sd(...a)}}
 function renderMail(body){
   const net=RT.visiting?(OWN_KEEP&&OWN_KEEP.net):S.net;
   if(!net){body.append(h('p',{class:'muted'},'メールを使うには、メニューの「友だち」で友だちIDを作ってね。'));return}
@@ -8533,7 +8563,7 @@ function renderMail(body){
   const ta=h('textarea',{maxlength:'50',rows:'2',placeholder:'50文字まで',style:'font:inherit;font-size:15px;padding:8px 10px;border-radius:10px;border:2px solid var(--line);width:100%;box-sizing:border-box;resize:none;color:var(--ink);background:#fff'});
   ta.value=ACC.draft||'';const upd=()=>{ACC.draft=ta.value;cnt.textContent=`${ta.value.length}/50`};ta.oninput=upd;upd();sel.onchange=()=>{RT.mailTo=sel.value};
   body.append(h('div',{class:'card'},h('b',{},'メールを書く'),h('div',{class:'rowline',style:'margin:6px 0;gap:8px;flex-wrap:wrap'},sel,cnt),ta,
-    h('div',{class:'rowline',style:'margin:6px 0 0;justify-content:flex-end'},h('button',{class:'btn',on:()=>{const to=sel.value,b=ta.value.trim();if(!to){toast('送る相手をえらんでね');return}if(!b){toast('メールを書いてね');return}accSend({t:'mail',to,body:b})}},'送る'))));
+    h('div',{class:'rowline',style:'margin:6px 0 0;justify-content:flex-end'},h('button',{class:'btn',on:()=>{const to=sel.value,b=ta.value.trim();if(!to){toast('送る相手をえらんでね');return}if(!b){toast('メールを書いてね');return}mailConsent(()=>accSend({t:'mail',to,body:b}))}},'送る'))));
   if(!F.length)body.append(h('p',{class:'muted',style:'margin:0 0 8px'},'メールはフレンドにだけ送れるよ。'));
   // 受信・送信
   const mt=RT.mailTab||'in',bar=h('div',{class:'genbar'});
@@ -8543,7 +8573,10 @@ function renderMail(body){
     if(!ACC.inbox.length)body.append(h('p',{class:'muted'},'まだメールは届いていないよ。'));
     for(const m of ACC.inbox)body.append(h('div',{class:'card mailc'+(m.read?'':' unread')},h('div',{class:'rowline',style:'margin:0'},h('b',{class:'grow'},`${m.read?'':'🆕 '}${m.fromName||'だれか'}`),h('small',{class:'muted'},fmtAt(m.at))),
       h('p',{style:'margin:6px 0;white-space:pre-wrap;word-break:break-all'},m.body),
-      h('div',{class:'rowline',style:'margin:0;justify-content:flex-end'},m.from==='HD-OPS'?h('small',{class:'muted'},'🌸 運営からのお知らせ'):F.some(f=>f.id===m.from)?h('button',{class:'btn',on:()=>{RT.mailTo=m.from;ACC.draft='';refresh();setTimeout(()=>{const t=document.querySelector('#panel textarea');if(t){t.focus();t.scrollIntoView({block:'center'})}},50)}},'返信'):h('small',{class:'muted'},'（フレンドではなくなった人）'))));
+      h('div',{class:'rowline',style:'margin:0;justify-content:flex-end;gap:6px'},m.from==='HD-OPS'?h('small',{class:'muted'},'🌸 運営からのお知らせ'):[
+        h('button',{class:'btn sub',on:()=>{RT.reportMid=RT.reportMid===m.id?null:m.id;refresh()}},'通報'),
+        F.some(f=>f.id===m.from)?h('button',{class:'btn',on:()=>{RT.mailTo=m.from;ACC.draft='';refresh();setTimeout(()=>{const t=document.querySelector('#panel textarea');if(t){t.focus();t.scrollIntoView({block:'center'})}},50)}},'返信'):h('small',{class:'muted'},'（フレンドではなくなった人）')]),
+      RT.reportMid===m.id?reportForm(m):null));
     const ids=ACC.inbox.filter(x=>!x.read).map(x=>x.id);
     if(ids.length){accSend({t:'mailread',ids});for(const x of ACC.inbox)x.read=true;ACC.unread=0;setTimeout(updateFriendBadge,0)}
   }else{
@@ -8564,6 +8597,7 @@ setTimeout(function wait(){if(!S||RT.title){setTimeout(wait,3000);return}if(S.ne
 .dot{width:10px;height:10px;border-radius:50%;background:#c9cfc4;display:inline-block}
 .dot.on{background:#4fbf6a;box-shadow:0 0 0 3px rgba(79,191,106,.25)}
 .mailc.unread{border-color:#f0b860;background:#fffaf0}
+#dialog.top{z-index:30}
 `;document.head.append(st)}
 </script>
 <script>

@@ -9,6 +9,8 @@
      {"t":"register","name"} → {"t":"acct","id","secret"}       はじめての人に友だちIDを作る
      {"t":"auth","id","secret","name"} → {"t":"authed","id"}    つなぐたびに名のる（ここからフレンドの操作ができる）
      friends / freq{to} / faccept{id} / fdecline{id} / fcancel{id} / fremove{id} / rename{name}
+     report{mid, reason, detail, block}（フレンドから届いたメールを通報。block ならその人をブロック）/ unblock{id}
+     メールに自傷をほのめかす言葉があれば止めて、相談窓口を知らせる（{"t":"err","why":"selfharm","msg"}）
      {"t":"namecheck","name","id"} → {"t":"name","ok"}        その名前をほかの人が使っていないか（名のらなくても聞ける）
    名前は 7文字まで。同じ名前はほかの人が使えない（register・auth・rename で確かめる。auth で重なっていたら前の名前のまま）
      mail{to,body} / mailbox / mailread{ids} / invite{to,code}
@@ -87,7 +89,9 @@ async def friends_msg(pid):
     ids = list(dict.fromkeys(p["friends"] + p["reqIn"] + p["reqOut"]))
     names = await run(db.names, ids)
     row = lambda i: {"id": i, "name": names.get(i, "だれか"), "online": bool(online.get(i))}
-    return {"t": "friends", "list": [row(i) for i in p["friends"]], "reqIn": [row(i) for i in p["reqIn"]], "reqOut": [row(i) for i in p["reqOut"]]}
+    bn = await run(db.names, p.get("blocked", []))
+    return {"t": "friends", "list": [row(i) for i in p["friends"]], "reqIn": [row(i) for i in p["reqIn"]], "reqOut": [row(i) for i in p["reqOut"]],
+            "blocked": [{"id": i, "name": bn.get(i, "だれか")} for i in p.get("blocked", [])]}
 
 
 async def account_op(ws, me, m):
@@ -115,6 +119,8 @@ async def account_op(ws, me, m):
         if not a or not b:
             await send(ws, {"t": "err", "why": "nofriend"}); return
         if t == "freq":
+            if me in b.get("blocked", []) or other in a.get("blocked", []):
+                await send(ws, {"t": "err", "why": "blocked"}); return
             if other in a["friends"]:
                 await send(ws, {"t": "err", "why": "already"}); return
             if len(a["friends"]) >= FRIEND_MAX:
@@ -155,6 +161,8 @@ async def account_op(ws, me, m):
             await send(ws, {"t": "err", "why": "notfriend"}); return
         if not body or len(body) > 50:
             await send(ws, {"t": "err", "why": "mlen"}); return
+        if ngfilter.has_selfharm(body):              # 自傷をほのめかす言葉：止めて、相談窓口を知らせる
+            await send(ws, {"t": "err", "why": "selfharm", "msg": ngfilter.SELFHARM_HELP}); return
         if ngfilter.bad_chars(body) or ngfilter.has_ng(body):
             await send(ws, {"t": "err", "why": "ng"}); return
         if await run(db.sent_today, me) >= MAIL_PER_DAY:
@@ -163,6 +171,40 @@ async def account_op(ws, me, m):
         await run(db.add_mail, me, to, a["name"], b["name"] if b else "だれか", body)
         await send(ws, {"t": "info", "why": "mailsent", "name": b["name"] if b else ""})
         await push(to, {"t": "mailnew", "from": me, "name": a["name"], "unread": await run(db.unread, to)}); return
+    if t == "report":
+        try:
+            mail = await run(db.mail_in_inbox, me, int(m.get("mid")))
+        except (TypeError, ValueError):
+            mail = None
+        if not mail or mail["from"] == OPS_ID:
+            await send(ws, {"t": "err", "why": "report"}); return
+        reason = " ".join(str(m.get("reason") or "").split())[:30] or "その他"
+        detail = str(m.get("detail") or "").replace("\r", "").strip()[:500]
+        await run(db.add_report, me, mail["from"], mail, reason, detail)
+        blocked = bool(m.get("block"))
+        if blocked:                                  # ブロック：フレンドをやめ、申請・メール・誘いを受けない
+            a, b = await run(db.get, me), await run(db.get, mail["from"])
+            if a:
+                for k in ("friends", "reqIn", "reqOut"):
+                    a[k] = [x for x in a[k] if x != mail["from"]]
+                if mail["from"] not in a["blocked"]:
+                    a["blocked"].append(mail["from"])
+                await run(db.put, me, a)
+            if b:
+                for k in ("friends", "reqIn", "reqOut"):
+                    b[k] = [x for x in b[k] if x != me]
+                await run(db.put, mail["from"], b)
+                await push(mail["from"], await friends_msg(mail["from"]))
+            if invites.get(me, {}).get("from") == mail["from"]:
+                invites.pop(me, None)
+        await send(ws, {"t": "info", "why": "reported", "blocked": blocked})
+        await send(ws, await friends_msg(me)); return
+    if t == "unblock":
+        other = norm_id(m.get("id")); a = await run(db.get, me)
+        if a and other in a["blocked"]:
+            a["blocked"] = [x for x in a["blocked"] if x != other]
+            await run(db.put, me, a)
+        await send(ws, await friends_msg(me)); return
     if t == "invite":
         to = norm_id(m.get("to")); code = norm_code(m.get("code"))
         a = await run(db.get, me)
@@ -245,6 +287,8 @@ async def admin_op(ws, m):
             await run(db.touch, pid, nm)
             await push(pid, {"t": "info", "why": "opsrename", "name": nm})
             await reply(ok=True, id=pid, name=nm); return
+        if op == "reports":
+            await reply(ok=True, items=await run(db.reports, 300)); return
         if op == "mails":
             await reply(ok=True, items=await run(db.admin_mails, str(m.get("q") or "")[:40], 300)); return
         if op == "maildel":
@@ -355,7 +399,7 @@ async def handler(ws):
                 if inv and time.time() - inv["at"] < INVITE_TTL and inv["code"] in rooms:
                     await send(ws, {"t": "invite", "from": inv["from"], "name": inv["name"], "code": inv["code"]})
                 continue
-            if t in ("friends", "freq", "faccept", "fdecline", "fcancel", "fremove", "mail", "mailbox", "mailread", "invite", "rename"):
+            if t in ("friends", "freq", "faccept", "fdecline", "fcancel", "fremove", "mail", "mailbox", "mailread", "invite", "rename", "report", "unblock"):
                 if acct and len(raw) <= MAX_SMALL:
                     try:
                         await account_op(ws, acct, m)
