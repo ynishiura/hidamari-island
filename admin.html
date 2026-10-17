@@ -48,7 +48,7 @@
   th{font-size:12px;color:var(--sub);font-weight:600}
   tr.click{cursor:pointer}tr.click:hover{background:var(--panel-2)}
   .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid currentColor;margin-left:4px}
-  .tag.on{color:var(--ok)}.tag.ban{color:var(--warn)}
+  .tag.on{color:var(--ok)}.tag.ban{color:var(--warn)}.tag.staff{color:var(--pink)}
   .mono{font-family:ui-monospace,Consolas,monospace;font-size:13px}
   .scroll{overflow-x:auto}
   textarea{width:100%;resize:vertical}
@@ -201,9 +201,9 @@
   // ---- 状況 ----
   function showStats(j) {
     const s = j.stats, g = $('#statGrid'); g.innerHTML = '';
-    for (const [v, l] of [[j.online, 'いまつないでいる人'], [s.players, '友だちIDの数'], [s.active1, '24時間以内に遊んだ人'], [s.active7, '7日以内に遊んだ人'], [s.new7, '7日以内に作られたID'], [s.mails, 'メール（30日分）'], [s.mails1, '24時間のメール'], [s.banned, 'ブロック中']])
+    for (const [v, l] of [[j.online, 'いまつないでいる人'], [s.players, '友だちIDの数'], [s.active1, '24時間以内に遊んだ人'], [s.active7, '7日以内に遊んだ人'], [s.new7, '7日以内に作られたID'], [s.mails, 'メール（30日分）'], [s.mails1, '24時間のメール'], [s.banned, 'ブロック中'], [s.ops, '運営アカウント']])
       g.append(el('div', { class: 'stat' }, el('b', { text: (v || 0).toLocaleString() }), el('span', { text: l })));
-    $('#statNote').textContent = '「友だちIDの数」＝アカウントの数です（Ver 1.095 からは、遊び始めると自動で作られます）。総プレイ時間が3分未満のまま3日以上つないでいないアカウントと、最後につないでから30日つないでいないアカウントは、自動で削除されます（ブロック中のアカウントは消しません）。';
+    $('#statNote').textContent = '「友だちIDの数」＝アカウントの数です（Ver 1.095 からは、遊び始めると自動で作られます）。総プレイ時間が3分未満のまま3日以上つないでいないアカウントと、最後につないでから30日つないでいないアカウントは、自動で削除されます（ブロック中のアカウントと運営アカウントは消しません）。';
     const rl = $('#roomList'); rl.innerHTML = '';
     if (!j.rooms.length) rl.append(el('tr', {}, el('td', { colspan: 5, class: 'msg', text: 'いまひらいている島の門はありません' })));
     for (const r of j.rooms) rl.append(el('tr', {}, el('td', { class: 'mono', text: r.code }), el('td', { text: r.host }), el('td', { text: r.members + '人' }), el('td', { text: r.names.join('、') }),
@@ -218,7 +218,7 @@
     const t = $('#plist'); t.innerHTML = '';
     $('#pmsg').textContent = j.items.length ? `${page * 100 + 1}〜${page * 100 + j.items.length}人目` + (pq ? `（「${pq}」で探した結果）` : '') : '見つかりませんでした';
     for (const p of j.items) t.append(el('tr', { class: 'click', on: () => loadPlayer(p.id) },
-      el('td', {}, p.name, p.online ? el('span', { class: 'tag on', text: 'オンライン' }) : null, p.banned ? el('span', { class: 'tag ban', text: 'ブロック中' }) : null),
+      el('td', {}, p.name, p.online ? el('span', { class: 'tag on', text: 'オンライン' }) : null, p.banned ? el('span', { class: 'tag ban', text: 'ブロック中' }) : null, p.ops ? el('span', { class: 'tag staff', text: '運営' }) : null),
       el('td', { class: 'mono', text: p.id }), el('td', { text: p.device || '—' }), el('td', { text: fmt(p.createdAt) }),
       el('td', { text: playT(p.playSec) }), el('td', {}, fmt(p.seenAt), el('div', { class: 'msg', style: 'margin:0', text: ago(p.seenAt) })),
       el('td', { class: 'ops' }, el('button', { class: p.banned ? 'sub' : 'warn', on: ev => { ev.stopPropagation(); banPlayer(p); } }, p.banned ? '解除' : 'ブロック'),
@@ -242,6 +242,19 @@
   async function banPlayer(p) {
     if (!confirm(p.banned ? `${p.name}（${p.id}）のブロックを解除しますか？` : `${p.name}（${p.id}）をブロックしますか？\nフレンド・メール・贈り物・合言葉の島の行き来が使えなくなります（島で遊ぶことはできます）。\nこの人が使った通信環境からは、新しい友だちIDも作れなくなります。`)) return;
     const x = await api('ban', { id: p.id, on: !p.banned }); status(x.ok ? (x.banned ? `${p.name} をブロックしました` : `${p.name} のブロックを解除しました`) : x.err, !x.ok);
+    loadPlayers(); if (!$('#pdetail').hidden && $('#pdetail').dataset.id === p.id) loadPlayer(p.id);
+  }
+  // 運営アカウントの指定・解除（運営アカウントには、禁止ワード・数の上限・自動削除などの制限をかけない）
+  async function opsPlayer(p) {
+    if (!confirm(p.ops ? `${p.name}（${p.id}）の運営アカウントの指定を解除しますか？
+ふつうのアカウントと同じ制限に戻ります。` : `${p.name}（${p.id}）を運営アカウントにしますか？
+次の制限がかからなくなります：
+・名前・メール・合言葉の禁止ワード（「運営」などの名前も使える）
+・メールの長さ（500文字まで）と1日の数、贈り物の1日の数
+・フレンドの数の上限
+・自動削除
+（名前がほかの人と重ならないこと・相手のブロック・島の人数4人までは、そのままです）`)) return;
+    const x = await api('ops', { id: p.id, on: !p.ops }); status(x.ok ? (x.ops ? `${p.name} を運営アカウントにしました` : `${p.name} の運営アカウントの指定を解除しました`) : x.err, !x.ok);
     loadPlayers(); if (!$('#pdetail').hidden && $('#pdetail').dataset.id === p.id) loadPlayer(p.id);
   }
   async function deletePlayer(p) {
@@ -275,11 +288,12 @@
     const p = j.player, list = a => a.length ? a.map(f => `${f.name}（${f.id}）`).join('、') : 'なし';
     d.innerHTML = '';
     const nameIn = el('input', { value: p.name, maxlength: 7, style: 'width:10em' });
-    d.append(el('h2', {}, `${p.name}`, p.online ? el('span', { class: 'tag on', text: 'オンライン' }) : null, p.banned ? el('span', { class: 'tag ban', text: '利用停止' }) : null),
+    d.append(el('h2', {}, `${p.name}`, p.online ? el('span', { class: 'tag on', text: 'オンライン' }) : null, p.banned ? el('span', { class: 'tag ban', text: '利用停止' }) : null, p.ops ? el('span', { class: 'tag staff', text: '運営アカウント' }) : null),
       el('dl', {}, el('dt', { text: '友だちID' }), el('dd', { class: 'mono', text: p.id }),
+        el('dt', { text: '運営アカウント' }), el('dd', { text: p.ops ? 'はい（禁止ワード・数の上限・自動削除などの制限なし）' : 'いいえ' }),
         el('dt', { text: '利用端末' }), el('dd', { text: p.device || '—（まだ届いていません）' }),
         el('dt', { text: 'アカウント作成' }), el('dd', { text: fmt(p.createdAt) }),
-        el('dt', { text: '総プレイ時間' }), el('dd', { text: playT(p.playSec) + (p.playSec != null && p.playSec < 180 ? '（総プレイ時間が3分未満のまま3日つながないと自動で消えます）' : '') }),
+        el('dt', { text: '総プレイ時間' }), el('dd', { text: playT(p.playSec) + (p.playSec != null && p.playSec < 180 && !p.ops ?'（総プレイ時間が3分未満のまま3日つながないと自動で消えます）' : '') }),
         el('dt', { text: '最終アクセス' }), el('dd', { text: `${fmt(p.seenAt)}（${ago(p.seenAt)}）` }),
         el('dt', { text: '預かったセーブ' }), el('dd', { text: p.saveAt ? `${fmt(p.saveAt)} のもの` : 'まだありません' }),
         el('dt', { text: 'フレンド' }), el('dd', { text: list(p.friends) }),
@@ -290,6 +304,7 @@
         el('button', { class: 'sub', on: async () => { const x = await api('rename', { id: p.id, name: nameIn.value }); status(x.ok ? `名前を「${x.name}」にしました` : x.err, !x.ok); loadPlayer(p.id); loadPlayers(); } }, '名前を変える'),
         el('button', { class: 'sub', on: () => { show('mails'); $('#mq').value = p.id; loadMails(); } }, 'この人のメールを見る'),
         el('button', { class: 'sub', on: () => { show('notice'); document.querySelector('input[name=nto][value=one]').checked = true; $('#nid').value = p.id; } }, 'お知らせを送る'),
+        el('button', { class: 'sub', on: () => opsPlayer(p) }, p.ops ? '運営アカウントを解除' : '運営アカウントにする'),
         el('button', { class: p.banned ? 'sub' : 'warn', on: () => banPlayer(p) }, p.banned ? 'ブロックを解除' : 'ブロックする'),
         el('button', { class: 'warn', on: () => deletePlayer(p) }, '削除する')),
       envCard(p),

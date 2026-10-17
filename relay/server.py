@@ -22,6 +22,9 @@
      {"t":"admin","token":ADMIN_TOKEN,"op":…} → {"t":"admin","op":…,"ok":true,…}  ADMIN_TOKEN（環境変数）が無ければ使えない
      op: stats（人数・部屋）/ players{q,page} / player{id} / ban{id,on}（ブロック）/ delete{id}（削除）/ xfer{id}（引継ぎコード発行）/
          rename{id,name} / mails{q} / maildel{ids} / notice{to:'all'|友だちID, body}（運営からのお知らせ。ポストに届く）/ closeroom{code}
+         ops{id,on}（運営アカウントに指定・解除）
+   運営アカウント（hd_players.ops）には制限をかけない：名前・メール・合言葉の禁止ワード、メールの長さ（OPS_MAIL_MAX まで）・1日の数、
+     贈り物の1日の数、フレンドの数、自動削除。名前がほかの人と重ならないこと・相手のブロック・島の人数（4人）はそのまま
 4. 端末・プレイ時間・セーブ・引継ぎ
      {"t":"sync","play":秒,"dev":利用端末,"save":"HIDA2:…"}   名のった人が定期的に送る（セーブは数分おき）
      {"t":"claim","code":"ABCD-EFGH"} → {"t":"claimed","id","secret","save","name"}  運営が発行した引継ぎコードで受け取る（前の端末は使えなくなる）
@@ -56,6 +59,7 @@ INVITE_TTL = 600
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "").strip()
 OPS_ID, OPS_NAME = "HD-OPS", "運営"          # 運営からのお知らせの差出人
 NOTICE_MAX = 200
+OPS_MAIL_MAX = 500                            # 運営アカウントのメールの長さ（ふつうは50文字）
 admin_fail = {"t": 0.0}
 claim_fail = {"t": 0.0}
 SAVE_MAX = 500_000
@@ -78,6 +82,16 @@ def clean_name(s):
     s = unicodedata.normalize("NFKC", str(s or "")).strip()
     s = s[:7] or "だれか"          # 名前は 7文字まで
     return "だれか" if ngfilter.has_ng_name(s) else s
+
+
+def plain_name(s):
+    """運営アカウントの名前：禁止ワードで「だれか」にしない（7文字までは同じ）。"""
+    s = unicodedata.normalize("NFKC", str(s or "")).strip()
+    return s[:7] or "だれか"
+
+
+async def is_ops(pid):
+    return bool(db and pid and await run(db.is_ops, pid))
 
 
 def name_ng(s):
@@ -203,9 +217,10 @@ async def account_op(ws, me, m):
     if t == "friends":
         await send(ws, await friends_msg(me)); return
     if t == "rename":
-        if name_ng(m.get("name")):
+        ops = await is_ops(me)
+        if not ops and name_ng(m.get("name")):
             await send(ws, {"t": "err", "why": "nameng"}); return
-        nm = clean_name(m.get("name"))
+        nm = plain_name(m.get("name")) if ops else clean_name(m.get("name"))
         if await run(db.name_taken, nm, me):
             await send(ws, {"t": "err", "why": "nametaken"}); return
         await run(db.touch, me, nm)
@@ -228,7 +243,7 @@ async def account_op(ws, me, m):
                 await send(ws, {"t": "err", "why": "blocked"}); return
             if other in a["friends"]:
                 await send(ws, {"t": "err", "why": "already"}); return
-            if len(a["friends"]) >= FRIEND_MAX:
+            if len(a["friends"]) >= FRIEND_MAX and not await is_ops(me):
                 await send(ws, {"t": "err", "why": "fmax"}); return
             if other in a["reqIn"]:                     # 相手からも申請が来ていたら、そのままフレンド
                 a["reqIn"].remove(other); b["reqOut"] = [x for x in b["reqOut"] if x != me]
@@ -243,7 +258,8 @@ async def account_op(ws, me, m):
                 await send(ws, {"t": "info", "why": "reqsent", "name": b["name"]})
                 await push(other, {"t": "info", "why": "reqin", "name": a["name"]})
         elif t == "faccept" and other in a["reqIn"]:
-            if len(a["friends"]) >= FRIEND_MAX or len(b["friends"]) >= FRIEND_MAX:
+            if ((len(a["friends"]) >= FRIEND_MAX and not await is_ops(me))
+                    or (len(b["friends"]) >= FRIEND_MAX and not await is_ops(other))):   # 運営アカウントはフレンドの数の上限なし
                 await send(ws, {"t": "err", "why": "fmax"}); return
             a["reqIn"].remove(other); b["reqOut"] = [x for x in b["reqOut"] if x != me]
             if other not in a["friends"]: a["friends"].append(other)
@@ -265,16 +281,18 @@ async def account_op(ws, me, m):
         a = await run(db.get, me)
         if not to or not a or to not in a["friends"]:
             await send(ws, {"t": "err", "why": "notfriend"}); return
-        if (not body and not gift) or len(body) > 50:
+        ops = await is_ops(me)                                # 運営アカウント：長さ（OPS_MAIL_MAX まで）のほかは調べない
+        if (not body and not gift) or len(body) > (OPS_MAIL_MAX if ops else 50):
             await send(ws, {"t": "err", "why": "mlen"}); return
-        if gift and await run(db.gifts_today, me) >= GIFT_PER_DAY:
-            await send(ws, {"t": "err", "why": "gday"}); return
-        if body and ngfilter.has_selfharm(body):              # 自傷をほのめかす言葉：止めて、相談窓口を知らせる
-            await send(ws, {"t": "err", "why": "selfharm", "msg": ngfilter.SELFHARM_HELP}); return
-        if body and (ngfilter.bad_chars(body) or ngfilter.has_ng(body)):
-            await send(ws, {"t": "err", "why": "ng"}); return
-        if await run(db.sent_today, me) >= MAIL_PER_DAY:
-            await send(ws, {"t": "err", "why": "mday"}); return
+        if not ops:
+            if gift and await run(db.gifts_today, me) >= GIFT_PER_DAY:
+                await send(ws, {"t": "err", "why": "gday"}); return
+            if body and ngfilter.has_selfharm(body):          # 自傷をほのめかす言葉：止めて、相談窓口を知らせる
+                await send(ws, {"t": "err", "why": "selfharm", "msg": ngfilter.SELFHARM_HELP}); return
+            if body and (ngfilter.bad_chars(body) or ngfilter.has_ng(body)):
+                await send(ws, {"t": "err", "why": "ng"}); return
+            if await run(db.sent_today, me) >= MAIL_PER_DAY:
+                await send(ws, {"t": "err", "why": "mday"}); return
         b = await run(db.get, to)
         await run(db.add_mail, me, to, a["name"], b["name"] if b else "だれか", body, gift)
         await send(ws, {"t": "info", "why": "mailsent", "name": b["name"] if b else "", "gift": gift})
@@ -379,6 +397,13 @@ async def admin_op(ws, m):
                     except Exception:
                         pass
             await reply(ok=True, id=pid, banned=on); return
+        if op == "ops":                              # 運営アカウントに指定・解除
+            if not pid or not await run(db.get, pid):
+                await reply(ok=False, err="その友だちIDの人はいません"); return
+            on = bool(m.get("on"))
+            await run(db.set_ops, pid, on)
+            await push(pid, {"t": "info", "why": "ops", "on": on})
+            await reply(ok=True, id=pid, ops=on); return
         if op == "xfer":
             if not pid or not await run(db.get, pid):
                 await reply(ok=False, err="その友だちIDの人はいません"); return
@@ -405,7 +430,7 @@ async def admin_op(ws, m):
             pid, code = await run(db.admin_create, nm)
             await reply(ok=True, id=pid, name=nm, code=code, days=7); return
         if op == "rename":
-            nm = clean_name(m.get("name"))
+            nm = plain_name(m.get("name")) if await is_ops(pid) else clean_name(m.get("name"))
             if not pid or not await run(db.get, pid):
                 await reply(ok=False, err="その友だちIDの人はいません"); return
             if await run(db.name_taken, nm, pid):     # 名前はほかの人と重ならないように
@@ -524,7 +549,7 @@ async def handler(ws):
                 continue
             # ---- フレンド・メール ----
             if t == "namecheck":
-                if name_ng(m.get("name")):           # 使えない言葉の名前（理由は言わない）
+                if name_ng(m.get("name")) and not await is_ops(norm_id(m.get("id"))):   # 使えない言葉の名前（理由は言わない。運営アカウントは通す）
                     await send(ws, {"t": "name", "ok": False, "ng": True}); continue
                 nm = clean_name(m.get("name"))
                 ok = not (db and await run(db.name_taken, nm, norm_id(m.get("id"))))
@@ -554,14 +579,15 @@ async def handler(ws):
                 if await run(db.is_banned, pid):
                     await send(ws, {"t": "err", "why": "banned"}); continue
                 acct = pid; online.setdefault(acct, set()).add(ws)
-                nm = clean_name(m.get("name"))
-                ng = name_ng(m.get("name"))
+                ops = await is_ops(pid)
+                nm = plain_name(m.get("name")) if ops else clean_name(m.get("name"))
+                ng = not ops and name_ng(m.get("name"))
                 if ng or await run(db.name_taken, nm, pid):   # 使えない名前・ほかの人と重なる名前なら、前の名前のまま（返事で知らせる）
                     await run(db.touch, pid)
                 else:
                     await run(db.touch, pid, nm)
                 cur = await run(db.get, pid)
-                await send(ws, {"t": "authed", "id": pid, "unread": await run(db.unread, pid), "name": cur["name"] if cur else nm, "ng": ng})
+                await send(ws, {"t": "authed", "id": pid, "unread": await run(db.unread, pid), "name": cur["name"] if cur else nm, "ng": ng, "ops": ops})
                 inv = invites.get(pid)
                 if inv and time.time() - inv["at"] < INVITE_TTL and inv["code"] in rooms:
                     await send(ws, {"t": "invite", "from": inv["from"], "name": inv["name"], "code": inv["code"]})
@@ -581,8 +607,7 @@ async def handler(ws):
                 c = norm_code(m.get("code"))
                 if not c:
                     await send(ws, {"t": "err", "why": "code"}); continue
-                if t == "host" and code_ng(c):           # 使えない言葉の合言葉（理由は言わない）
-                    await send(ws, {"t": "err", "why": "codeng"}); continue
+                rp = None
                 if db:   # 友だちIDと鍵で名のった人だけ。利用停止中は使えない
                     rp = norm_id(m.get("id"))
                     if not rp or not await run(db.check, rp, str(m.get("secret") or "")):
@@ -590,10 +615,14 @@ async def handler(ws):
                     await run(db.record_env, rp, client_ip(ws), *env_of(m))
                     if await run(db.is_banned, rp):
                         await send(ws, {"t": "err", "why": "banned"}); continue
+                ops = await is_ops(rp)
+                if t == "host" and not ops and code_ng(c):   # 使えない言葉の合言葉（理由は言わない。運営アカウントは通す）
+                    await send(ws, {"t": "err", "why": "codeng"}); continue
+                rname = plain_name(m.get("name")) if ops else clean_name(m.get("name"))
                 if t == "host":
                     if rooms.get(c):
                         await send(ws, {"t": "err", "why": "taken"}); continue
-                    rooms[c] = {"host": ws, "hostId": me, "members": {me: ws}, "names": {me: clean_name(m.get("name"))}}
+                    rooms[c] = {"host": ws, "hostId": me, "members": {me: ws}, "names": {me: rname}}
                     code, is_host = c, True
                     await send(ws, {"t": "hosted", "id": me})
                 else:
@@ -603,7 +632,7 @@ async def handler(ws):
                     if len(room["members"]) >= MAX_ROOM:
                         await send(ws, {"t": "err", "why": "full"}); continue
                     room["members"][me] = ws
-                    room["names"][me] = clean_name(m.get("name"))
+                    room["names"][me] = rname
                     code = c
                     await send(ws, {"t": "joined", "id": me, "host": room["hostId"], "names": room["names"]})
                     await broadcast(room, {"t": "peer", "id": me, "name": room["names"][me]}, skip=me)

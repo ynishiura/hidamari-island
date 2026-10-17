@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.128";</script>
+<script>const GAME_VERSION="1.129";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -8572,7 +8572,7 @@ function accOnMsg(m){
     case 'acct':{const net={id:m.id,secret:m.secret};if(RT.visiting&&OWN_KEEP)OWN_KEEP.net=net;else S.net=net;
       if(RT.visiting){const sv=load();if(sv){sv.net=net;try{localStorage.setItem(SAVE_KEY,JSON.stringify(sv))}catch(e){}}}else save();
       ACC.id=m.id;ACC.authed=true;if(!ACC.auto)toast(`友だちIDができた！ ${m.id}`,true);ACC.auto=false;accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();if(typeof cloudSync==='function')cloudSync(true);break}
-    case 'authed':ACC.id=m.id;ACC.authed=true;ACC.unread=m.unread||0;setTimeout(()=>typeof cloudSync==='function'&&cloudSync(true),1500);
+    case 'authed':ACC.id=m.id;ACC.authed=true;ACC.unread=m.unread||0;ACC.ops=!!m.ops;   // ops：運営アカウント（メールを長く書ける。制限はサーバーがかけない）setTimeout(()=>typeof cloudSync==='function'&&cloudSync(true),1500);
       if(m.name&&!RT.visiting&&m.name!==accName()){toast(m.ng?`「${accName()}」は名前に使えないので、名前は「${m.name}」のまま。別の名前にしたいときは、能力の画面で変えてね`:`「${accName()}」は、もうほかの人が使っている名前なので、名前は「${m.name}」のまま。別の名前にしたいときは、能力の画面で変えてね`,true);S.name=m.name;save();updateHud&&updateHud()}   // 名前がほかの人と重なっていた
       accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();break;
     case 'friends':ACC.friends={list:m.list||[],reqIn:m.reqIn||[],reqOut:m.reqOut||[],blocked:m.blocked||[]};accRefresh();break;
@@ -8584,6 +8584,7 @@ function accOnMsg(m){
       ACC.invite=m;break;
     case 'info':{const n=m.name||'';const w={reqsent:`${n}にフレンド申請を送った`,reqin:`${n}からフレンド申請が届いた！`,friended:`${n}とフレンドになった！`,mailsent:`${n}にメールを送った`,
       invited:m.online?`${n}を島に誘った！`:`${n}を誘った（いまゲームを開いていないので、10分以内に開いたら届くよ）`}[m.why];if(w)toast(w,true);
+      if(m.why==='ops'){ACC.ops=!!m.on;toast(m.on?'このアカウントは、運営アカウントになりました':'このアカウントの運営アカウントの指定が解除されました',true);accRefresh()}
       if(m.why==='opsrename'&&m.name&&!RT.visiting){S.name=m.name;save();updateHud&&updateHud();toast(`運営により、名前が「${m.name}」に変わりました`,true)}   // 運営の管理画面で名前を直したとき
       if(m.why==='reported'){toast(m.blocked?'通報し、ブロックしました。ご協力ありがとうございます':'通報しました。ご協力ありがとうございます',true);RT.reportMid=null}
       if(m.why==='mailsent'){ACC.draft='';accSend({t:'mailbox'});
@@ -8702,8 +8703,9 @@ function renderMail(body){
   const sel=h('select',{style:'font:inherit;font-size:14px;padding:6px 8px;border-radius:10px;border:2px solid var(--line);background:#fff;max-width:14em'},
     h('option',{value:''},'送る相手をえらぶ'),...F.map(f=>{const o=h('option',{value:f.id},f.name);if(RT.mailTo===f.id)o.selected=true;return o}));
   const cnt=h('span',{class:'muted',style:'font-size:12px'},'');
-  const ta=h('textarea',{maxlength:'50',rows:'2',placeholder:'50文字まで',style:'font:inherit;font-size:15px;padding:8px 10px;border-radius:10px;border:2px solid var(--line);width:100%;box-sizing:border-box;resize:none;color:var(--ink);background:#fff'});
-  ta.value=ACC.draft||'';const upd=()=>{ACC.draft=ta.value;cnt.textContent=`${ta.value.length}/50`};ta.oninput=upd;upd();sel.onchange=()=>{RT.mailTo=sel.value};
+  const mmax=ACC.ops?500:50;   // 運営アカウントは 500文字まで（サーバーの OPS_MAIL_MAX）
+  const ta=h('textarea',{maxlength:String(mmax),rows:ACC.ops?'4':'2',placeholder:`${mmax}文字まで`,style:'font:inherit;font-size:15px;padding:8px 10px;border-radius:10px;border:2px solid var(--line);width:100%;box-sizing:border-box;resize:none;color:var(--ink);background:#fff'});
+  ta.value=ACC.draft||'';const upd=()=>{ACC.draft=ta.value;cnt.textContent=`${ta.value.length}/${mmax}`};ta.oninput=upd;upd();sel.onchange=()=>{RT.mailTo=sel.value};
   // 贈り物：持ち物を1つ付けられる（遊びに行っているあいだは付けられない）
   if(ACC.giftSel&&!(S.bag[ACC.giftSel]>0))ACC.giftSel='';
   const gsel=h('select',{style:'font:inherit;font-size:14px;padding:6px 8px;border-radius:10px;border:2px solid var(--line);background:#fff;max-width:16em'},

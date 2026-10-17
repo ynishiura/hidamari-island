@@ -18,10 +18,10 @@
   （端末＝ゲームがブラウザに保存する「端末の識別番号」did。モバイル回線と Wi-Fi を切りかえても同じ端末だと分かる）
   記録の使いみちは、利用停止（ブロック）と、別アカウント・複数アカウントの防止だけ
 
-hd_players には後から足した列がある：banned（ブロック）・play_sec（プレイ時間・秒。まだ届いていなければ NULL）・
+hd_players には後から足した列がある：banned（ブロック）・ops（運営アカウント。制限をかけない・自動削除しない。2026-10-18〜）・play_sec（プレイ時間・秒。まだ届いていなければ NULL）・
 device（利用端末）・save（ゲームのセーブ＝引継ぎコードの形）・save_at
 自動削除：総プレイ時間（ゲームの S.playSec。遊んだ時間の合計）が3分未満のまま、3日以上つないでいないアカウントは消す（play_sec が NULL のものは消さない）。
-  さらに、最後につないでから30日つないでいないアカウントも消す（2026-10-17〜）。どちらも利用停止中のアカウントは消さない（ブロック逃れを止める記録を残すため）
+  さらに、最後につないでから30日つないでいないアカウントも消す（2026-10-17〜）。どちらも利用停止中のアカウントは消さない（ブロック逃れを止める記録を残すため）。運営アカウントも消さない
 友だちIDは、アカウントごとに1つで変わらない。運営の「アカウント作成の代行」は、hd_xfer の kind='id' のコード（受け取ると友だちIDだけが入る）
 """
 import hashlib, json, os, secrets, sqlite3, threading, time
@@ -122,7 +122,7 @@ class Store:
                 self.q(f'ALTER TABLE hd_mail ADD COLUMN {col}')
             except Exception:
                 pass
-        for col in ('banned INTEGER NOT NULL DEFAULT 0', 'play_sec BIGINT', 'device TEXT', 'save TEXT', 'save_at BIGINT'):
+        for col in ('banned INTEGER NOT NULL DEFAULT 0', 'ops INTEGER NOT NULL DEFAULT 0', 'play_sec BIGINT', 'device TEXT', 'save TEXT', 'save_at BIGINT'):
             try:                                   # 古い表には後から足す（もうあれば何もしない）
                 self.q(f'ALTER TABLE hd_players ADD COLUMN {col}')
             except Exception:
@@ -250,6 +250,14 @@ class Store:
     def set_banned(self, pid, on):
         self.q('UPDATE hd_players SET banned=? WHERE id=?', (1 if on else 0, pid))
 
+    def is_ops(self, pid):
+        """運営アカウントか（禁止ワード・数の上限などの制限をかけない）"""
+        r = pid and self.q('SELECT ops FROM hd_players WHERE id=?', (pid,), one=True)
+        return bool(r and r[0])
+
+    def set_ops(self, pid, on):
+        self.q('UPDATE hd_players SET ops=? WHERE id=?', (1 if on else 0, pid))
+
     def admin_stats(self):
         now = int(time.time())
         one = lambda sql, a=(): (self.q(sql, a, one=True) or [0])[0]
@@ -259,6 +267,7 @@ class Store:
             'active7': one('SELECT COUNT(*) FROM hd_players WHERE seen_at>?', (now - 7 * 86400,)),
             'new7': one('SELECT COUNT(*) FROM hd_players WHERE created_at>?', (now - 7 * 86400,)),
             'banned': one('SELECT COUNT(*) FROM hd_players WHERE banned<>0'),
+            'ops': one('SELECT COUNT(*) FROM hd_players WHERE ops<>0'),
             'mails': one('SELECT COUNT(*) FROM hd_mail'),
             'mails1': one('SELECT COUNT(*) FROM hd_mail WHERE at>?', (now - 86400,)),
         }
@@ -266,13 +275,14 @@ class Store:
     def admin_players(self, q='', limit=100, offset=0):
         """名前か友だちIDの部分一致。新しくつないだ順"""
         like = '%' + str(q or '').strip() + '%'
-        rows = self.q('SELECT id, name, data, created_at, seen_at, banned, play_sec, device, save_at FROM hd_players WHERE (name LIKE ? OR id LIKE ?) '
+        rows = self.q('SELECT id, name, data, created_at, seen_at, banned, play_sec, device, save_at, ops FROM hd_players WHERE (name LIKE ? OR id LIKE ?) '
                       'ORDER BY seen_at DESC LIMIT ? OFFSET ?', (like, like.upper(), int(limit) + 1, int(offset)), many=True) or []
         out = []
         for r in rows[:limit]:
             d = json.loads(r[2] or '{}')
             out.append({'id': r[0], 'name': r[1] or 'だれか', 'friends': len(d.get('friends', [])), 'reqIn': len(d.get('reqIn', [])),
-                        'createdAt': r[3], 'seenAt': r[4], 'banned': bool(r[5]), 'playSec': r[6], 'device': r[7] or '', 'saveAt': r[8]})
+                        'createdAt': r[3], 'seenAt': r[4], 'banned': bool(r[5]), 'playSec': r[6], 'device': r[7] or '', 'saveAt': r[8],
+                        'ops': bool(r[9])})
         return out, len(rows) > limit
 
     # ---- 端末・プレイ時間・セーブ（ゲームから定期的に届く） ----
@@ -345,16 +355,16 @@ class Store:
         return True
 
     def auto_delete(self):
-        """総プレイ時間が3分未満のまま3日以上つないでいない、または最後につないでから30日つないでいないアカウントを消す（利用停止中は消さない）。消した数を返す"""
+        """総プレイ時間が3分未満のまま3日以上つないでいない、または最後につないでから30日つないでいないアカウントを消す（利用停止中・運営アカウントは消さない）。消した数を返す"""
         now = int(time.time())
-        rows = self.q('SELECT id FROM hd_players WHERE banned=0 AND ((play_sec IS NOT NULL AND play_sec<? AND seen_at<?) OR seen_at<?)',
+        rows = self.q('SELECT id FROM hd_players WHERE banned=0 AND ops=0 AND ((play_sec IS NOT NULL AND play_sec<? AND seen_at<?) OR seen_at<?)',
                       (AUTO_DEL_PLAY, now - AUTO_DEL_DAYS * 86400, now - IDLE_DEL_DAYS * 86400), many=True) or []
         for (pid,) in rows:
             self.delete_player(pid)
         return len(rows)
 
     def admin_player(self, pid):
-        r = self.q('SELECT id, name, data, created_at, seen_at, banned, play_sec, device, save_at FROM hd_players WHERE id=?', (pid,), one=True)
+        r = self.q('SELECT id, name, data, created_at, seen_at, banned, play_sec, device, save_at, ops FROM hd_players WHERE id=?', (pid,), one=True)
         if not r:
             return None
         d = json.loads(r[2] or '{}')
@@ -362,7 +372,7 @@ class Store:
         row = lambda i: {'id': i, 'name': names.get(i, 'だれか')}
         sent = (self.q('SELECT COUNT(*) FROM hd_mail WHERE from_id=?', (pid,), one=True) or [0])[0]
         got = (self.q('SELECT COUNT(*) FROM hd_mail WHERE to_id=?', (pid,), one=True) or [0])[0]
-        return {'id': r[0], 'name': r[1] or 'だれか', 'createdAt': r[3], 'seenAt': r[4], 'banned': bool(r[5]),
+        return {'id': r[0], 'name': r[1] or 'だれか', 'createdAt': r[3], 'seenAt': r[4], 'banned': bool(r[5]), 'ops': bool(r[9]),
                 'playSec': r[6], 'device': r[7] or '', 'saveAt': r[8], 'envs': self.envs_of(pid), 'shared': self.shared_accounts(pid),
                 'friends': [row(i) for i in d.get('friends', [])], 'reqIn': [row(i) for i in d.get('reqIn', [])],
                 'reqOut': [row(i) for i in d.get('reqOut', [])], 'mailSent': sent, 'mailGot': got}
