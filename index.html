@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.102";</script>
+<script>const GAME_VERSION="1.103";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -7772,7 +7772,8 @@ const HAT_IMG_FIT={
   // コック帽：下の筒（いちばん下から6行上）の幅を頭の幅の1.1倍に、筒の中心を頭の中心に
   hat_chef:{w:1.15,y:.54,band:{color:'bottom',w:1.05,y:.36,yb:.36}},
   hat_party:{w:.7,y:.12},
-  hat_ribbon:{w:.95,y:.12,dx:-.1},
+  // 大きなリボン：2026-10-17 に大きさを0.8倍（.95→.76）、少し下へ（.12→.18）
+  hat_ribbon:{w:.76,y:.18,dx:-.1},
   hat_crown:{w:.8,y:.12},
   hat_tiara:{w:.85,y:.14,yb:.34},
   hat_flower:{w:1.15,y:.26},
