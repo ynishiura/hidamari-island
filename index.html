@@ -559,7 +559,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.089";</script>
+<script>const GAME_VERSION="1.090";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -3021,13 +3021,25 @@ function craft(r){
 }
 // 作る段階（ランク）の色で道具の絵を描く
 function tierIcon(id,k){const o=S.tools[id];S.tools[id]=k;try{return iconCanvas(id)}finally{S.tools[id]=o}}
+// クラフトの種類（タブ）：道具・武器と杖・家具・くらしの品（置き物・薬・エサなど）
+const CRAFT_TABS=[['tool','道具'],['weapon','武器・杖'],['furn','家具'],['item','くらしの品']];
+function craftKind(r){
+  if(r.weapon||(r.tool&&['sword','wand'].includes(r.tool[0])))return 'weapon';
+  if(r.tool||r.flag)return 'tool';
+  if(r.furn)return 'furn';
+  return 'item';
+}
+const craftShown=r=>{if(r.tool&&r.need){const t=tier(r.tool[0]);if(!(t===r.tool[1]-1||(t===r.tool[1]&&t===TOOL_MAX(r.tool[0]))))return false}return true};   // 道具の強化は、次の段階だけ（最高ランクは作成ずみで残す）
 function openCraft(){
   if(!canCraftHere()){toast('クラフトは家の作業台でできる（家の入口で「家に入る」）');return}
-  openPanel('クラフト',null,null,body=>{
+  // タブの名前に「いま作れる数」を付ける
+  const tabs=()=>CRAFT_TABS.map(([k,l])=>{const n=RECIPES.filter(r=>craftKind(r)===k&&craftShown(r)&&recipeState(r).ok).length;return [k,n?`${l}（${n}）`:l]});
+  openPanel('クラフト',tabs(),RT.craftTab||'tool',(body,tab)=>{
+    RT.craftTab=tab;RT.panel.tabs=tabs();[...$('pTabs').children].forEach((el,i)=>{if(RT.panel.tabs[i])el.textContent=RT.panel.tabs[i][1]});   // 作ったあと（refresh）に、作れる数を出しなおす
     body.append(h('p',{class:'muted',style:'margin:0 0 10px'},`クラフト Lv${skLv('craft')}`));
     const grid=h('div',{class:'two'});
     for(const r of RECIPES){
-      if(r.tool&&r.need){const t=tier(r.tool[0]);if(!(t===r.tool[1]-1||(t===r.tool[1]&&t===TOOL_MAX(r.tool[0]))))continue}   // 道具の強化は、次の段階だけ（最高ランクは作成ずみで残す）
+      if(craftKind(r)!==tab||!craftShown(r))continue;
       const st=recipeState(r);
       const mats=Object.entries(r.mats).map(([id,n])=>h('span',{class:'pill '+((S.bag[id]||0)>=n?'ok':'ng')},`${ITEMS[id].name}×${n}（${S.bag[id]||0}）`));
       if(!st.lvOk){grid.append(h('div',{class:'card unk'},h('b',{},'？？？'),h('div',{class:'muted'},'クラフトの腕が上がると、作り方がひらめくかも')));continue}
@@ -7728,14 +7740,15 @@ const SHEET_K={f:1,b:.78,l:1.0,r:1.0};   // 後ろ向きのシートは、ほか
 // m：横向き・後ろ向きを「絵のかぶる部分（つばやたれを除いた山の部分）」を測って合わせる帽子。
 //   cw＝山の幅（頭の幅の何倍）, cx＝山の中心の前後のずれ（頭の幅に対する割合。横向きはプラスで前）, cy＝山の下のふちを頭のてっぺんからどれだけ下げるか
 //   center＝山の中心（丸い物）を cy に合わせる, whole＝絵全体で合わせる
-const CAP_M={s:{cw:1.0,cx:.02,cy:.64},b:{cw:1.04,cx:0,cy:.62}};
+// キャップ：山（つばを除いたかぶる部分）の幅を、どの向きも頭の幅の1.12倍にそろえる（正面は絵の96%が山なので w=1.17）。横は山を少し後ろへ寄せて、後ろ髪がはみ出ないように
+const CAP_M={s:{cw:1.12,cx:-.04,cy:.66},b:{cw:1.12,cx:0,cy:.64}};
 const HAT_IMG_FIT={
   // 1行に1つの帽子。注釈は必ず行の前に書く（行の後ろに // を書くと、その後ろの設定が注釈あつかいになって読まれなくなる）
   // ws/wb：横向き・後ろ向きの絵の幅を直接決める（頭の幅の何倍か）。m：山の幅で合わせる。same：その向きは正面の絵を同じ大きさ・位置で使う
   // band：帯（white 白い帯／red 赤い帯／any いちばん広い行＝つば・ふち／crown 山の幅／base 山の下端）を測り、帯の幅を頭の幅の w 倍・帯の中心を頭の中心・帯の行を頭のてっぺんから y（横 ys・後ろ yb）倍の位置に置く。sy は縦の縮尺の倍率
-  hat_cap:{w:1.15,y:.55,m:CAP_M},
-  hat_cap_red:{w:1.15,y:.55,m:CAP_M},
-  hat_cap_black:{w:1.15,y:.55,m:CAP_M},
+  hat_cap:{w:1.17,y:.56,m:CAP_M},
+  hat_cap_red:{w:1.17,y:.56,m:CAP_M},
+  hat_cap_black:{w:1.17,y:.56,m:CAP_M},
   hat_knit:{w:1.12,y:.66,same:'b'},
   hat_knit_blue:{w:1.12,y:.66,same:'b'},
   hat_knit_green:{w:1.12,y:.66,same:'b'},
