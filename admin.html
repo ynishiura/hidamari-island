@@ -333,10 +333,11 @@
     for (const q of items) {
       const ta = el('textarea', { rows: 4, maxlength: 1000, placeholder: 'お返事（1000文字まで。ポストに「運営」からのメールで届きます）' });
       l.append(el('div', { class: 'card', style: 'background:var(--panel-2)' },
-        el('div', { class: 'row' }, el('b', { class: 'grow', text: `受付番号 ${q.id}　${fmt(q.at)}` }), q.done ? el('span', { class: 'tag on', text: '対応済み' }) : el('span', { class: 'tag ban', text: '対応待ち' })),
+        el('div', { class: 'row' }, el('b', { class: 'grow', text: `受付番号 ${q.id}　${fmt(q.at)}` + (q.replyMid ? '　（運営からのメールへの返信）' : '') }), q.done ? el('span', { class: 'tag on', text: '対応済み' }) : el('span', { class: 'tag ban', text: '対応待ち' })),
         el('dl', { class: 'detail', style: 'display:grid;grid-template-columns:8em 1fr;gap:4px 10px;margin:6px 0' },
           el('dt', { text: 'お名前' }), el('dd', {}, q.name || '—', '（いまのプレイヤー名：', q.nowName, '）'),
           el('dt', { text: '友だちID' }), el('dd', { class: 'mono', text: q.pid }),
+          q.replyMid ? el('dt', { text: '返信したメール' }) : null, q.replyMid ? el('dd', { class: 'msg', style: 'margin:0;white-space:pre-wrap;word-break:break-all', text: q.quote || '—' }) : null,
           el('dt', { text: '内容' }), el('dd', { style: 'white-space:pre-wrap;word-break:break-all', text: q.body }),
           q.reply ? el('dt', { text: 'お返事' }) : null, q.reply ? el('dd', { style: 'white-space:pre-wrap;word-break:break-all', text: `${q.reply}
 （${fmt(q.repliedAt)} に送りました）` }) : null),

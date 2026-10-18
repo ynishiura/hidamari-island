@@ -31,6 +31,8 @@
    利用停止のアカウントは auth で {"t":"err","why":"banned"} を返す
 5. お問い合わせ（SIDERA VEIL と同じ窓口。届いたら運営者にメールで知らせる。mailer.py）
      {"t":"inquiry","name","body","id","secret"} → {"t":"inquired","no":受付番号}   名のっていなくても id・secret で送れる（利用停止中も送れる）
+       内容は INQ_BODY_MAX（100）文字まで・24時間に2通まで（store.py の INQ_PER_DAY）
+       "reply":メールの番号 を付けると、ポストに届いた運営からのメールへの返信（24時間の数に入れない。1通に1回まで）
      {"t":"inqlist","id","secret"} → {"t":"inqlist","items":[{id,body,at,reply,repliedAt}]}
      運営の返事（管理画面の inqreply{iid,body}）は、運営からのメールとしてポストにも届ける
 6. 利用環境とアカウント作成の制限（2026-10-17〜）
@@ -63,7 +65,7 @@ OPS_MAIL_MAX = 500                            # 運営アカウントのメー�
 admin_fail = {"t": 0.0}
 claim_fail = {"t": 0.0}
 SAVE_MAX = 500_000
-INQ_NAME_MAX, INQ_BODY_MAX, INQ_REPLY_MAX = 30, 2000, 1000
+INQ_NAME_MAX, INQ_BODY_MAX, INQ_REPLY_MAX = 30, 100, 1000   # お問い合わせの内容は100文字まで（2026-10-18）
 inq_fail = {"t": 0.0}
 mailer = Mailer()
 
@@ -192,7 +194,16 @@ async def inquiry_op(ws, acct, m):
         await send(ws, {"t": "err", "why": "inq", "msg": "お問い合わせの内容を書いてください"}); return
     if len(body) > INQ_BODY_MAX:
         await send(ws, {"t": "err", "why": "inq", "msg": f"お問い合わせの内容は{INQ_BODY_MAX}文字までです"}); return
-    iid, err = await run(db.add_inquiry, pid, name, body)
+    mid, quote = None, None
+    if m.get("reply") is not None:                  # 運営からのメールへの返信：その人のポストに届いた、運営からのメールだけ
+        try:
+            mail = await run(db.mail_in_inbox, pid, int(m.get("reply")))
+        except (TypeError, ValueError):
+            mail = None
+        if not mail or mail["from"] != OPS_ID:
+            await send(ws, {"t": "err", "why": "inq", "msg": "返信できるのは、ポストに届いた運営からのメールです"}); return
+        mid, quote = mail["id"], str(mail["body"] or "")[:300]
+    iid, err = await run(db.add_inquiry, pid, name, body, mid, quote)
     if err:
         await send(ws, {"t": "err", "why": "inq", "msg": err}); return
     mailer.notify("inquiry", iid, jst(), lambda: db.mark_mailed(iid))

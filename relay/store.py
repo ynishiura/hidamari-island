@@ -33,7 +33,7 @@ IDLE_DEL_DAYS = 30            # 自動削除：最後につないでから、こ
 
 ID_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'    # まぎらわしい 0・1・I・O は使わない
 MAIL_KEEP_DAYS = 30
-INQ_PER_HOUR, INQ_PER_DAY = 3, 10   # 1つのアカウントから送れるお問い合わせの数（SIDERA VEIL と同じ）
+INQ_PER_DAY = 2   # 1つのアカウントから24時間に送れるお問い合わせの数（運営からのメールへの返信は数えない。2026-10-18）
 REG_48H, REG_30D = 1, 2             # 同じ IP から作れる新しいアカウントの数（48時間に1つ・30日で2つ）
 ENV_KEEP_DAYS = 180                 # 利用環境の記録を残す日数（最後に使ってから）
 
@@ -137,6 +137,11 @@ class Store:
                'reason TEXT, detail TEXT, body TEXT, mail_at BIGINT, at BIGINT NOT NULL)')
         self.q(f'CREATE TABLE IF NOT EXISTS hd_inquiries (id {auto}, pid TEXT NOT NULL, name TEXT, body TEXT NOT NULL, '
                'at BIGINT NOT NULL, mailed INTEGER NOT NULL DEFAULT 0, reply TEXT, replied_at BIGINT, done INTEGER NOT NULL DEFAULT 0)')
+        for col in ('reply_mid BIGINT', 'reply_quote TEXT'):
+            try:                                   # 運営からのメールへの返信：返信したメールの番号と、その文（あとから足した列）
+                self.q(f'ALTER TABLE hd_inquiries ADD COLUMN {col}')
+            except Exception:
+                pass
         self.q('CREATE TABLE IF NOT EXISTS hd_meta (k TEXT PRIMARY KEY, v TEXT)')
         self.q('CREATE TABLE IF NOT EXISTS hd_envs (pid TEXT NOT NULL, ip_hash TEXT NOT NULL, ip_mask TEXT, device TEXT NOT NULL, net TEXT NOT NULL, '
                'first_at BIGINT NOT NULL, last_at BIGINT NOT NULL, n BIGINT NOT NULL DEFAULT 1, PRIMARY KEY (pid, ip_hash, device, net))')
@@ -494,29 +499,38 @@ class Store:
         return out
 
     # ---- お問い合わせ ----
-    def add_inquiry(self, pid, name, body):
-        """受け付けたら (id, None)。送りすぎなら (None, 理由)"""
+    def add_inquiry(self, pid, name, body, reply_mid=None, quote=None):
+        """受け付けたら (id, None)。送りすぎなら (None, 理由)。
+        reply_mid：運営からのメールへの返信（24時間の数に入れない。1通のメールに返信できるのは1回）"""
         now = int(time.time())
-        times = [r[0] for r in (self.q('SELECT at FROM hd_inquiries WHERE pid=? AND at>?', (pid, now - 86400), many=True) or [])]
-        if len(times) >= INQ_PER_DAY or sum(t > now - 3600 for t in times) >= INQ_PER_HOUR:
-            return None, 'お問い合わせを続けて送ることはできません。しばらくたってから送ってください'
-        r = self.q('INSERT INTO hd_inquiries (pid, name, body, at) VALUES (?,?,?,?) RETURNING id', (pid, name, body, now), one=True)
+        if reply_mid is not None:
+            if self.q('SELECT 1 FROM hd_inquiries WHERE pid=? AND reply_mid=?', (pid, int(reply_mid)), one=True):
+                return None, 'このメールには、もう返信しています。運営からのお返事をお待ちください'
+        else:
+            n = (self.q('SELECT COUNT(*) FROM hd_inquiries WHERE pid=? AND at>? AND reply_mid IS NULL', (pid, now - 86400), one=True) or [0])[0]
+            if n >= INQ_PER_DAY:
+                return None, f'お問い合わせは24時間に{INQ_PER_DAY}通までです。しばらくたってから送ってください'
+        r = self.q('INSERT INTO hd_inquiries (pid, name, body, at, reply_mid, reply_quote) VALUES (?,?,?,?,?,?) RETURNING id',
+                   (pid, name, body, now, reply_mid, quote), one=True)
         return (r and r[0]), None
 
     def mark_mailed(self, iid):
         self.q('UPDATE hd_inquiries SET mailed=1 WHERE id=?', (int(iid),))
 
     def my_inquiries(self, pid, n=20):
-        rows = self.q('SELECT id, body, at, reply, replied_at FROM hd_inquiries WHERE pid=? ORDER BY at DESC, id DESC LIMIT ?',
+        rows = self.q('SELECT id, body, at, reply, replied_at, reply_mid, reply_quote FROM hd_inquiries WHERE pid=? ORDER BY at DESC, id DESC LIMIT ?',
                       (pid, int(n)), many=True) or []
-        return [{'id': r[0], 'body': r[1], 'at': r[2], 'reply': r[3] or '', 'repliedAt': r[4]} for r in rows]
+        return [{'id': r[0], 'body': r[1], 'at': r[2], 'reply': r[3] or '', 'repliedAt': r[4], 'replyMid': r[5], 'quote': r[6] or ''}
+                for r in rows]
 
     def inquiries(self, limit=300):
-        rows = self.q('SELECT id, pid, name, body, at, mailed, reply, replied_at, done FROM hd_inquiries ORDER BY at DESC, id DESC LIMIT ?',
+        rows = self.q('SELECT id, pid, name, body, at, mailed, reply, replied_at, done, reply_mid, reply_quote FROM hd_inquiries '
+                      'ORDER BY at DESC, id DESC LIMIT ?',
                       (int(limit),), many=True) or []
         names = self.names(list({r[1] for r in rows}))
         return [{'id': r[0], 'pid': r[1], 'name': r[2] or '', 'nowName': names.get(r[1], '（削除された人）'), 'body': r[3], 'at': r[4],
-                 'mailed': bool(r[5]), 'reply': r[6] or '', 'repliedAt': r[7], 'done': bool(r[8])} for r in rows]
+                 'mailed': bool(r[5]), 'reply': r[6] or '', 'repliedAt': r[7], 'done': bool(r[8]), 'replyMid': r[9], 'quote': r[10] or ''}
+                for r in rows]
 
     def inquiry(self, iid):
         r = self.q('SELECT id, pid FROM hd_inquiries WHERE id=?', (int(iid),), one=True)
