@@ -336,7 +336,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
   /* バージョンは左下のスティックの裏へ（ミニマップの下はメニューの場所にするため） */
   #verGame{position:fixed;left:82px;bottom:calc(114px + env(safe-area-inset-bottom,0px) + 58px);transform:translateX(-50%)}
 }
-@media (max-width:420px){#dPortrait{height:118px}.tool{width:40px;height:46px}.tool .lbl{font-size:9px}#toolbar{gap:2px;padding:3px}}
+@media (max-width:420px){#dPortrait{height:118px}.tool{width:36px;height:46px}.tool .lbl{font-size:8px;letter-spacing:-.3px}#toolbar{gap:2px;padding:3px}}
 /* スマホの横向き（高さが低い画面）：
    左上＝日付と「今日のやること」、右上＝Lv・お金・体力・ミニマップ、右端＝メニューを縦に、
    下＝左にスティック・真ん中に道具・右にAボタン。どれも小さくして重ならないようにする */
@@ -383,9 +383,9 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
   .mbtn{min-width:96px;padding:6px 10px;font-size:13px;border-radius:10px;text-align:left}
   .mbtn small{display:none}
   #toolbar{bottom:calc(6px + env(safe-area-inset-bottom,0px));gap:3px;padding:3px;border-radius:14px}
-  .tool{width:38px;height:40px;border-radius:10px}
+  .tool{width:36px;height:40px;border-radius:10px}
   .tool canvas{width:20px;height:20px}
-  .tool .lbl{font-size:9px}
+  .tool .lbl{font-size:8px;letter-spacing:-.3px}
   #dpad{left:max(12px,env(safe-area-inset-left,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));width:104px;height:104px}
   #dpad i{width:34px;height:34px;left:33px;top:33px}
   #abtn{right:calc(52px + env(safe-area-inset-right,0px));bottom:calc(38px + env(safe-area-inset-bottom,0px));width:60px;height:60px;font-size:18px}   /* 右下の角から少し左上へ（親指が届きやすく、角の丸みに隠れないように） */
@@ -441,7 +441,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
   #menubtns{top:152px;bottom:auto;right:12px;display:flex;flex-direction:column;align-items:stretch;gap:6px;max-height:calc(100vh - 210px);overflow:auto}
   #menubtns .mbtn{min-width:104px;white-space:nowrap}
   #bSnd{display:none}   /* 右下の音量バーのスピーカーで切りかえる */
-  #menubtns .mvol{position:fixed;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));width:min(220px,calc(50vw - 192px))}
+  #menubtns .mvol{position:fixed;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));width:min(220px,calc(50vw - 206px))}
   #verGame{position:fixed;left:12px;bottom:calc(8px + env(safe-area-inset-bottom,0px))}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -547,7 +547,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
     <div id="titleHowto" class="tpane box" hidden>
       <h2>あそびかた</h2>
       <p>虫をとって、魚を釣って、化石や鉱石を掘って、花を育てる。なにをしても、その「能力」が上がっていきます。</p>
-      <div class="keys"><kbd>←↑↓→</kbd>/<kbd>WASD</kbd> 移動　<kbd>Shift</kbd> 走る<br><kbd>Space</kbd>/<kbd>Z</kbd> 調べる・使う　<kbd>1</kbd>〜<kbd>8</kbd> 道具を持ちかえる<br><kbd>Q</kbd> 魔法の種類を変える　<kbd>C</kbd> クラフト<br><b>クリック</b>（タップ）で移動・アクションもできる<br><kbd>E</kbd> 持ち物　<kbd>R</kbd> 図鑑　<kbd>G</kbd> 能力　<kbd>M</kbd> 地図　<kbd>P</kbd> セーブ　<kbd>Esc</kbd> 閉じる</div>
+      <div class="keys"><kbd>←↑↓→</kbd>/<kbd>WASD</kbd> 移動　<kbd>Shift</kbd> 走る<br><kbd>Space</kbd>/<kbd>Z</kbd> 調べる・使う　<kbd>1</kbd>〜<kbd>9</kbd> 道具を持ちかえる<br><kbd>Q</kbd> 魔法の種類を変える　<kbd>C</kbd> クラフト<br><b>クリック</b>（タップ）で移動・アクションもできる<br><kbd>E</kbd> 持ち物　<kbd>R</kbd> 図鑑　<kbd>G</kbd> 能力　<kbd>M</kbd> 地図　<kbd>P</kbd> セーブ　<kbd>Esc</kbd> 閉じる</div>
       <button class="tback" id="howtoBack">もどる</button>
     </div>
   </div>
@@ -563,7 +563,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.139";</script>
+<script>const GAME_VERSION="1.140";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -930,6 +930,7 @@ const TOOLS=[
   {id:'can',name:'じょうろ',key:'6',buy:400},
   {id:'sword',name:'剣',key:'7',skill:'fight'},
   {id:'wand',name:'杖',key:'8',skill:'magic'},
+  {id:'hoe',name:'クワ',key:'9',buy:500},   // 畑を耕す（farm.js。2026-10-18）
 ];
 const TIER_LABEL=['ふつうの','丈夫な','金の'];
 // 剣・スコップ・つりざお・あみ・オノは、強化に使うインゴットで質が決まる（銅→鉄→銀→金の順に良い）。ランク 1〜5
@@ -1776,6 +1777,7 @@ function pressA(){
     case 'can':return useCan(fx,fy);
     case 'sword':return useSword();
     case 'wand':return useWand();
+    case 'hoe':return useHoe(fx,fy);   // 畑（farm.js）
   }
 }
 const treeIdx=(x,y)=>inMap(x,y)?W.treeAt.get(ti(x,y)):undefined;
@@ -1940,6 +1942,9 @@ function useShovel(fx,fy){
   if(si!==undefined&&S.stumps[si]){if(!addItem('stump_item',1,true))return;useSta(3);clearStump(si);sfx('dig');task('dig');toast('切り株を掘り起こした！（持ち物から地面に置ける）',true);return}
   const di0=decoAt(fx,fy);
   if(di0>=0){const d=S.decos[di0];if(!addItem(DECO_ITEM[d.type],1,true))return;S.decos.splice(di0,1);W.block[ti(fx,fy)]=0;useSta(2);sfx('dig');toast(`${ITEMS[DECO_ITEM[d.type]].name}を掘り起こした`);return}
+  // 掘った穴：もう一度スコップを使うと埋めて、元の地面に戻す（2026-10-18）
+  const hi=S.holes.findIndex(d=>d[0]===fx&&d[1]===fy);
+  if(hi>=0){S.holes.splice(hi,1);sfx('dig');toast('穴を埋めた');return}
   const lv=skLv('dig');
   const di=S.dig.findIndex(d=>d[0]===fx&&d[1]===fy&&(!d[2]||lv>=3));
   if(di>=0){
@@ -2032,7 +2037,7 @@ function hintText(){
     case 'net':{const [px,py]=facePoint();if(RT.bugs.some(b=>!b.flee&&Math.hypot(b.x-px,b.y-6-py)<(skLv('bug')>=3?46:32)))return '捕まえる';break}
     case 'rod':{const [dx,dy]=DIRV[S.dir];for(const d of [1,2,3]){const t=tileAt(Math.floor((S.px+dx*d*T)/T),Math.floor((S.py-8+dy*d*T)/T));if(isWater(t))return '釣る'}break}
     case 'axe':if(tr!==undefined)return S.stumps[tr]?'切り株を割る':'木を切る';break;
-    case 'shovel':if(!inCave()&&((tr!==undefined&&S.stumps[tr])||decoAt(fx,fy)>=0||saplingAt(fx,fy)>=0))return '掘り起こす';if(inCave()){const ni=inMap(fx,fy)?W.nodeAt.get(ti(fx,fy)):undefined;return ni!==undefined&&!W.nodes[ni].broken?'採掘する':null}if(S.dig.some(d=>d[0]===fx&&d[1]===fy&&(!d[2]||skLv('dig')>=3)))return '掘る';if(W.rockAt.has(ti(fx,fy)))return '岩をたたく';break;
+    case 'shovel':if(!inCave()&&S.holes.some(d=>d[0]===fx&&d[1]===fy))return '穴を埋める';if(!inCave()&&((tr!==undefined&&S.stumps[tr])||decoAt(fx,fy)>=0||saplingAt(fx,fy)>=0))return '掘り起こす';if(inCave()){const ni=inMap(fx,fy)?W.nodeAt.get(ti(fx,fy)):undefined;return ni!==undefined&&!W.nodes[ni].broken?'採掘する':null}if(S.dig.some(d=>d[0]===fx&&d[1]===fy&&(!d[2]||skLv('dig')>=3)))return '掘る';if(W.rockAt.has(ti(fx,fy)))return '岩をたたく';break;
     case 'can':if(fl&&fl.stage<3)return fl.water?'水やり済み':'水をあげる';break;
   }
   return null;
@@ -2394,6 +2399,7 @@ function render(t){
   // 水の動き（ground2.js の drawWaterFx：川の流れ・海のきらめき・打ち寄せる波）。池は小さな光の点だけ
   drawWaterFx(ctx,x0,x1,y0,y1,t,isl&&hour()>=6&&hour()<18);
   for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const tt=tileAt(x,y);if(tt===6){const h=hash(x,y),a=.5+.5*Math.sin(t*1.5+h*9);if(h<.5){circ(ctx,x*T+6+h*20,y*T+8+h*16,1.1,`rgba(255,255,255,${.35*a})`)}}}
+  if(isl&&typeof drawFarmSoil==='function')drawFarmSoil(ctx,x0,x1,y0,y1);   // 畑の土（farm.js）
   if(isl)for(const [x,y] of S.holes){ell(ctx,(x+.5)*T,(y+.5)*T+4,10,6,'#6b4f32');ell(ctx,(x+.5)*T,(y+.5)*T+5,7,4,'#4a3522')}
   ctx.strokeStyle='rgba(80,55,30,.75)';ctx.lineWidth=2;
   drawShadows(ctx,t);
@@ -2420,6 +2426,7 @@ function render(t){
   W.rocks.forEach((r,i)=>{if(inV(r.x,r.y)){const sh=RT.shake.get('r'+i);D.push([(r.y+1)*T-4,()=>{ctx.save();if(sh)ctx.translate(Math.sin(sh*60)*1.5,0);drawRock(ctx,r,S.rockHits[i]);ctx.restore()}])}});take();
   const night=skyTint().night>.2;
   W.bld.forEach(b=>D.push([(b.y+b.h)*T,()=>drawBuilding(ctx,b,S.house,night,s)]));take();
+  if(isl&&typeof farmObjects==='function')farmObjects(D,inV);   // 畑の野菜（farm.js）
   if(isl)S.flowers.forEach(f=>{if(inV(f.x,f.y))D.push([(f.y+.5)*T+6,()=>drawFlower(ctx,f,s)])});skip();
   if(villagersOut())RT.vill.forEach(a=>D.push([a.y,()=>drawAnimal(ctx,a.x,a.y,a.dir,a.frame,a.v)]));take();
   RT.bugs.forEach(b=>D.push([b.y+(b.d.where==='tree'?2:0),()=>{ctx.save();if(b.flee)ctx.globalAlpha=1-b.flee/1.2;drawBug(ctx,b,t,night);ctx.restore()}]));skip();
@@ -2626,7 +2633,7 @@ function buildToolbar(){
     if(t.id==='sword'){const want=curWeapon()==='sword'?'sword':'w_'+curWeapon();if(b.dataset.ic!==want){b.querySelector('canvas').replaceWith(iconCanvas(want,28));b.dataset.ic=want}}   // 持っている武器の絵
     b.querySelector('.lbl').textContent=t.id==='hand'&&S.held?({deco:'置く物',sapling:'苗を持つ'}[ITEMS[S.held]?.kind]||'種を持つ'):t.id==='wand'&&tr?curSpell().name.slice(0,4):t.id==='sword'&&tr?weaponLabel().slice(-4):tr?toolName(t.id,tr).slice(-4):t.name});
 }
-const HOW_GET={shovel:'ひだまり商店で買えるよ（クラフトでも作れる）',can:'ひだまり商店で買えるよ',axe:'クラフトで作れるよ（木の枝×3＋石×2）',sword:'クラフトで作れるよ（木の剣は木材×4。槍・弓・ハンマーもある）',wand:'クラフトで作れるよ（木材×3＋魔石×1）'};
+const HOW_GET={hoe:'ひだまり商店で買えるよ',shovel:'ひだまり商店で買えるよ（クラフトでも作れる）',can:'ひだまり商店で買えるよ',axe:'クラフトで作れるよ（木の枝×3＋石×2）',sword:'クラフトで作れるよ（木の剣は木材×4。槍・弓・ハンマーもある）',wand:'クラフトで作れるよ（木材×3＋魔石×1）'};
 function selectTool(id){
   if(id==='sword'){if(!hasWeapon()){toast(`武器はまだ持っていない。${HOW_GET.sword}`);return}if(S.tool==='sword'){cycleWeapon();return}}
   else if(!S.tools[id]){toast(`${TOOLS.find(t=>t.id===id).name}はまだ持っていない。${HOW_GET[id]||''}`);return}
@@ -2710,7 +2717,7 @@ function refresh(){if(RT.panel){RT.panel.keepScroll=true;drawPanel()}}
 
 // 持ち物
 function bagGrid(mode){
-  const ids=Object.keys(S.bag).sort((a,b)=>{const o=['food','potion','use','seed','sapling','deco','wall','floor','hat','top','acc','bar','mat','bug','fish','fossil','flower'];return o.indexOf(ITEMS[a].kind)-o.indexOf(ITEMS[b].kind)||ITEMS[b].price-ITEMS[a].price});
+  const ids=Object.keys(S.bag).sort((a,b)=>{const o=['food','potion','use','seed','vseed','sapling','deco','wall','floor','hat','top','acc','bar','mat','bug','fish','fossil','flower'];return o.indexOf(ITEMS[a].kind)-o.indexOf(ITEMS[b].kind)||ITEMS[b].price-ITEMS[a].price});
   if(!ids.length)return h('p',{class:'muted'},'ポケットは空っぽ。虫や魚をつかまえたり、木をゆすってみよう。');
   return h('div',{class:'grid'},ids.map(id=>{
     const it=ITEMS[id],n=S.bag[id];
@@ -2723,7 +2730,7 @@ function bagGrid(mode){
       if(it.kind==='top')btns.push(h('button',{on:()=>{S.top=S.top===id?null:id;toast(S.top?`${it.name}を着た`:`${it.name}をぬいだ`);sfx('get');refresh()}},S.top===id?'ぬぐ':'着る'));
       if(it.kind==='acc')btns.push(h('button',{on:()=>{S.acc=S.acc===id?null:id;toast(S.acc?`${it.name}をつけた`:`${it.name}をはずした`);sfx('get');refresh()}},S.acc===id?'はずす':'つける'));
       if(it.kind==='hat')btns.push(h('button',{on:()=>{S.hat=S.hat===id?null:id;toast(S.hat?`${it.name}をかぶった`:`${it.name}をぬいだ`);sfx('get');refresh()}},S.hat===id?'ぬぐ':'かぶる'));
-      if(it.kind==='seed'||it.kind==='deco'||it.kind==='sapling')btns.push(h('button',{on:()=>{S.held=S.held===id?null:id;if(S.held){S.tool='hand';toast(it.kind==='deco'?'素手で地面（草の上か道）を調べると置けるよ':it.kind==='sapling'?'素手で地面（草の上か道）を調べると植えられるよ':'素手で草の上を調べると植えられるよ')}updateHud();refresh()}},S.held===id?'しまう':'手に持つ'));
+      if(it.kind==='seed'||it.kind==='vseed'||it.kind==='deco'||it.kind==='sapling')btns.push(h('button',{on:()=>{S.held=S.held===id?null:id;if(S.held){S.tool='hand';toast(it.kind==='deco'?'素手で地面（草の上か道）を調べると置けるよ':it.kind==='sapling'?'素手で地面（草の上か道）を調べると植えられるよ':it.kind==='vseed'?'素手で畑（クワで耕した所）を調べると、種をまけるよ':'素手で草の上を調べると植えられるよ')}updateHud();refresh()}},S.held===id?'しまう':'手に持つ'));
     }
     return h('div',{class:'cell'+(S.held===id?' sel':'')},iconCanvas(id),h('div',{class:'nm'},it.name),h('div',{class:'meta prog'},`×${n}　${mode==='sell'?sellPrice(id)+'円':it.price?it.price+'円':''}`),h('div',{class:'rowline',style:'justify-content:center;margin:0;gap:4px'},btns));
   }));
@@ -7603,7 +7610,7 @@ function renderShopBuy(body){
     return c;
   };
   const g1=h('div',{class:'grid'});
-  if(gk==='seed')for(const tl of TOOLS.filter(t=>t.buy&&!S.tools[t.id]))g1.append(h('div',{class:'cell'},iconCanvas(tl.id),h('div',{class:'nm'},tl.name),h('div',{class:'meta'},tl.id==='shovel'?'化石を掘ったり、岩をたたける':'花に水をあげて育てる'),
+  if(gk==='seed')for(const tl of TOOLS.filter(t=>t.buy&&!S.tools[t.id]))g1.append(h('div',{class:'cell'},iconCanvas(tl.id),h('div',{class:'nm'},tl.name),h('div',{class:'meta'},{shovel:'化石を掘ったり、岩をたたける',can:'花や野菜に水をあげて育てる',hoe:'草の上を耕して畑にする。野菜の種をまけるよ'}[tl.id]||''),
     h('button',{on:()=>{if(S.bells<tl.buy){toast('お金が足りない');return}S.bells-=tl.buy;S.tools[tl.id]=1;S.tool=tl.id;toast(`${tl.name}を買った！`,true);sfx('get');updateHud();buildToolbar();refresh()}},`${tl.buy}円`)));
   for(const x of st.on)g1.append(cell(x,true));
   body.append(g1);
@@ -9908,7 +9915,7 @@ function clickTarget(wx,wy){
   if(fl)return onTile(S.tool==='hand'||(S.tool==='can'&&fl.stage<3)||(S.tool==='wand'&&curSpell().id==='grow'&&fl.stage<3));
   if(S.tool==='shovel'&&!inCave()&&(S.dig.some(d=>d[0]===tx&&d[1]===ty&&(!d[2]||skLv('dig')>=3))||(inMap(tx,ty)&&W.rockAt.has(ti(tx,ty)))))return onTile(true);
   if(S.tool==='hand'&&S.held&&['deco','sapling'].includes(ITEMS[S.held]?.kind)&&decoSpotOk(tx,ty))return onTile(true);
-  if(S.tool==='shovel'&&!inCave()&&(decoAt(tx,ty)>=0||saplingAt(tx,ty)>=0))return onTile(true);
+  if(S.tool==='shovel'&&!inCave()&&(decoAt(tx,ty)>=0||saplingAt(tx,ty)>=0||S.holes.some(d=>d[0]===tx&&d[1]===ty)))return onTile(true);   // 穴を埋めるのも
   if(S.tool==='hand'&&S.held&&tileAt(tx,ty)===2&&walkable(tx,ty)&&!objAt(tx,ty)&&!W.bld.some(b=>b.door.x===tx&&b.door.y===ty))return onTile(true);
   if(S.tool==='rod'&&isWater(tileAt(tx,ty))){
     // 水辺の陸地（水から1〜2マス）を探して、そこから水の方を向く
@@ -10000,6 +10007,180 @@ cv.addEventListener('dblclick',e=>{
 });
 </script>
 <script>
+// ===================== 畑（クワ・野菜） =====================
+// 2026-10-18。クワ（道具の9番目。ひだまり商店で買う）で草の上を耕すと畑になる。畑に野菜の種をまき、じょうろで水をやった日（雨の日も）だけ1日育つ。
+// 決まった日数で実ったら素手で収穫。野菜は食べると体力が回復し、売ることもできる。何も植えていない畑にもう一度クワを使うと草地にもどる。
+// S.farm＝[{x,y,crop:null|作物のid,g:育った日数,water:今日水をもらったか}]。友だちが遊びに来たときも見えるように ISL_KEYS に足す（online.js）。
+const CROPS={
+  kabu:   {name:'かぶ',    days:3,seasons:[0,2],seedBuy:100,price:250,heal:12},
+  ninjin: {name:'にんじん',days:4,seasons:[0],  seedBuy:120,price:330,heal:14},
+  tomato: {name:'トマト',  days:4,seasons:[1],  seedBuy:150,price:400,heal:16},
+  kabocha:{name:'かぼちゃ',days:5,seasons:[2],  seedBuy:200,price:600,heal:25},
+  daikon: {name:'だいこん',days:4,seasons:[3],  seedBuy:120,price:350,heal:15},
+};
+const FARM_MAX=40;   // 畑にできるマスの数
+for(const [k,c] of Object.entries(CROPS)){
+  ITEMS['v_'+k]={id:'v_'+k,name:c.name,price:c.price,kind:'food',heal:c.heal,note:'畑でとれた野菜。食べると体力が回復する'};
+  ITEMS['vs_'+k]={id:'vs_'+k,name:c.name+'の種',price:Math.round(c.seedBuy/4),kind:'vseed',crop:k,note:`畑にまくと、水やりで${c.days}日で実る`};
+}
+REMOTE_TOOLS.push('hoe');   // ほかの人の手にもクワを描く
+ISL_KEYS.push('farm');      // 遊びに来た人にも畑を見せる
+const farmAt=(x,y)=>(S.farm||[]).find(p=>p.x===x&&p.y===y)||null;
+const farmReady=p=>!!(p&&p.crop&&p.g>=CROPS[p.crop].days);
+// ---- セーブ ----
+{const _ns=newState;newState=function(name){const s=_ns(name);s.farm=[];return s}}
+{const _mg=migrate;migrate=function(s){s=_mg(s);s.farm=s.farm||[];return s}}
+// 畑のマスには、ほかの物（花・飾り・×マーク・貝など）を置かない
+{const _oa=objAt;objAt=function(x,y){return _oa(x,y)||!!farmAt(x,y)}}
+// ---- クワで耕す ----
+function useHoe(fx,fy){
+  if(!onIsland()||inCave()){toast('ここでは耕せない');return}
+  if(!S.farm)S.farm=[];
+  const p=farmAt(fx,fy);
+  if(p){
+    if(p.crop){toast(farmReady(p)?`${CROPS[p.crop].name}が実っている。素手で収穫しよう`:'野菜が育っているので、草地にはもどせない');return}
+    S.farm.splice(S.farm.indexOf(p),1);RT.hoeT=.3;sfx('dig');toast('畑を草地にもどした');return;
+  }
+  if(tileAt(fx,fy)!==2){toast('耕せるのは草の上だけ');return}
+  if(W.block[ti(fx,fy)]||objAt(fx,fy)||W.bld.some(b=>b.door.x===fx&&b.door.y===fy)){toast('ここは耕せない（何かがある）');return}
+  if(S.farm.length>=FARM_MAX){toast(`畑は${FARM_MAX}マスまで。使わない畑はクワで草地にもどせるよ`);return}
+  useSta(1);RT.hoeT=.3;sfx('dig');
+  S.farm.push({x:fx,y:fy,crop:null,g:0,water:false});
+  if(!S.flags.farmTip){S.flags.farmTip=1;toast('畑ができた！ 野菜の種は ひだまり商店で買えるよ。持ち物で種を「手に持つ」にして、素手で畑を調べるとまける',true)}
+}
+// ---- 素手：種をまく・収穫する ----
+{const _uh=useHand;useHand=function(fx,fy){
+  const p=onIsland()&&!inCave()?farmAt(fx,fy):null,held=S.held&&ITEMS[S.held];
+  if(p){
+    if(farmReady(p)){
+      const c=CROPS[p.crop],id='v_'+p.crop,n=rnd()<.2?2:1;
+      if(!addItem(id,n,true)){toast(`ポケットがいっぱいで収穫できない（${bagCap()}個まで）`);return}
+      toast(`${c.name}を収穫した！${n>1?' ×2':''}`,true);p.crop=null;p.g=0;p.water=false;
+      S.stats.harvest=(S.stats.harvest||0)+n;gainPlayerXp(4+c.days*2);sfx('get');updateHud();return;
+    }
+    if(p.crop){const c=CROPS[p.crop],left=c.days-p.g;toast(`${c.name}が育っている。あと${left}日${p.water?'（今日は水をもらった）':'。じょうろで水をあげよう'}`);return}
+    if(held&&held.kind==='vseed'){const k=held.crop;takeItem(S.held);p.crop=k;p.g=0;p.water=S.weather==='雨';gainPlayerXp(2);sfx('dig');
+      toast(`${CROPS[k].name}の種をまいた。毎日水をあげると、${CROPS[k].days}日で実るよ`);if(!S.bag[S.held])S.held=null;updateHud();return}
+    toast('耕した畑。野菜の種を持って調べると、種をまけるよ');return;
+  }
+  if(held&&held.kind==='vseed'){toast('野菜の種は、クワで耕した畑にまこう');return}
+  return _uh(fx,fy);
+}}
+// ---- じょうろ：畑にも水をあげる ----
+{const _uc=useCan;useCan=function(fx,fy){
+  if(inCave()||!onIsland())return _uc(fx,fy);
+  const tr=tier('can'),area=tr===1?[[0,0]]:tr===2?[[0,0],[1,0],[-1,0],[0,1],[0,-1]]:[[0,0],[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]];
+  const tg=(S.farm||[]).filter(p=>p.crop&&!farmReady(p)&&area.some(([x,y])=>p.x===fx+x&&p.y===fy+y));
+  const fl=S.flowers.some(f=>area.some(([x,y])=>f.x===fx+x&&f.y===fy+y)&&f.stage<3);
+  let fresh=0;for(const p of tg){if(!p.water)fresh++;p.water=true}
+  if(fl)return _uc(fx,fy);   // 花もあれば、花の水やり（体力・音・しぶき）はそちらで
+  if(!tg.length)return _uc(fx,fy);
+  useSta(1);if(fresh){gainPlayerXp(2*fresh);task('water',fresh)}
+  sfx('water');RT.fx.push({type:'water',x:(fx+.5)*T,y:(fy+.5)*T,t:0});
+}}
+// ---- 日をまたぐ：水をもらった野菜は1日育つ（魔法のLvで、ときどき2日）。雨の日は全部に水 ----
+{const _nd=newDay;newDay=function(slept){
+  const ml=skLv('magic');
+  for(const p of S.farm||[]){if(p.crop&&p.water&&!farmReady(p)){p.g++;if(!farmReady(p)&&rnd()<ml*.06)p.g++}p.water=false}
+  return _nd(slept);
+}}
+{const _id=initDaily;initDaily=function(){_id();if(S.weather==='雨')for(const p of S.farm||[])if(p.crop)p.water=true}}
+// ---- 案内の文字とクリック ----
+{const _ht=hintText;hintText=function(){
+  if(S&&onIsland()&&!inCave()&&!RT.fishing&&!RT.layout){const [fx,fy]=facingTile(),p=farmAt(fx,fy),held=S.held&&ITEMS[S.held];
+    if(S.tool==='hoe'){if(p)return p.crop?null:'草地にもどす';if(tileAt(fx,fy)===2&&!W.block[ti(fx,fy)]&&!objAt(fx,fy))return '耕す'}
+    if(p&&S.tool==='hand'){if(farmReady(p))return '収穫する';if(!p.crop&&held&&held.kind==='vseed')return '種をまく'}
+    if(p&&S.tool==='can'&&p.crop&&!farmReady(p))return p.water?'水やり済み':'水をあげる';
+    if(!p&&S.tool==='hand'&&held&&held.kind==='vseed'){const r=_ht();return r==='植える'?null:r}}
+  return _ht();
+}}
+{const _ct=clickTarget;clickTarget=function(wx,wy){
+  const r=_ct(wx,wy);if(r&&r.act)return r;
+  if(!S||!onIsland()||inCave())return r;
+  const tx=Math.floor(wx/T),ty=Math.floor(wy/T),p=farmAt(tx,ty),held=S.held&&ITEMS[S.held];
+  const go=()=>({act:true,tx,ty,stands:n4(tx,ty)});
+  if(S.tool==='hoe'&&(p?!p.crop:(tileAt(tx,ty)===2&&!W.block[ti(tx,ty)]&&!objAt(tx,ty))))return go();
+  if(p&&S.tool==='hand'&&(farmReady(p)||(!p.crop&&held&&held.kind==='vseed')))return go();
+  if(p&&S.tool==='can'&&p.crop&&!farmReady(p))return go();
+  return r;
+}}
+// ---- お店：その季節の野菜の種を「種と道具」に並べる ----
+{const _sa=shopAll;shopAll=function(genre){
+  const r=_sa(genre);if(genre!=='seed')return r;
+  const se=season(),veg=Object.entries(CROPS).filter(([,c])=>c.seasons.includes(se)).map(([k,c])=>({key:'vs_'+k,id:'vs_'+k,name:c.name+'の種',price:c.seedBuy,
+    note:`畑にまく野菜の種。水やりで${c.days}日で実る（${c.seasons.map(s=>SEASONS[s]).join('・')}に売っている）`}));
+  return [...veg,...r];
+}}
+// ---- 絵：畑の土 ----
+function drawFarmSoil(g,x0,x1,y0,y1){
+  for(const p of S.farm||[]){if(p.x<x0-1||p.x>x1+1||p.y<y0-1||p.y>y1+1)continue;
+    const x=p.x*T,y=p.y*T,wet=p.water;
+    rrect(g,x+2,y+3,T-4,T-5,5,wet?'#5b3b22':'#7c5432');
+    g.fillStyle=wet?'rgba(30,18,8,.35)':'rgba(60,36,16,.35)';for(let i=0;i<3;i++)g.fillRect(x+5,y+8+i*7,T-10,2.2);   // うね
+    g.fillStyle=wet?'rgba(255,255,255,.08)':'rgba(255,230,190,.18)';for(let i=0;i<3;i++)g.fillRect(x+5,y+6+i*7,T-10,1.4);
+    if(wet){g.fillStyle='rgba(200,230,255,.55)';for(const [dx,dy] of [[7,7],[22,12],[12,22],[25,24]])g.fillRect(x+dx,y+dy,1.6,1.6)}   // ぬれた土のきらめき
+  }
+}
+// ---- 絵：野菜（育ち方で4段階：種・芽・葉・実り） ----
+function drawCrop(g,p){
+  const cx=(p.x+.5)*T,by=(p.y+1)*T-7,c=CROPS[p.crop],r=p.g/c.days,leaf='#5fae4e',leafD='#3f8a3a';
+  const lf=(x,y,rx,ry,a,col)=>ell(g,x,y,rx,ry,col||leaf,a);
+  if(r<=0){for(const dx of [-5,0,5])circ(g,cx+dx,by-1,1.4,'#e8d6a8');return}   // まいたばかり
+  if(r<.5){g.strokeStyle=leafD;g.lineWidth=1.2;g.beginPath();g.moveTo(cx,by);g.lineTo(cx,by-6);g.stroke();lf(cx-3,by-7,3.2,1.6,-.4);lf(cx+3,by-7,3.2,1.6,.4);return}   // 芽
+  if(!farmReady(p)){for(const [dx,a,l] of [[-5,-.7,6],[5,.7,6],[-2,-.2,8],[2,.2,8]])lf(cx+dx,by-l*.7,2.6,l*.6,a,dx<0?leaf:leafD);return}   // 葉がしげる
+  // 実り：作物ごとの絵
+  const k=p.crop;
+  if(k==='kabu'){lf(cx-4,by-12,2.6,6,-.4);lf(cx+4,by-12,2.6,6,.4,leafD);lf(cx,by-13,2.4,6.5,0);circ(g,cx,by-3,6.5,'#f6f3ec');circ(g,cx-2,by-5,2,'#ffffff');ell(g,cx,by-8,4,1.6,'#e6d6e8')}
+  else if(k==='ninjin'){for(const [dx,a] of [[-4,-.5],[0,0],[4,.5]]){g.strokeStyle=leafD;g.lineWidth=1.3;g.beginPath();g.moveTo(cx,by-5);g.lineTo(cx+dx*1.6,by-17);g.stroke();lf(cx+dx*1.6,by-16,2.2,3.4,a)}
+    g.fillStyle='#f08a2c';g.beginPath();g.moveTo(cx-5,by-6);g.lineTo(cx+5,by-6);g.lineTo(cx+2,by);g.lineTo(cx-2,by);g.closePath();g.fill()}
+  else if(k==='tomato'){g.strokeStyle='#a07a4a';g.lineWidth=1.6;g.beginPath();g.moveTo(cx+6,by);g.lineTo(cx+6,by-24);g.stroke();
+    for(const [dx,dy,a] of [[-4,-18,-.5],[4,-14,.5],[-3,-9,-.6],[3,-21,.4]])lf(cx+dx,by+dy,3.4,2,a,dy%2?leaf:leafD);
+    for(const [dx,dy] of [[-3,-13],[2,-7],[-1,-20]]){circ(g,cx+dx,by+dy,3.4,'#e2412f');circ(g,cx+dx-1,by+dy-1,1,'#ff9a8a')}}
+  else if(k==='kabocha'){lf(cx-8,by-6,5,3,-.3,leafD);lf(cx+8,by-7,5,3,.3);ell(g,cx,by-6,9,6.5,'#3f6b3a');g.strokeStyle='rgba(20,40,20,.5)';g.lineWidth=1;for(const dx of [-4,0,4]){g.beginPath();g.ellipse(cx+dx,by-6,2.5,6,0,0,7);g.stroke()}
+    rrect(g,cx-1,by-14,2.4,4,1,'#7a5a2a');circ(g,cx-3,by-9,1.4,'rgba(255,255,255,.25)')}
+  else if(k==='daikon'){for(const [dx,a] of [[-5,-.5],[0,0],[5,.5]])lf(cx+dx,by-15,3,7,a,dx?leaf:leafD);rrect(g,cx-4,by-10,8,10,3,'#f7f7f2');g.fillStyle='#cfe8b0';g.fillRect(cx-4,by-10,8,3)}
+  // 実ったしるしのきらめき
+  const t=performance.now()/1000,a=.5+.5*Math.sin(t*3+p.x);circ(g,cx+9,by-18,1.3,`rgba(255,250,200,${a})`);
+}
+function farmObjects(D,inV){
+  for(const p of S.farm||[]){if(!p.crop||!inV(p.x,p.y))continue;D.push([(p.y+1)*T-6,()=>drawCrop(ctx,p)])}
+}
+// ---- 絵：アイコン（野菜・種の袋・クワ）。32×32 の中に描く ----
+function vegIcon(g,k){
+  const leaf='#5fae4e',leafD='#3f8a3a';
+  if(k==='kabu'){ell(g,12,8,3,7,leaf,-.4);ell(g,20,8,3,7,leafD,.4);ell(g,16,7,3,7.5,leaf);circ(g,16,20,9,'#f6f3ec');ell(g,16,13,6,2.4,'#e6d6e8');circ(g,12,17,2.6,'#fff');g.strokeStyle='#d8d0c4';g.lineWidth=1;g.beginPath();g.moveTo(16,29);g.lineTo(16,31);g.stroke()}
+  else if(k==='ninjin'){for(const [x,a] of [[10,-.5],[15,0],[20,.5]]){ell(g,x,7,2.6,5,leaf,a)}g.fillStyle='#f08a2c';g.beginPath();g.moveTo(8,11);g.lineTo(24,11);g.lineTo(17,30);g.lineTo(15,30);g.closePath();g.fill();
+    g.strokeStyle='rgba(150,70,10,.5)';g.lineWidth=1;for(const y of [16,21,25]){g.beginPath();g.moveTo(12+(y-11)*.25,y);g.lineTo(16+(y-11)*.05,y);g.stroke()}}
+  else if(k==='tomato'){circ(g,16,18,11,'#e2412f');circ(g,12,14,3,'#ff9a8a');g.fillStyle=leafD;for(let i=0;i<5;i++){const a=i*1.2566-1.57;g.beginPath();g.ellipse(16+Math.cos(a)*3.5,8+Math.sin(a)*2,3.6,1.4,a,0,7);g.fill()}rrect(g,15,4,2,4,1,'#3f6a2a')}
+  else if(k==='kabocha'){ell(g,16,19,13,10,'#3f6b3a');g.strokeStyle='rgba(20,40,20,.55)';g.lineWidth=1.2;for(const dx of [-6,0,6]){g.beginPath();g.ellipse(16+dx,19,4,9.5,0,0,7);g.stroke()}rrect(g,14.5,6,3,6,1,'#7a5a2a');circ(g,10,15,2.2,'rgba(255,255,255,.25)')}
+  else if(k==='daikon'){for(const [x,a] of [[11,-.5],[16,0],[21,.5]])ell(g,x,7,3,6.5,x===16?leafD:leaf,a);rrect(g,11,11,10,19,5,'#f7f7f2');g.fillStyle='#cfe8b0';g.fillRect(11,11,10,5);g.strokeStyle='#ddd8cc';g.lineWidth=1;for(const y of [19,24]){g.beginPath();g.moveTo(13,y);g.lineTo(16,y);g.stroke()}}
+}
+function hoeIcon(g){g.strokeStyle='#8a5a34';g.lineWidth=3;g.lineCap='round';g.beginPath();g.moveTo(24,28);g.lineTo(11,7);g.stroke();
+  g.fillStyle='#9aa3ab';g.beginPath();g.moveTo(8,5);g.lineTo(15,4);g.lineTo(13,9);g.lineTo(5,15);g.lineTo(4,12);g.closePath();g.fill();g.fillStyle='rgba(255,255,255,.4)';g.fillRect(8,6,5,1.4)}
+{const _di=drawIcon;drawIcon=function(c,id){
+  const veg=id.startsWith('v_')&&CROPS[id.slice(2)],seed=id.startsWith('vs_')&&CROPS[id.slice(3)];
+  if(id!=='hoe'&&!veg&&!seed)return _di(c,id);
+  const g=c.getContext('2d'),s=c.width;g.clearRect(0,0,s,s);g.save();g.scale(s/32,s/32);
+  if(id==='hoe')hoeIcon(g);
+  else if(veg)vegIcon(g,id.slice(2));
+  else{rrect(g,5,4,22,25,3,'#f1e2bf');g.strokeStyle='#c9a86a';g.lineWidth=1;g.strokeRect(5.5,4.5,21,24);g.fillStyle='#d9b878';g.fillRect(5,4,22,4);   // 種の袋
+    g.save();g.translate(8,10);g.scale(.5,.5);vegIcon(g,id.slice(3));g.restore();circ(g,23,25,1.3,'#8a6a3a');circ(g,20,26,1.1,'#8a6a3a')}
+  g.restore();
+}}
+// ---- 絵：手に持ったクワ（耕すときは振り下ろす） ----
+{const _dt=drawToolInHand;drawToolInHand=function(g,x,y){
+  _dt(g,x,y);
+  if(S.tool!=='hoe')return;
+  const [dx]=DIRV[S.dir],sd=dx||1,hx=x+sd*9,hy=y-14,sw=RT.hoeT>0?RT.hoeT/.3:0;
+  g.save();g.translate(hx,hy);g.scale(sd,1);g.rotate(-.5+sw*1.4);
+  g.strokeStyle='#8a5a34';g.lineWidth=2;g.lineCap='round';g.beginPath();g.moveTo(-1,5);g.lineTo(4,-13);g.stroke();
+  g.fillStyle='#9aa3ab';g.beginPath();g.moveTo(3,-14);g.lineTo(10,-13);g.lineTo(9,-10);g.lineTo(4,-11);g.closePath();g.fill();
+  g.restore();
+}}
+// 振り下ろしの時間を減らす
+{const _ti=tickTime;tickTime=function(dt){if(RT.hoeT>0)RT.hoeT=Math.max(0,RT.hoeT-dt);return _ti(dt)}}
+</script>
+<script>
 // ===================== 入力 =====================
 const keys=new Set();
 const KEYMAP={ArrowUp:'u',KeyW:'u',ArrowDown:'d',KeyS:'d',ArrowLeft:'l',KeyA:'l',ArrowRight:'r',KeyD:'r'};
@@ -10016,7 +10197,7 @@ addEventListener('keydown',e=>{
   if(e.code==='Escape'){if(RT.catchShow)closeCatch();else if(RT.panel)closePanel();else if(RT.dlg)endTalk();return}
   if(RT.catchShow)return;
   if(RT.dlg)return;
-  const n=parseInt(e.key);if(n>=1&&n<=8&&!RT.panel){selectTool(TOOLS[n-1].id);return}
+  const n=parseInt(e.key);if(n>=1&&n<=TOOLS.length&&!RT.panel){selectTool(TOOLS[n-1].id);return}
   if(e.code==='KeyQ'&&!RT.panel){if(S.tools.wand)cycleSpell();else toast('杖を持っていない。クラフトで作れるよ');return}
   if(e.code==='KeyC'){RT.panel?closePanel():openCraft();return}
   if(e.code==='KeyE'){RT.panel?closePanel():openBag();return}
