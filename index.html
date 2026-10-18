@@ -563,7 +563,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.138";</script>
+<script>const GAME_VERSION="1.139";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -9845,7 +9845,8 @@ function renderPhoto(body){
     h('p',{class:'muted',style:'margin:8px 0 0;font-size:12px;text-align:center'},'メニューやボタン、名札は写りません。写真の下の文字は、保存・共有の前に使えない言葉がないか確かめます。'));
 }
 // メニューのボタンと F キー
-{const b=document.createElement('button');b.className='mbtn';b.id='bPhoto';b.innerHTML='写真<small>F</small>';const x=$('bMap');x.after(b);b.onclick=()=>RT.title||openPhoto()}   // メニューは canvas の外なので写らない（押したあと map.js が閉じる）
+// 「能力」の下に置く（「地図」「クラフト」は online.js がメニューから外して別の場所に置くので、その後ろには置かない。2026-10-18）
+{const b=document.createElement('button');b.className='mbtn';b.id='bPhoto';b.innerHTML='写真<small>F</small>';const x=$('bGrow')||$('bSave');if(x)x.after(b);else $('menubtns').append(b);b.onclick=()=>RT.title||openPhoto()}   // メニューは canvas の外なので写らない（押したあと map.js が閉じる）
 addEventListener('keydown',e=>{if(e.code!=='KeyF'||e.repeat||RT.title||RT.dlg||RT.catchShow)return;const t=document.activeElement;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'))return;
   if(RT.panel&&RT.panel.title==='写真'){closePanel();return}if(!RT.panel)openPhoto()});
 </script>
