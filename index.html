@@ -563,7 +563,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.135";</script>
+<script>const GAME_VERSION="1.136";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2402,10 +2402,11 @@ function render(t){
   if(isl)for(const [x,y,hid] of S.dig){if(hid&&skLv('dig')<3)continue;const px=(x+.5)*T,py=(y+.5)*T+4;if(hid){circ(ctx,px,py-2,9,`rgba(255,240,160,${.25+.2*Math.sin(t*3)})`);ctx.strokeStyle='rgba(120,80,30,.85)'}else ctx.strokeStyle='rgba(80,55,30,.75)';ctx.beginPath();ctx.moveTo(px-6,py-4);ctx.lineTo(px+6,py+4);ctx.moveTo(px+6,py-4);ctx.lineTo(px-6,py+4);ctx.moveTo(px,py-6);ctx.lineTo(px,py-2);ctx.stroke()}
   if(isl)for(const [x,y] of S.shells){const px=(x+.5)*T,py=(y+.5)*T+4;ctx.fillStyle='#f7c9c0';ctx.beginPath();ctx.moveTo(px-6,py+3);ctx.quadraticCurveTo(px,py-9,px+6,py+3);ctx.closePath();ctx.fill();ctx.strokeStyle='#e09a8c';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(px,py+3);ctx.lineTo(px,py-4);ctx.moveTo(px-3,py+3);ctx.lineTo(px-2,py-2);ctx.moveTo(px+3,py+3);ctx.lineTo(px+2,py-2);ctx.stroke()}
   if(isl)for(const [x,y] of S.branches){const px=(x+.5)*T,py=(y+.5)*T+4;ctx.strokeStyle='#8a5a34';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(px-8,py+2);ctx.lineTo(px+8,py-2);ctx.moveTo(px+1,py);ctx.lineTo(px+4,py-6);ctx.stroke();ell(ctx,px+5,py-7,2.5,1.5,'#6ab85a',-.5)}
-  if(RT.goal&&RT.goal.mark){const [mx,my]=RT.goal.mark,pl=.5+.5*Math.sin(t*6);ctx.strokeStyle=`rgba(243,176,61,${.6+pl*.4})`;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(mx,my,7+pl*2,(7+pl*2)*.5,0,0,7);ctx.stroke()}
+  // RT.photo：写真を撮るとき（photo.js）。行き先の印・向いているマスの枠・名札・お願いの印・ヒントは描かない
+  if(RT.goal&&RT.goal.mark&&!RT.photo){const [mx,my]=RT.goal.mark,pl=.5+.5*Math.sin(t*6);ctx.strokeStyle=`rgba(243,176,61,${.6+pl*.4})`;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(mx,my,7+pl*2,(7+pl*2)*.5,0,0,7);ctx.stroke()}
   // 向いているマス
   const [fx,fy]=facingTile();
-  if(!RT.fishing&&!RT.dlg){ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.strokeRect(fx*T+2,fy*T+2,T-4,T-4);ctx.setLineDash([])}
+  if(!RT.fishing&&!RT.dlg&&!RT.photo){ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.strokeRect(fx*T+2,fy*T+2,T-4,T-4);ctx.setLineDash([])}
   // 奥行き順
   const D=[];const inV=(x,y,m=3)=>x>=x0-m&&x<=x1+m&&y>=y0-m&&y<=y1+m;;let mk=0;const casts=[],take=()=>{for(;mk<D.length;mk++)casts.push(D[mk])},skip=()=>{mk=D.length};   // casts＝影を落とす物
   W.trees.forEach((tr,i)=>{if(inV(tr.x,tr.y)&&!S.cleared?.[i])D.push([(tr.y+1)*T-4,()=>S.stumps[i]?drawStump(ctx,tr):drawTree(ctx,tr,s,S.fruit[i],RT.shake.get(i))])});take();
@@ -2478,13 +2479,13 @@ function render(t){
   drawProj(ctx,t);
   // 名札とヒント
   ctx.textAlign='center';ctx.font='700 10px "Zen Maru Gothic",sans-serif';
-  if(villagersOut())for(const a of RT.vill){const near=Math.hypot(a.x-S.px,a.y-S.py)<80;if(near){pill(ctx,a.x,a.y-52,a.v.name,'rgba(255,255,255,.92)','#2c3a31')}
+  if(villagersOut()&&!RT.photo)for(const a of RT.vill){const near=Math.hypot(a.x-S.px,a.y-S.py)<80;if(near){pill(ctx,a.x,a.y-52,a.v.name,'rgba(255,255,255,.92)','#2c3a31')}
     // お願いがある住民：まだ聞いていなければ「！」、聞いて持っていれば「♪」（ゆっくり上下する）
     const f=S.friends[a.v.id];if(f&&!f.reqDone&&f.req&&(!f.reqAsked||reqHaveId(f))){const by=a.y-(near?66:54)+Math.sin(t*3+a.x)*1.5;
       circ(ctx,a.x,by,6.5,'rgba(255,255,255,.95)');ctx.strokeStyle='#e8a33a';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(a.x,by,6.5,0,7);ctx.stroke();
       ctx.fillStyle='#d9771f';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(f.reqAsked?'♪':'！',a.x,by+.5);ctx.textBaseline='alphabetic'}}
   const ht=hintText();
-  if(ht&&!RT.dlg&&!RT.panel){pill(ctx,S.px,S.py-62,'A：'+ht,ht==='今だ！'?'#f3b03d':'rgba(44,58,49,.85)',ht==='今だ！'?'#3a2a10':'#fff')}
+  if(ht&&!RT.dlg&&!RT.panel&&!RT.photo){pill(ctx,S.px,S.py-62,'A：'+ht,ht==='今だ！'?'#f3b03d':'rgba(44,58,49,.85)',ht==='今だ！'?'#3a2a10':'#fff')}
   // 雨と雪
   ctx.setTransform(DPR,0,0,DPR,0,0);
   drawSkyExtras(ctx,t,VW,VH);   // 虹と流れ星（surprise.js）
@@ -8470,9 +8471,9 @@ function drawRemote(ctx,p,t){
   for(const k of rk)RT[k]=null;RT.swing=p.swing||0;
   try{const jh=p.jh||0;if(jh)shadow(ctx,p.x,p.y,8);drawHuman(ctx,p.x,p.y-jh,p.dir||'down',p.mv?p.walk:0,{});if(tool!=='hand')drawToolInHand(ctx,p.x,p.y-jh)}
   finally{Object.assign(S,keep);RT.diag=kd;RT.walk=kw;RT.running=kr;rk.forEach((k,i)=>RT[k]=kRT[i])}
-  // 名前
-  const nm=p.name||'友だち';ctx.font='bold 10px "Zen Maru Gothic",sans-serif';const w=ctx.measureText(nm).width+10;
-  ctx.fillStyle='rgba(255,255,255,.92)';ctx.beginPath();ctx.roundRect(p.x-w/2,p.y-PC_H-17-(p.jh||0),w,14,7);ctx.fill();ctx.fillStyle='#3f8a58';ctx.textAlign='center';ctx.fillText(nm,p.x,p.y-PC_H-6.5-(p.jh||0));
+  // 名前（写真を撮るときは描かない。プレイヤー名を写真に残さないため）
+  if(!RT.photo){const nm=p.name||'友だち';ctx.font='bold 10px "Zen Maru Gothic",sans-serif';const w=ctx.measureText(nm).width+10;
+  ctx.fillStyle='rgba(255,255,255,.92)';ctx.beginPath();ctx.roundRect(p.x-w/2,p.y-PC_H-17-(p.jh||0),w,14,7);ctx.fill();ctx.fillStyle='#3f8a58';ctx.textAlign='center';ctx.fillText(nm,p.x,p.y-PC_H-6.5-(p.jh||0))}
   if(p.emote){const age=performance.now()/1000-p.emote.t0;if(age>EMOTE_SEC)p.emote=null;else drawEmoteBubble(ctx,p.x,p.y-PC_H-20-(p.jh||0),p.emote.id,age)}
 }
 const _surpriseObjNet=surpriseObjects;
@@ -9656,6 +9657,153 @@ function stepTick(){
   g.gain.setValueAtTime(v,t);g.gain.setValueAtTime(v,t+len*.6);g.gain.linearRampToValueAtTime(0,t+len);
   src.connect(f).connect(g).connect(audioOut(AC));src.start(t,slot*STEP.SLOT,len+.02);
 }
+</script>
+<script>
+// ===================== 写真 =====================
+// メニューの「写真」（F キー）で、いまの島の様子を撮り、飾り枠を選んで保存する（2026-10-18）。
+// 撮るときは RT.photo を立てて描き直す：行き先の印・向いているマスの枠・名札（住民・友だち）・お願いの印・ヒントは写さない（p6.js・online.js）。
+// メニューや持ち物などの画面（HTML の部品）は canvas の外なので写らない。プレイヤー名は写真に入れない（SNS に載せても名前が出ないように）。
+// 保存：claude.ai の Artifact の中は Artifact の「保存」（downloads）、ほかはダウンロード。スマホは「共有する」で写真アプリなどへ送れる。
+const PHOTO={shot:null,frame:'polaroid',date:true,url:'',blob:null,busy:false};
+const PHOTO_FRAMES=[['none','枠なし'],['polaroid','ポラロイド'],['wood','木の枠'],['flower','花の枠'],['season','季節の枠']];
+function photoCapture(){
+  RT.photo=true;
+  try{render(performance.now()/1000);if(typeof drawVignette==='function')drawVignette()}finally{RT.photo=false}
+  const c=document.createElement('canvas');c.width=cv.width;c.height=cv.height;c.getContext('2d').drawImage(cv,0,0);
+  return c;
+}
+function openPhoto(){
+  if(RT.title||RT.dlg||RT.catchShow)return;
+  if(RT.panel)closePanel();
+  PHOTO.shot=photoCapture();PHOTO.when=new Date();PHOTO.day=($('hDay')&&$('hDay').textContent)||'';
+  sfx('get');
+  openPanel('写真',null,null,body=>renderPhoto(body));
+}
+// ---- 飾り枠 ----
+function photoRand(seed){let s=seed>>>0||1;return ()=>{s^=s<<13;s^=s>>>17;s^=s<<5;return ((s>>>0)%100000)/100000}}
+function photoFlower(g,x,y,r,col,mid){   // 5まいの花びらの花
+  g.fillStyle=col;for(let i=0;i<5;i++){const a=i*1.2566-1.5708;g.beginPath();g.ellipse(x+Math.cos(a)*r*.55,y+Math.sin(a)*r*.55,r*.48,r*.36,a,0,7);g.fill()}
+  g.fillStyle=mid||'#f6d860';g.beginPath();g.arc(x,y,r*.28,0,7);g.fill();
+}
+function photoSakura(g,x,y,r,rot){   // 桜の花びら（先が割れている）
+  g.save();g.translate(x,y);g.rotate(rot);g.fillStyle='#f7b6c8';g.beginPath();g.moveTo(0,r);g.bezierCurveTo(-r*.9,r*.3,-r*.6,-r*.8,-r*.12,-r*.7);g.lineTo(0,-r*.45);g.lineTo(r*.12,-r*.7);g.bezierCurveTo(r*.6,-r*.8,r*.9,r*.3,0,r);g.fill();
+  g.fillStyle='rgba(255,255,255,.45)';g.beginPath();g.ellipse(0,r*.15,r*.18,r*.45,0,0,7);g.fill();g.restore();
+}
+function photoLeaf(g,x,y,r,rot,col){   // もみじ
+  g.save();g.translate(x,y);g.rotate(rot);g.fillStyle=col;g.beginPath();
+  for(let i=0;i<5;i++){const a=-1.5708+(i-2)*.62,b=a+.31;g.lineTo(Math.cos(a)*r,Math.sin(a)*r);g.lineTo(Math.cos(b)*r*.42,Math.sin(b)*r*.42)}
+  g.lineTo(0,r*.25);g.closePath();g.fill();g.strokeStyle=col;g.lineWidth=r*.1;g.beginPath();g.moveTo(0,r*.2);g.lineTo(0,r*.75);g.stroke();g.restore();
+}
+function photoSnow(g,x,y,r,rot){   // 雪の結晶
+  g.save();g.translate(x,y);g.rotate(rot);g.strokeStyle='rgba(255,255,255,.95)';g.lineWidth=Math.max(1,r*.13);g.lineCap='round';
+  for(let i=0;i<6;i++){g.rotate(1.0472);g.beginPath();g.moveTo(0,0);g.lineTo(0,-r);g.moveTo(0,-r*.55);g.lineTo(-r*.25,-r*.78);g.moveTo(0,-r*.55);g.lineTo(r*.25,-r*.78);g.stroke()}g.restore();
+}
+function photoShell(g,x,y,r,rot){   // 貝がら
+  g.save();g.translate(x,y);g.rotate(rot);g.fillStyle='#f7d3c4';g.beginPath();g.moveTo(-r,r*.4);g.quadraticCurveTo(0,-r*1.3,r,r*.4);g.closePath();g.fill();
+  g.strokeStyle='#e0a08c';g.lineWidth=r*.1;g.beginPath();for(const k of [-.6,-.2,.2,.6]){g.moveTo(0,r*.4);g.lineTo(k*r,-r*.35)}g.stroke();g.restore();
+}
+function photoStar(g,x,y,r,rot){   // ひとで
+  g.save();g.translate(x,y);g.rotate(rot);g.fillStyle='#f39a5a';g.beginPath();for(let i=0;i<10;i++){const a=-1.5708+i*.6283,rr=i%2?r*.45:r;g.lineTo(Math.cos(a)*rr,Math.sin(a)*rr)}g.closePath();g.fill();
+  g.fillStyle='rgba(255,240,220,.8)';for(let i=0;i<5;i++){const a=-1.5708+i*1.2566;g.beginPath();g.arc(Math.cos(a)*r*.5,Math.sin(a)*r*.5,r*.08,0,7);g.fill()}g.restore();
+}
+// 飾りを1つ置く。key：flower（花）・s0〜s3（春の桜・夏の貝とひとで・秋のもみじ・冬の雪）
+function photoPut(g,R,key,x,y,r){
+  const rot=R()*6.28;
+  if(key==='flower'){g.fillStyle='#7cc06a';for(const s of [-1,1]){g.beginPath();g.ellipse(x+s*r*.9,y+r*.5,r*.55,r*.22,s*.5,0,7);g.fill()}
+    photoFlower(g,x,y,r,['#f49ac1','#f7c948','#9ad0f5','#c7a3f0','#ff9f80','#ffffff'][Math.floor(R()*6)])}
+  else if(key==='s0'){if(R()<.3)photoFlower(g,x,y,r*1.1,'#f9c3d3','#f07f9f');else photoSakura(g,x,y,r,rot)}
+  else if(key==='s1'){const q=R();if(q<.45)photoShell(g,x,y,r,rot);else if(q<.75)photoStar(g,x,y,r,rot);else{g.fillStyle='rgba(255,255,255,.9)';g.beginPath();g.arc(x,y,r*.32,0,7);g.fill()}}
+  else if(key==='s2')photoLeaf(g,x,y,r,rot,['#e0662f','#f0a030','#c8452a','#d98a2b'][Math.floor(R()*4)]);
+  else photoSnow(g,x,y,r,rot);
+}
+// 枠の内側に写真をはめこみ、文字（ゲームの名前・日付）を入れる
+function photoCompose(shot,kind,withDate){
+  const W=shot.width,H=shot.height,u=Math.min(W,H)/100,day=withDate?PHOTO.day:'';
+  const title='ひだまり島ぐらし',disp='"Yusei Magic","Zen Maru Gothic",sans-serif',maru='"Zen Maru Gothic",sans-serif';
+  const pad=kind==='none'?0:kind==='polaroid'?Math.round(4*u):Math.round(7*u),bot=kind==='none'?0:kind==='polaroid'?Math.round(15*u):Math.round(12*u);
+  const c=document.createElement('canvas');c.width=W+pad*2;c.height=H+pad+bot;const g=c.getContext('2d'),CW=c.width,CH=c.height;
+  const rr=(x,y,w,h,r)=>{g.beginPath();g.roundRect?g.roundRect(x,y,w,h,r):g.rect(x,y,w,h)};
+  const R=photoRand(W*7+H*13+(PHOTO.when?PHOTO.when.getDate():1));
+  // 台紙
+  if(kind==='polaroid'){g.fillStyle='#fbfaf4';g.fillRect(0,0,CW,CH);const gr=g.createLinearGradient(0,0,0,CH);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(1,'rgba(120,100,60,.08)');g.fillStyle=gr;g.fillRect(0,0,CW,CH)}
+  else if(kind==='wood'){
+    const gr=g.createLinearGradient(0,0,CW,CH);gr.addColorStop(0,'#b9834f');gr.addColorStop(.5,'#a0703f');gr.addColorStop(1,'#8c5f34');g.fillStyle=gr;g.fillRect(0,0,CW,CH);
+    g.strokeStyle='rgba(70,40,15,.22)';g.lineWidth=Math.max(1,u*.25);   // 木目
+    for(let i=0;i<70;i++){const y=R()*CH,a=R()*u*1.2;g.beginPath();g.moveTo(0,y);for(let x=0;x<=CW;x+=CW/16)g.lineTo(x,y+Math.sin(x/(8*u)+i)*a);g.stroke()}
+    g.fillStyle='rgba(255,230,190,.10)';for(let i=0;i<14;i++)g.fillRect(0,R()*CH,CW,u*.6);
+    g.strokeStyle='rgba(60,35,12,.55)';g.lineWidth=u*.6;g.strokeRect(u*.3,u*.3,CW-u*.6,CH-u*.6);   // ふち
+    for(const [x,y] of [[pad/2,pad/2],[CW-pad/2,pad/2],[pad/2,CH-pad/2],[CW-pad/2,CH-pad/2]]){g.fillStyle='#e0c07a';g.beginPath();g.arc(x,y,u*1.1,0,7);g.fill();g.fillStyle='rgba(90,60,20,.5)';g.fillRect(x-u*.7,y-u*.12,u*1.4,u*.24)}   // くぎ
+  }else if(kind==='flower'){
+    const gr=g.createLinearGradient(0,0,0,CH);gr.addColorStop(0,'#fff4f2');gr.addColorStop(1,'#fde3ea');g.fillStyle=gr;g.fillRect(0,0,CW,CH);
+    g.fillStyle='rgba(255,255,255,.7)';for(let i=0;i<60;i++){g.beginPath();g.arc(R()*CW,R()*CH,u*(.3+R()*.5),0,7);g.fill()}   // 水玉
+    const n=Math.round((CW+CH)/(4.2*u));for(let i=0;i<n;i++){const t=R(),side=Math.floor(R()*4),r=u*(2.2+R()*1.6);let x,y;
+      if(side===0){x=t*CW;y=pad*(.35+R()*.4)}else if(side===1){x=t*CW;y=CH-bot*(.15+R()*.2)}else if(side===2){x=pad*(.35+R()*.4);y=t*CH}else{x=CW-pad*(.35+R()*.4);y=t*CH}photoPut(g,R,'flower',x,y,r)}
+  }else if(kind==='season'){
+    const sn=season(),bg=[['#fde6ee','#f9cfdc'],['#d9f1fb','#a9dcf3'],['#fbe3c8','#f2bd86'],['#e4edf7','#b9cbe2']][sn],gr=g.createLinearGradient(0,0,0,CH);gr.addColorStop(0,bg[0]);gr.addColorStop(1,bg[1]);g.fillStyle=gr;g.fillRect(0,0,CW,CH);
+    const n=Math.round((CW+CH)/(2.6*u));
+    for(let i=0;i<n;i++){const t=R(),side=Math.floor(R()*4),r=u*(1.8+R()*1.8);let x,y;
+      if(side===0){x=t*CW;y=R()*pad}else if(side===1){x=t*CW;y=CH-R()*bot}else if(side===2){x=R()*pad;y=t*CH}else{x=CW-R()*pad;y=t*CH}
+      photoPut(g,R,'s'+sn,x,y,r)}
+  }
+  // 写真
+  if(kind==='none')g.drawImage(shot,0,0);
+  else{g.save();g.shadowColor='rgba(40,30,20,.35)';g.shadowBlur=u*1.2;g.shadowOffsetY=u*.3;rr(pad,pad,W,H,kind==='polaroid'?u*.4:u*1.2);g.fillStyle='#fff';g.fill();g.restore();
+    g.save();rr(pad,pad,W,H,kind==='polaroid'?u*.4:u*1.2);g.clip();g.drawImage(shot,pad,pad);g.restore();
+    if(kind!=='polaroid'){g.strokeStyle=kind==='wood'?'rgba(60,35,12,.6)':'rgba(255,255,255,.95)';g.lineWidth=u*.7;rr(pad,pad,W,H,u*1.2);g.stroke()}}
+  // 花の枠・季節の枠：写真の四すみに、少し重なるように飾りを置く
+  if(kind==='flower'||kind==='season'){const key=kind==='flower'?'flower':'s'+season();
+    for(const [cx,cy,sx,sy] of [[pad,pad,1,1],[pad+W,pad,-1,1],[pad,pad+H,1,-1],[pad+W,pad+H,-1,-1]]){
+      const m=kind==='flower'?3:5;for(let i=0;i<m;i++){const d=u*(i?2+R()*6:0),a=R()*1.5708;photoPut(g,R,key,cx+sx*Math.cos(a)*d,cy+sy*Math.sin(a)*d,u*(i?2.4+R()*1.4:kind==='flower'?4.6:3.6))}}}
+  // 文字
+  g.textBaseline='middle';
+  if(kind==='none'){if(day){g.font=`700 ${Math.round(3.6*u)}px ${maru}`;g.textAlign='right';g.lineWidth=u*.8;g.strokeStyle='rgba(60,30,10,.55)';g.fillStyle='#ffb347';const x=CW-2.5*u,y=CH-3*u;g.strokeText(day,x,y);g.fillText(day,x,y)}}
+  else{
+    const ty=pad+H+bot/2,fs=Math.round((kind==='polaroid'?5.4:4.4)*u);
+    if(kind==='polaroid'){g.fillStyle='#4a5a48';g.font=`${fs}px ${disp}`;g.textAlign='left';g.fillText(title,pad+u,ty);if(day){g.font=`${Math.round(3.8*u)}px ${disp}`;g.textAlign='right';g.fillStyle='#8a7a62';g.fillText(day,CW-pad-u,ty)}}
+    else{   // 板（木の枠）・リボン（ほかの枠）に文字
+      const txt=day?`${title}　${day}`:title;g.font=`${fs}px ${disp}`;const tw=g.measureText(txt).width+fs*1.6,th=fs*1.7,x=CW/2-tw/2,y=ty-th/2;
+      g.save();g.shadowColor='rgba(0,0,0,.25)';g.shadowBlur=u*.8;g.shadowOffsetY=u*.25;rr(x,y,tw,th,th/2);g.fillStyle=kind==='wood'?'#f3e2bd':'rgba(255,255,255,.93)';g.fill();g.restore();
+      g.lineWidth=u*.35;g.strokeStyle=kind==='wood'?'#7a5028':kind==='flower'?'#f49ac1':['#f49ac1','#5aa8d8','#d9772f','#7f9cc0'][season()];rr(x,y,tw,th,th/2);g.stroke();
+      g.fillStyle=kind==='wood'?'#5a3a1c':'#4a5a48';g.textAlign='center';g.fillText(txt,CW/2,ty+u*.1)}
+  }
+  return c;
+}
+// ---- 画面 ----
+function photoName(){const d=PHOTO.when||new Date(),z=n=>String(n).padStart(2,'0');return `hidamari_${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.png`}
+function photoMake(){
+  const c=photoCompose(PHOTO.shot,PHOTO.frame,PHOTO.date);
+  return new Promise(res=>c.toBlob(b=>{if(PHOTO.url)URL.revokeObjectURL(PHOTO.url);PHOTO.blob=b;PHOTO.url=b?URL.createObjectURL(b):'';res(b)},'image/png'));
+}
+async function photoSave(share){
+  if(!PHOTO.blob||PHOTO.busy)return;PHOTO.busy=true;
+  const name=photoName(),file=new File([PHOTO.blob],name,{type:'image/png'});
+  try{
+    if(share){await navigator.share({files:[file],title:'ひだまり島ぐらし'});return}
+    if(window.claude&&claude.use){const dl=await claude.use('downloads');if(dl){try{await dl.save({filename:name,data:PHOTO.blob});toast('写真を保存した！')}catch(e){if(e&&e.code!=='declined')toast('保存できなかった。写真を長押し（右クリック）して保存してね')}return}}
+    const a=document.createElement('a');a.href=PHOTO.url;a.download=name;document.body.appendChild(a);a.click();a.remove();toast('写真を保存した！');
+  }catch(e){if(!(e&&e.name==='AbortError'))toast('保存できなかった。写真を長押し（右クリック）して保存してね')}
+  finally{PHOTO.busy=false}
+}
+function renderPhoto(body){
+  const img=h('img',{alt:'撮った写真',style:'display:block;max-width:100%;max-height:52vh;margin:0 auto;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.18)'});
+  const wrap=h('div',{style:'text-align:center;min-height:120px'},img);
+  photoMake().then(()=>{img.src=PHOTO.url});
+  const fr=h('div',{class:'rowline',style:'flex-wrap:wrap;gap:6px;margin:10px 0 6px;justify-content:center'},
+    ...PHOTO_FRAMES.map(([k,l])=>h('button',{class:'btn'+(PHOTO.frame===k?'':' sub'),on:()=>{if(PHOTO.frame===k)return;PHOTO.frame=k;refresh()}},l)));
+  const dt=h('input',{type:'checkbox'});dt.checked=PHOTO.date;dt.onchange=()=>{PHOTO.date=dt.checked;refresh()};
+  const canShare=!!(navigator.canShare&&navigator.canShare({files:[new File([new Blob(['x'])],'a.png',{type:'image/png'})]}))&&!(window.claude&&claude.use);
+  body.append(wrap,fr,
+    h('label',{style:'display:flex;justify-content:center;align-items:center;gap:6px;font-size:14px;margin:0 0 8px'},dt,'日付（季節と日にち）を入れる'),
+    h('div',{class:'rowline',style:'justify-content:center;gap:8px;flex-wrap:wrap'},
+      h('button',{class:'btn',on:()=>photoSave(false)},'保存する'),
+      canShare?h('button',{class:'btn sub',on:()=>photoSave(true)},'共有する'):null,
+      h('button',{class:'btn sub',on:()=>{closePanel();setTimeout(openPhoto,60)}},'撮り直す')),
+    h('p',{class:'muted',style:'margin:8px 0 0;font-size:12px;text-align:center'},'メニューやボタン、名札は写りません。保存できないときは、写真を長押し（右クリック）して保存してね。'));
+}
+// メニューのボタンと F キー
+{const b=document.createElement('button');b.className='mbtn';b.id='bPhoto';b.innerHTML='写真<small>F</small>';const x=$('bMap');x.after(b);b.onclick=()=>RT.title||openPhoto()}   // メニューは canvas の外なので写らない（押したあと map.js が閉じる）
+addEventListener('keydown',e=>{if(e.code!=='KeyF'||e.repeat||RT.title||RT.dlg||RT.catchShow)return;const t=document.activeElement;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'))return;
+  if(RT.panel&&RT.panel.title==='写真'){closePanel();return}if(!RT.panel)openPhoto()});
 </script>
 <script>
 // ===================== クリック移動・クリックアクション =====================
