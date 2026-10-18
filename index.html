@@ -563,7 +563,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.140";</script>
+<script>const GAME_VERSION="1.141";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -8588,7 +8588,8 @@ function accOnMsg(m){
     case 'acct':{const net={id:m.id,secret:m.secret};if(RT.visiting&&OWN_KEEP)OWN_KEEP.net=net;else S.net=net;
       if(RT.visiting){const sv=load();if(sv){sv.net=net;try{localStorage.setItem(SAVE_KEY,JSON.stringify(sv))}catch(e){}}}else save();
       ACC.id=m.id;ACC.authed=true;if(!ACC.auto)toast(`友だちIDができた！ ${m.id}`,true);ACC.auto=false;accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();if(typeof cloudSync==='function')cloudSync(true);break}
-    case 'authed':ACC.id=m.id;ACC.authed=true;ACC.unread=m.unread||0;ACC.ops=!!m.ops;   // ops：運営アカウント（メールを長く書ける。制限はサーバーがかけない）setTimeout(()=>typeof cloudSync==='function'&&cloudSync(true),1500);
+    // ops：運営アカウント（メールを長く書ける。制限はサーバーがかけない）
+    case 'authed':ACC.id=m.id;ACC.authed=true;ACC.unread=m.unread||0;ACC.ops=!!m.ops;setTimeout(()=>typeof cloudSync==='function'&&cloudSync(true),1500);
       if(m.name&&!RT.visiting&&m.name!==accName()){toast(m.ng?`「${accName()}」は名前に使えないので、名前は「${m.name}」のまま。別の名前にしたいときは、能力の画面で変えてね`:`「${accName()}」は、もうほかの人が使っている名前なので、名前は「${m.name}」のまま。別の名前にしたいときは、能力の画面で変えてね`,true);S.name=m.name;save();updateHud&&updateHud()}   // 名前がほかの人と重なっていた
       accSend({t:'friends'});accSend({t:'mailbox'});accRefresh();break;
     case 'friends':ACC.friends={list:m.list||[],reqIn:m.reqIn||[],reqOut:m.reqOut||[],blocked:m.blocked||[]};accRefresh();break;
