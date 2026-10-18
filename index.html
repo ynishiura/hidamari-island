@@ -563,7 +563,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.136";</script>
+<script>const GAME_VERSION="1.137";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -9664,7 +9664,10 @@ function stepTick(){
 // 撮るときは RT.photo を立てて描き直す：行き先の印・向いているマスの枠・名札（住民・友だち）・お願いの印・ヒントは写さない（p6.js・online.js）。
 // メニューや持ち物などの画面（HTML の部品）は canvas の外なので写らない。プレイヤー名は写真に入れない（SNS に載せても名前が出ないように）。
 // 保存：claude.ai の Artifact の中は Artifact の「保存」（downloads）、ほかはダウンロード。スマホは「共有する」で写真アプリなどへ送れる。
-const PHOTO={shot:null,frame:'polaroid',date:true,url:'',blob:null,busy:false};
+// 写真の下の文字：はじめは「ひだまり島ぐらし」。プレイヤーが書きかえられる（20文字まで。空にすると文字なし）。書いた文字はこの端末に覚える
+const PHOTO_TITLE='ひだまり島ぐらし',PHOTO_CAP_KEY='hidamari-photo-caption',PHOTO_CAP_MAX=20;
+const PHOTO={shot:null,frame:'polaroid',date:true,url:'',blob:null,busy:false,
+  caption:(()=>{try{const v=localStorage.getItem(PHOTO_CAP_KEY);return v===null?PHOTO_TITLE:v}catch(e){return PHOTO_TITLE}})()};
 const PHOTO_FRAMES=[['none','枠なし'],['polaroid','ポラロイド'],['wood','木の枠'],['flower','花の枠'],['season','季節の枠']];
 function photoCapture(){
   RT.photo=true;
@@ -9719,7 +9722,7 @@ function photoPut(g,R,key,x,y,r){
 // 枠の内側に写真をはめこみ、文字（ゲームの名前・日付）を入れる
 function photoCompose(shot,kind,withDate){
   const W=shot.width,H=shot.height,u=Math.min(W,H)/100,day=withDate?PHOTO.day:'';
-  const title='ひだまり島ぐらし',disp='"Yusei Magic","Zen Maru Gothic",sans-serif',maru='"Zen Maru Gothic",sans-serif';
+  const title=String(PHOTO.caption||'').trim().slice(0,PHOTO_CAP_MAX),disp='"Yusei Magic","Zen Maru Gothic",sans-serif',maru='"Zen Maru Gothic",sans-serif';
   const pad=kind==='none'?0:kind==='polaroid'?Math.round(4*u):Math.round(7*u),bot=kind==='none'?0:kind==='polaroid'?Math.round(15*u):Math.round(12*u);
   const c=document.createElement('canvas');c.width=W+pad*2;c.height=H+pad+bot;const g=c.getContext('2d'),CW=c.width,CH=c.height;
   const rr=(x,y,w,h,r)=>{g.beginPath();g.roundRect?g.roundRect(x,y,w,h,r):g.rect(x,y,w,h)};
@@ -9759,9 +9762,12 @@ function photoCompose(shot,kind,withDate){
   if(kind==='none'){if(day){g.font=`700 ${Math.round(3.6*u)}px ${maru}`;g.textAlign='right';g.lineWidth=u*.8;g.strokeStyle='rgba(60,30,10,.55)';g.fillStyle='#ffb347';const x=CW-2.5*u,y=CH-3*u;g.strokeText(day,x,y);g.fillText(day,x,y)}}
   else{
     const ty=pad+H+bot/2,fs=Math.round((kind==='polaroid'?5.4:4.4)*u);
-    if(kind==='polaroid'){g.fillStyle='#4a5a48';g.font=`${fs}px ${disp}`;g.textAlign='left';g.fillText(title,pad+u,ty);if(day){g.font=`${Math.round(3.8*u)}px ${disp}`;g.textAlign='right';g.fillStyle='#8a7a62';g.fillText(day,CW-pad-u,ty)}}
+    // 長い文字は、入る幅まで文字を小さくする
+    const fit=(txt,size,room)=>{let f=size;g.font=`${f}px ${disp}`;while(f>2.4*u&&g.measureText(txt).width>room){f-=Math.max(1,u*.2);g.font=`${f}px ${disp}`}return f};
+    if(kind==='polaroid'){let dw=0;if(day){g.font=`${Math.round(3.8*u)}px ${disp}`;dw=g.measureText(day).width+3*u;g.textAlign='right';g.fillStyle='#8a7a62';g.fillText(day,CW-pad-u,ty)}
+      if(title){fit(title,fs,CW-pad*2-2*u-dw);g.fillStyle='#4a5a48';g.textAlign='left';g.fillText(title,pad+u,ty)}}
     else{   // 板（木の枠）・リボン（ほかの枠）に文字
-      const txt=day?`${title}　${day}`:title;g.font=`${fs}px ${disp}`;const tw=g.measureText(txt).width+fs*1.6,th=fs*1.7,x=CW/2-tw/2,y=ty-th/2;
+      const txt=[title,day].filter(Boolean).join('　');if(!txt)return c;const f2=fit(txt,fs,CW-pad*2-fs*1.6);const tw=g.measureText(txt).width+f2*1.6,th=fs*1.7,x=CW/2-tw/2,y=ty-th/2;
       g.save();g.shadowColor='rgba(0,0,0,.25)';g.shadowBlur=u*.8;g.shadowOffsetY=u*.25;rr(x,y,tw,th,th/2);g.fillStyle=kind==='wood'?'#f3e2bd':'rgba(255,255,255,.93)';g.fill();g.restore();
       g.lineWidth=u*.35;g.strokeStyle=kind==='wood'?'#7a5028':kind==='flower'?'#f49ac1':['#f49ac1','#5aa8d8','#d9772f','#7f9cc0'][season()];rr(x,y,tw,th,th/2);g.stroke();
       g.fillStyle=kind==='wood'?'#5a3a1c':'#4a5a48';g.textAlign='center';g.fillText(txt,CW/2,ty+u*.1)}
@@ -9791,8 +9797,16 @@ function renderPhoto(body){
   const fr=h('div',{class:'rowline',style:'flex-wrap:wrap;gap:6px;margin:10px 0 6px;justify-content:center'},
     ...PHOTO_FRAMES.map(([k,l])=>h('button',{class:'btn'+(PHOTO.frame===k?'':' sub'),on:()=>{if(PHOTO.frame===k)return;PHOTO.frame=k;refresh()}},l)));
   const dt=h('input',{type:'checkbox'});dt.checked=PHOTO.date;dt.onchange=()=>{PHOTO.date=dt.checked;refresh()};
+  // 写真の下の文字（打つたびに写真を作り直す。少し待ってから）
+  const keepCap=v=>{PHOTO.caption=v;try{localStorage.setItem(PHOTO_CAP_KEY,v)}catch(e){}clearTimeout(PHOTO.capT);PHOTO.capT=setTimeout(()=>photoMake().then(()=>{img.src=PHOTO.url}),250)};
+  const cap=h('input',{type:'text',maxlength:String(PHOTO_CAP_MAX),placeholder:'（文字なし）','aria-label':'写真の下の文字',style:'font:inherit;font-size:15px;padding:6px 10px;border-radius:10px;border:2px solid var(--line);width:13em;max-width:62vw'});
+  cap.value=PHOTO.caption;cap.oninput=()=>keepCap(cap.value);if(PHOTO.frame==='none')cap.disabled=true;
+  const capRow=h('div',{class:'rowline',style:'justify-content:center;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 6px;font-size:14px'},'写真の下の文字',cap,
+    h('button',{class:'btn sub',on:()=>{cap.value=PHOTO_TITLE;keepCap(PHOTO_TITLE)}},'元に戻す'));
   const canShare=!!(navigator.canShare&&navigator.canShare({files:[new File([new Blob(['x'])],'a.png',{type:'image/png'})]}))&&!(window.claude&&claude.use);
-  body.append(wrap,fr,
+  body.append(wrap,fr,capRow);
+  if(PHOTO.frame==='none')body.append(h('p',{class:'muted',style:'margin:-2px 0 6px;font-size:12px;text-align:center'},'枠なしのときは、文字は入りません（日付だけ）'));
+  body.append(
     h('label',{style:'display:flex;justify-content:center;align-items:center;gap:6px;font-size:14px;margin:0 0 8px'},dt,'日付（季節と日にち）を入れる'),
     h('div',{class:'rowline',style:'justify-content:center;gap:8px;flex-wrap:wrap'},
       h('button',{class:'btn',on:()=>photoSave(false)},'保存する'),
