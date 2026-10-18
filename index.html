@@ -563,7 +563,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.137";</script>
+<script>const GAME_VERSION="1.138";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -9663,11 +9663,32 @@ function stepTick(){
 // メニューの「写真」（F キー）で、いまの島の様子を撮り、飾り枠を選んで保存する（2026-10-18）。
 // 撮るときは RT.photo を立てて描き直す：行き先の印・向いているマスの枠・名札（住民・友だち）・お願いの印・ヒントは写さない（p6.js・online.js）。
 // メニューや持ち物などの画面（HTML の部品）は canvas の外なので写らない。プレイヤー名は写真に入れない（SNS に載せても名前が出ないように）。
+// 写真の下の文字は、保存・共有の前に中継サーバーで禁止ワードを調べる（textcheck。はじめの「ひだまり島ぐらし」と空のときは調べない）。
+//   打っているあいだにも少し待って調べておき、ボタンを押したときにはすぐ分かるようにする（共有はボタンを押した直後でないと動かないため）。
+//   見本の写真は長押し・右クリックで保存できないようにしてある（調べていない文字の写真が保存されないように）。
 // 保存：claude.ai の Artifact の中は Artifact の「保存」（downloads）、ほかはダウンロード。スマホは「共有する」で写真アプリなどへ送れる。
 // 写真の下の文字：はじめは「ひだまり島ぐらし」。プレイヤーが書きかえられる（20文字まで。空にすると文字なし）。書いた文字はこの端末に覚える
 const PHOTO_TITLE='ひだまり島ぐらし',PHOTO_CAP_KEY='hidamari-photo-caption',PHOTO_CAP_MAX=20;
 const PHOTO={shot:null,frame:'polaroid',date:true,url:'',blob:null,busy:false,
   caption:(()=>{try{const v=localStorage.getItem(PHOTO_CAP_KEY);return v===null?PHOTO_TITLE:v}catch(e){return PHOTO_TITLE}})()};
+// 写真に入る文字（枠なしのときは入らない）
+const photoCapText=()=>PHOTO.frame==='none'?'':String(PHOTO.caption||'').trim().slice(0,PHOTO_CAP_MAX);
+// 文字を中継サーバーで調べる。true（使える）・false（使えない言葉がある）・null（確かめられなかった）。結果は覚えておく
+const PHOTO_OK=new Map();
+async function photoTextOk(txt){
+  if(!txt||txt===PHOTO_TITLE)return true;if(PHOTO_OK.has(txt))return PHOTO_OK.get(txt);
+  const ws=await tryOpen(10000);if(!ws)return null;
+  const r=await new Promise(res=>{let done=false;const end=v=>{if(done)return;done=true;clearTimeout(tm);try{ws.close()}catch(e){}res(v)};
+    const tm=setTimeout(()=>end(null),8000);
+    ws.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}if(m.t==='text')end(!!m.ok)};ws.onclose=()=>end(null);
+    try{ws.send(JSON.stringify({t:'textcheck',text:txt}))}catch(e){end(null)}});
+  if(r!==null)PHOTO_OK.set(txt,r);return r;
+}
+// 文字の欄の下の知らせ
+function photoCapNote(){const el=document.getElementById('photoCapMsg');if(!el)return;const t=photoCapText(),r=(!t||t===PHOTO_TITLE)?true:PHOTO_OK.get(t);
+  el.textContent=r===false?'使えない言葉が入っています。このままでは保存・共有できません':r===undefined?(PHOTO.checking?'文字を確かめています…':''):'';el.style.color=r===false?'#c0392b':''}
+async function photoCheckSoon(){const t=photoCapText();if(!t||t===PHOTO_TITLE||PHOTO_OK.has(t)){photoCapNote();return}
+  PHOTO.checking=true;photoCapNote();await photoTextOk(t);PHOTO.checking=false;photoCapNote()}
 const PHOTO_FRAMES=[['none','枠なし'],['polaroid','ポラロイド'],['wood','木の枠'],['flower','花の枠'],['season','季節の枠']];
 function photoCapture(){
   RT.photo=true;
@@ -9784,27 +9805,36 @@ async function photoSave(share){
   if(!PHOTO.blob||PHOTO.busy)return;PHOTO.busy=true;
   const name=photoName(),file=new File([PHOTO.blob],name,{type:'image/png'});
   try{
+    // 写真の下の文字に使えない言葉がないか（保存・共有の前に必ず）
+    const t=photoCapText();
+    if(t&&t!==PHOTO_TITLE){if(!PHOTO_OK.has(t))toast('写真の文字を確かめています…');const ok=await photoTextOk(t);photoCapNote();
+      if(ok===false){toast('写真の下の文字に使えない言葉が入っているので、保存・共有できません。文字を直してね',true);return}
+      if(ok===null){toast('写真の文字を確かめられなかった（サーバーにつながらない）。少し待ってから、もう一度ためしてね',true);return}}
     if(share){await navigator.share({files:[file],title:'ひだまり島ぐらし'});return}
-    if(window.claude&&claude.use){const dl=await claude.use('downloads');if(dl){try{await dl.save({filename:name,data:PHOTO.blob});toast('写真を保存した！')}catch(e){if(e&&e.code!=='declined')toast('保存できなかった。写真を長押し（右クリック）して保存してね')}return}}
+    if(window.claude&&claude.use){const dl=await claude.use('downloads');if(dl){try{await dl.save({filename:name,data:PHOTO.blob});toast('写真を保存した！')}catch(e){if(e&&e.code!=='declined')toast('保存できなかった。もう一度ためしてね')}return}}
     const a=document.createElement('a');a.href=PHOTO.url;a.download=name;document.body.appendChild(a);a.click();a.remove();toast('写真を保存した！');
-  }catch(e){if(!(e&&e.name==='AbortError'))toast('保存できなかった。写真を長押し（右クリック）して保存してね')}
+  }catch(e){if(e&&e.name==='NotAllowedError')toast('もう一度「共有する」を押してね');else if(!(e&&e.name==='AbortError'))toast('保存できなかった。もう一度ためしてね')}
   finally{PHOTO.busy=false}
 }
 function renderPhoto(body){
-  const img=h('img',{alt:'撮った写真',style:'display:block;max-width:100%;max-height:52vh;margin:0 auto;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.18)'});
+  // 見本は長押し・右クリック・ドラッグで保存できないようにする（保存は「保存する」「共有する」から。文字を調べてから）
+  const img=h('img',{alt:'撮った写真',draggable:'false',style:'display:block;max-width:100%;max-height:52vh;margin:0 auto;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.18);-webkit-touch-callout:none;-webkit-user-select:none;user-select:none'});
+  img.oncontextmenu=e=>{e.preventDefault();return false};img.ondragstart=e=>e.preventDefault();
   const wrap=h('div',{style:'text-align:center;min-height:120px'},img);
   photoMake().then(()=>{img.src=PHOTO.url});
   const fr=h('div',{class:'rowline',style:'flex-wrap:wrap;gap:6px;margin:10px 0 6px;justify-content:center'},
     ...PHOTO_FRAMES.map(([k,l])=>h('button',{class:'btn'+(PHOTO.frame===k?'':' sub'),on:()=>{if(PHOTO.frame===k)return;PHOTO.frame=k;refresh()}},l)));
   const dt=h('input',{type:'checkbox'});dt.checked=PHOTO.date;dt.onchange=()=>{PHOTO.date=dt.checked;refresh()};
   // 写真の下の文字（打つたびに写真を作り直す。少し待ってから）
-  const keepCap=v=>{PHOTO.caption=v;try{localStorage.setItem(PHOTO_CAP_KEY,v)}catch(e){}clearTimeout(PHOTO.capT);PHOTO.capT=setTimeout(()=>photoMake().then(()=>{img.src=PHOTO.url}),250)};
+  const keepCap=v=>{PHOTO.caption=v;try{localStorage.setItem(PHOTO_CAP_KEY,v)}catch(e){}clearTimeout(PHOTO.capT);PHOTO.capT=setTimeout(()=>photoMake().then(()=>{img.src=PHOTO.url}),250);
+    photoCapNote();clearTimeout(PHOTO.chkT);PHOTO.chkT=setTimeout(photoCheckSoon,700)};   // 打ち終わって少ししたら、先に調べておく
   const cap=h('input',{type:'text',maxlength:String(PHOTO_CAP_MAX),placeholder:'（文字なし）','aria-label':'写真の下の文字',style:'font:inherit;font-size:15px;padding:6px 10px;border-radius:10px;border:2px solid var(--line);width:13em;max-width:62vw'});
   cap.value=PHOTO.caption;cap.oninput=()=>keepCap(cap.value);if(PHOTO.frame==='none')cap.disabled=true;
   const capRow=h('div',{class:'rowline',style:'justify-content:center;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 6px;font-size:14px'},'写真の下の文字',cap,
     h('button',{class:'btn sub',on:()=>{cap.value=PHOTO_TITLE;keepCap(PHOTO_TITLE)}},'元に戻す'));
+  const capMsg=h('div',{id:'photoCapMsg',class:'muted',style:'text-align:center;font-size:13px;min-height:1.2em;margin:-2px 0 4px'});
   const canShare=!!(navigator.canShare&&navigator.canShare({files:[new File([new Blob(['x'])],'a.png',{type:'image/png'})]}))&&!(window.claude&&claude.use);
-  body.append(wrap,fr,capRow);
+  body.append(wrap,fr,capRow,capMsg);setTimeout(photoCheckSoon,0);
   if(PHOTO.frame==='none')body.append(h('p',{class:'muted',style:'margin:-2px 0 6px;font-size:12px;text-align:center'},'枠なしのときは、文字は入りません（日付だけ）'));
   body.append(
     h('label',{style:'display:flex;justify-content:center;align-items:center;gap:6px;font-size:14px;margin:0 0 8px'},dt,'日付（季節と日にち）を入れる'),
@@ -9812,7 +9842,7 @@ function renderPhoto(body){
       h('button',{class:'btn',on:()=>photoSave(false)},'保存する'),
       canShare?h('button',{class:'btn sub',on:()=>photoSave(true)},'共有する'):null,
       h('button',{class:'btn sub',on:()=>{closePanel();setTimeout(openPhoto,60)}},'撮り直す')),
-    h('p',{class:'muted',style:'margin:8px 0 0;font-size:12px;text-align:center'},'メニューやボタン、名札は写りません。保存できないときは、写真を長押し（右クリック）して保存してね。'));
+    h('p',{class:'muted',style:'margin:8px 0 0;font-size:12px;text-align:center'},'メニューやボタン、名札は写りません。写真の下の文字は、保存・共有の前に使えない言葉がないか確かめます。'));
 }
 // メニューのボタンと F キー
 {const b=document.createElement('button');b.className='mbtn';b.id='bPhoto';b.innerHTML='写真<small>F</small>';const x=$('bMap');x.after(b);b.onclick=()=>RT.title||openPhoto()}   // メニューは canvas の外なので写らない（押したあと map.js が閉じる）

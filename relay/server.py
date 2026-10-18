@@ -14,6 +14,7 @@
      report{mid, reason, detail, block}（フレンドから届いたメールを通報。block ならその人をブロック）/ unblock{id}
      メールに自傷をほのめかす言葉があれば止めて、相談窓口を知らせる（{"t":"err","why":"selfharm","msg"}）
      {"t":"namecheck","name","id"} → {"t":"name","ok"}        その名前をほかの人が使っていないか（名のらなくても聞ける）
+     {"t":"textcheck","text"} → {"t":"text","ok"}               写真の下の文字などに使えない言葉がないか（保存・共有の前に。名のらなくても聞ける）
    名前は 7文字まで。同じ名前はほかの人が使えない（register・auth・rename で確かめる。auth で重なっていたら前の名前のまま）
      mail{to,body,gift} / mailbox / mailread{ids} / invite{to,code} / mailgift{mid}（届いた包みを開ける → {"t":"giftget","mid","gift"}。1通1回だけ）
    メールには持ち物を1つ付けられる（gift＝品物の id。1日 GIFT_PER_DAY 通まで。品物を手放すのは送った人のゲームの側）
@@ -559,6 +560,9 @@ async def handler(ws):
                         await send(ws, {"t": "err", "why": "server"})
                 continue
             # ---- フレンド・メール ----
+            if t == "textcheck":   # 写真の下の文字など、ゲームが保存・共有する前に調べる文字（使えるかだけ返す。理由は言わない）
+                txt = str(m.get("text") or "")[:60]
+                await send(ws, {"t": "text", "ok": not ngfilter.has_ng(txt)}); continue
             if t == "namecheck":
                 if name_ng(m.get("name")) and not await is_ops(norm_id(m.get("id"))):   # 使えない言葉の名前（理由は言わない。運営アカウントは通す）
                     await send(ws, {"t": "name", "ok": False, "ng": True}); continue
