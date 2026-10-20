@@ -563,7 +563,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.143";</script>
+<script>const GAME_VERSION="1.144";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -9690,7 +9690,8 @@ function stepTick(){
 <script>
 // ===================== ハロウィンの飾りつけ（期間限定） =====================
 // 2026-10-20 から 10月31日まで（遊んでいる端末の日付）。11月1日からは何も描かず、元の島にもどる（翌年も10/20〜10/31に出る）。
-// かぼちゃのランタン（建物の前と道ばた。夜は光る）・建物の前の三角の旗・夕方と夜のコウモリ・夜の広場の小さなおばけ・空の色。
+// かぼちゃのランタン（建物の前と道ばた・3つ重ねた山。夜は光り、建物の前はろうそくも）・建物の前の三角の旗と電球・昼の落ち葉・夕方と夜のコウモリ・空の色。
+// おばけは夜だけ（19時〜5時）。広場と、主人公の近くのかぼちゃのまわりを漂う（2026-10-20「もっとにぎやかに。お化けは夜限定」）。
 // どれも絵だけで、通れる所・植えられる所・セーブは変えない（ランタンの場所に物があれば、そのランタンは描かない）。
 // 試すとき：localStorage の hidamari-halloween を 'on'／'off' にすると、日付に関係なく出す／出さない。
 const HW_FROM=[9,20],HW_TO=[9,31];   // [月(0〜11), 日]
@@ -9712,13 +9713,15 @@ function hwSpots(){
     for(const [x,y] of [[b.x+b.w,b.y+b.h-1],[b.x+b.w,b.y+b.h],[b.x+b.w+1,b.y+b.h-1]])if(ok(x,y)&&!has(x,y)){out.push([x,y,0]);break}}
   const r=seeded((S.seed^0x5a17)>>>0),edge=[];   // 道ばた：道（4）のとなりの草
   for(let y=1;y<MH-1;y++)for(let x=1;x<MW-1;x++)if(tileAt(x,y)===2&&ok(x,y)&&[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>tileAt(x+dx,y+dy)===4))edge.push([x,y]);
-  for(let i=0;i<60&&out.length<26+ISL.bld.length*2&&edge.length;i++){const p=edge.splice(Math.floor(r()*edge.length),1)[0];if(!has(p[0],p[1]))out.push([p[0],p[1],1+Math.floor(r()*2)])}
+  for(let i=0;i<160&&out.length<60+ISL.bld.length*2&&edge.length;i++){const p=edge.splice(Math.floor(r()*edge.length),1)[0];if(!has(p[0],p[1]))out.push([p[0],p[1],r()<.25?3:1+Math.floor(r()*2)])}   // 3＝3つ重ねた山
   HW_KEY=key;HW_SPOTS=out;return out;
 }
-const hwNight=()=>{const h=S.min/60;return h>=17.5||h<6};
+const hwNight=()=>{const h=S.min/60;return h>=17.5||h<6};   // ランタンが光る時間
+const hwGhostTime=()=>{const h=S.min/60;return h>=19||h<5};   // おばけが出る時間（夜だけ）
 // ---- 絵：かぼちゃのランタン（kind 0＝建物の前の大きいの、1・2＝道ばたの小さいの） ----
 function drawPumpkin(g,x,y,k,t){
-  const s=k?.78:1,lit=hwNight();
+  if(k===3){drawPumpkin(g,x-7,y,2,t);drawPumpkin(g,x+7,y+1,2,t);drawPumpkin(g,x,y-9,2,t+1);return}   // 3つ重ねた山
+  const s=k===2?.62:k?.78:1,lit=hwNight();
   g.save();g.translate(x,y);g.scale(s,s);
   ell(g,0,1,13,4,'rgba(30,20,10,.25)');
   for(const [dx,r] of [[-6,7],[6,7],[0,8.5]]){const gr=g.createLinearGradient(0,-20,0,0);gr.addColorStop(0,'#f6a23a');gr.addColorStop(1,'#c8601a');g.fillStyle=gr;g.beginPath();g.ellipse(dx,-9,r,9,0,0,7);g.fill()}
@@ -9729,6 +9732,8 @@ function drawPumpkin(g,x,y,k,t){
   g.beginPath();g.moveTo(-6,-7);g.lineTo(6,-7);g.lineTo(4,-4);g.lineTo(1,-6);g.lineTo(-1,-4);g.lineTo(-4,-6);g.closePath();g.fill();
   g.restore();
 }
+// ---- 絵：ろうそく（夜、建物の前のかぼちゃの横） ----
+function drawCandle(g,x,y,t){rrect(g,x-1.6,y-7,3.2,7,1,'#f6efe0');const f=1+.2*Math.sin(t*11+x);g.fillStyle='rgba(255,210,90,.95)';g.beginPath();g.ellipse(x,y-9,1.4*f,2.6*f,0,0,7);g.fill();circ(g,x,y-9,.7,'#fff8d0')}
 // ---- 絵：小さなおばけ（夜だけ。広場＝お店の前のあたりを、ふわふわ） ----
 function drawGhostHW(g,x,y,t,i){
   const bob=Math.sin(t*2+i*2)*3,a=.78+.12*Math.sin(t*1.3+i);
@@ -9740,14 +9745,22 @@ function drawGhostHW(g,x,y,t,i){
   circ(g,-3,-6,1.5,'#3a3a5a');circ(g,3,-6,1.5,'#3a3a5a');ell(g,0,-2.5,1.6,1.1,'#3a3a5a');circ(g,-5,-3,1.3,'rgba(255,150,170,.6)');circ(g,5,-3,1.3,'rgba(255,150,170,.6)');
   g.restore();
 }
+// おばけの今の位置：広場の2匹と、主人公にいちばん近いかぼちゃ6つのまわりに1匹ずつ（足もとの位置）
+function hwGhosts(t){
+  const near=hwSpots().filter(([x,y])=>!objAt(x,y)).map(p=>[p,Math.hypot((p[0]+.5)*T-S.px,(p[1]+.5)*T-S.py)]).sort((a,b)=>a[1]-b[1]).slice(0,6).map(([p])=>[(p[0]+.5)*T+18,(p[1]+.2)*T]);
+  return [...hwGhostSpots(),...near].map(([gx,gy],i)=>[gx+Math.sin(t*.4+i*3)*22,gy+Math.cos(t*.3+i)*10]);
+}
 function hwGhostSpots(){const b=ISL.bld.find(b=>b.type==='shop')||ISL.bld[0];return [[(b.door.x-2.5)*T,(b.door.y+2.6)*T],[(b.door.x+3)*T,(b.door.y+3.3)*T]]}
 {const _so=surpriseObjects;surpriseObjects=function(D,ctx,t){
   _so(D,ctx,t);if(!HW())return;
   for(const [x,y,k] of hwSpots()){if(objAt(x,y))continue;D.push([(y+1)*T-6,()=>drawPumpkin(ctx,(x+.5)*T,(y+1)*T-6,k,t)])}
-  if(hwNight())hwGhostSpots().forEach(([gx,gy],i)=>{const x=gx+Math.sin(t*.4+i*3)*22,y=gy+Math.cos(t*.3+i)*10;D.push([y+12,()=>drawGhostHW(ctx,x,y-18,t,i)])});
+  if(hwNight())for(const [x,y,k] of hwSpots())if(k===0&&!objAt(x,y))D.push([(y+1)*T-5,()=>{drawCandle(ctx,(x+.5)*T+12,(y+1)*T-4,t);drawCandle(ctx,(x+.5)*T-12,(y+1)*T-3,t+2)}]);
+  if(hwGhostTime())hwGhosts(t).forEach(([x,y],i)=>D.push([y+12,()=>drawGhostHW(ctx,x,y-18,t,i)]));
 }}
 // 夜はランタンを光らせる（街灯と同じ光り方）
-{const _dl=decoLights;decoLights=function(glow,night){_dl(glow,night);if(!HW())return;for(const [x,y,k] of hwSpots()){if(objAt(x,y))continue;glow((x+.5)*T,(y+1)*T-14,k?30:40,.42*night*2)}}}
+{const _dl=decoLights;decoLights=function(glow,night){_dl(glow,night);if(!HW())return;for(const [x,y,k] of hwSpots()){if(objAt(x,y))continue;glow((x+.5)*T,(y+1)*T-14,k?30:44,.42*night*2)}
+  for(const b of ISL.bld){if(b.type==='cave')continue;glow((b.x+b.w/2)*T,(b.y+b.h)*T-T*1.1,b.w*T*.55,.25*night*2)}   // 旗の電球のあかり
+  if(hwGhostTime())for(const [x,y] of hwGhosts(performance.now()/1000))glow(x,y-24,26,.5*night*2)}}   // おばけはぼんやり光る
 // ---- 建物の前に、オレンジ・紫・黒の三角の旗 ----
 {const _db=drawBuilding;drawBuilding=function(g,b,stage,night,season){
   _db(g,b,stage,night,season);
@@ -9758,6 +9771,10 @@ function hwGhostSpots(){const b=ISL.bld.find(b=>b.type==='shop')||ISL.bld[0];ret
   const cols=['#f08a2c','#8a5cc8','#2c2433'];
   for(let i=0;i<n;i++){const u0=(i+.15)/n,u1=(i+.85)/n,um=(u0+u1)/2,xa=x0+(x1-x0)*u0,xb=x0+(x1-x0)*u1,xm=x0+(x1-x0)*um;
     g.fillStyle=cols[i%3];g.beginPath();g.moveTo(xa,py(u0));g.lineTo(xb,py(u1));g.lineTo(xm,py(um)+7);g.closePath();g.fill()}
+  // 旗の下の丸い電球（夜は光る）
+  const lit=night||hwNight(),tt=performance.now()/1000;
+  for(let i=0;i<=n;i++){const u=i/n,xx=x0+(x1-x0)*u,yy=py(u)+1.5,on=lit&&((i+Math.floor(tt*2))%3!==0);
+    circ(g,xx,yy+2,2.1,on?['#ffd36a','#ff9a4a','#c79bff'][i%3]:['#c8a050','#c87a3a','#9a7ac8'][i%3]);if(on)circ(g,xx-.6,yy+1.4,.8,'#fffbe6')}
 }}
 // ---- 空：夕方〜夜のコウモリと、少しハロウィンらしい空の色（画面に描く） ----
 function drawBatHW(g,x,y,s,t,i){
@@ -9768,10 +9785,15 @@ function drawBatHW(g,x,y,s,t,i){
 }
 {const _sk=drawSkyExtras;drawSkyExtras=function(ctx,t,VW,VH){
   _sk(ctx,t,VW,VH);if(!HW())return;
-  const h=S.min/60,dusk=h>=16.5||h<6;if(!dusk)return;
+  const h=S.min/60,dusk=h>=16.5||h<6;
+  if(h>=6&&h<18){   // 昼：オレンジと紫の落ち葉がひらひら
+    for(let i=0;i<14;i++){const sp=12+i*2.3,x=((i*VW*.173+Math.sin(t*.5+i)*40+t*8)%(VW+40))-20,y=((t*sp+i*VH*.29)%(VH+40))-20,r=t*1.5+i;
+      ctx.save();ctx.translate(x,y);ctx.rotate(r);ctx.scale(1,Math.abs(Math.sin(r*1.3))*.8+.2);ctx.fillStyle=['rgba(240,138,44,.75)','rgba(138,92,200,.65)','rgba(214,86,40,.7)'][i%3];ctx.beginPath();ctx.ellipse(0,0,5,2.6,0,0,7);ctx.fill();ctx.restore()}
+  }
+  if(!dusk)return;
   const k=h>=18.5||h<6?1:(h-16.5)/2;
   const gr=ctx.createLinearGradient(0,0,0,VH*.5);gr.addColorStop(0,`rgba(120,60,150,${.16*k})`);gr.addColorStop(1,'rgba(240,140,60,0)');ctx.fillStyle=gr;ctx.fillRect(0,0,VW,VH*.5);
-  for(let i=0;i<6;i++){const sp=18+i*5,x=((t*sp+i*VW*.37)%(VW+80))-40,y=VH*(.08+.07*(i%3))+Math.sin(t*.9+i)*14;drawBatHW(ctx,x,y,.7+(i%3)*.2,t,i)}
+  for(let i=0;i<12;i++){const sp=16+i*4,x=((t*sp+i*VW*.37)%(VW+80))-40,y=VH*(.08+.07*(i%3))+Math.sin(t*.9+i)*14;drawBatHW(ctx,x,y,.7+(i%3)*.2,t,i)}
 }}
 // ---- ゲームを開いたら一度だけ知らせる ----
 setTimeout(function hwTip(){if(!S||RT.title){setTimeout(hwTip,3000);return}if(hwOn()){toast(`🎃 島はハロウィンの飾りつけ中！（10/31まで）`,true)}},5000);
