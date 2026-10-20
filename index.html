@@ -563,7 +563,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.144";</script>
+<script>const GAME_VERSION="1.145";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -9692,6 +9692,8 @@ function stepTick(){
 // 2026-10-20 から 10月31日まで（遊んでいる端末の日付）。11月1日からは何も描かず、元の島にもどる（翌年も10/20〜10/31に出る）。
 // かぼちゃのランタン（建物の前と道ばた・3つ重ねた山。夜は光り、建物の前はろうそくも）・建物の前の三角の旗と電球・昼の落ち葉・夕方と夜のコウモリ・空の色。
 // おばけは夜だけ（19時〜5時）。広場と、主人公の近くのかぼちゃのまわりを漂う（2026-10-20「もっとにぎやかに。お化けは夜限定」）。
+// 2026-10-20 追加（ユーザーの参考画像のモチーフだけ取り入れ、絵はまねしない）：広場の文字の旗「HALLOWEEN」・お菓子（道ばたとお店の前のテーブル）・
+//   魔女の帽子をかぶったかぼちゃ・お店のほうき・木からぶら下がるクモ・博物館の前の黒ネコ・洞窟の前の丸い石「BOO!」・夜の三日月と星・黄色い目のコウモリ。
 // どれも絵だけで、通れる所・植えられる所・セーブは変えない（ランタンの場所に物があれば、そのランタンは描かない）。
 // 試すとき：localStorage の hidamari-halloween を 'on'／'off' にすると、日付に関係なく出す／出さない。
 const HW_FROM=[9,20],HW_TO=[9,31];   // [月(0〜11), 日]
@@ -9753,7 +9755,8 @@ function hwGhosts(t){
 function hwGhostSpots(){const b=ISL.bld.find(b=>b.type==='shop')||ISL.bld[0];return [[(b.door.x-2.5)*T,(b.door.y+2.6)*T],[(b.door.x+3)*T,(b.door.y+3.3)*T]]}
 {const _so=surpriseObjects;surpriseObjects=function(D,ctx,t){
   _so(D,ctx,t);if(!HW())return;
-  for(const [x,y,k] of hwSpots()){if(objAt(x,y))continue;D.push([(y+1)*T-6,()=>drawPumpkin(ctx,(x+.5)*T,(y+1)*T-6,k,t)])}
+  // 建物の前のかぼちゃの半分は、魔女の帽子をかぶる
+  hwSpots().forEach(([x,y,k],i)=>{if(objAt(x,y))return;D.push([(y+1)*T-6,()=>{drawPumpkin(ctx,(x+.5)*T,(y+1)*T-6,k,t);if(k===0&&i%2===0)drawWitchHat(ctx,(x+.5)*T+1,(y+1)*T-25,.95)}])});
   if(hwNight())for(const [x,y,k] of hwSpots())if(k===0&&!objAt(x,y))D.push([(y+1)*T-5,()=>{drawCandle(ctx,(x+.5)*T+12,(y+1)*T-4,t);drawCandle(ctx,(x+.5)*T-12,(y+1)*T-3,t+2)}]);
   if(hwGhostTime())hwGhosts(t).forEach(([x,y],i)=>D.push([y+12,()=>drawGhostHW(ctx,x,y-18,t,i)]));
 }}
@@ -9781,6 +9784,8 @@ function drawBatHW(g,x,y,s,t,i){
   const f=Math.sin(t*14+i*2);g.save();g.translate(x,y);g.scale(s,s);g.fillStyle='rgba(30,22,40,.88)';
   g.beginPath();g.moveTo(0,-2);g.quadraticCurveTo(-6,-6-f*4,-13,-2-f*5);g.quadraticCurveTo(-9,0,-8,3);g.quadraticCurveTo(-4,1,0,3);g.quadraticCurveTo(4,1,8,3);g.quadraticCurveTo(9,0,13,-2-f*5);g.quadraticCurveTo(6,-6-f*4,0,-2);g.fill();
   circ(g,0,0,3,'rgba(30,22,40,.95)');g.beginPath();g.moveTo(-2,-2);g.lineTo(-2.6,-5);g.lineTo(-.6,-3);g.moveTo(2,-2);g.lineTo(2.6,-5);g.lineTo(.6,-3);g.fill();
+  // 黄色い目
+  circ(g,-1.1,-.4,.75,'#ffd84a');circ(g,1.1,-.4,.75,'#ffd84a');
   g.restore();
 }
 {const _sk=drawSkyExtras;drawSkyExtras=function(ctx,t,VW,VH){
@@ -9793,7 +9798,112 @@ function drawBatHW(g,x,y,s,t,i){
   if(!dusk)return;
   const k=h>=18.5||h<6?1:(h-16.5)/2;
   const gr=ctx.createLinearGradient(0,0,0,VH*.5);gr.addColorStop(0,`rgba(120,60,150,${.16*k})`);gr.addColorStop(1,'rgba(240,140,60,0)');ctx.fillStyle=gr;ctx.fillRect(0,0,VW,VH*.5);
+  // 夜：三日月と、またたく星
+  if(h>=18.5||h<5.5){
+    for(let i=0;i<14;i++){const sx=VW*((i*.137+.05)%1),sy=VH*(.04+((i*.29)%1)*.3),a=.5+.5*Math.sin(t*2+i*1.7);hwStar(ctx,sx,sy,1.6+(i%3),`rgba(255,240,170,${.35+.55*a})`)}
+    const mx=VW*.44,my=VH*.09;   // 右上は地図と所持金で隠れるので、空のまん中あたり
+    const mg=ctx.createRadialGradient(mx,my,6,mx,my,34);mg.addColorStop(0,'rgba(255,236,150,.28)');mg.addColorStop(1,'rgba(255,236,150,0)');ctx.fillStyle=mg;ctx.fillRect(mx-34,my-34,68,68);
+    // 三日月：月の丸の中だけで、ずらした丸の外側を塗る（くり抜くと下が透けるので、くり抜かない）
+    ctx.save();ctx.beginPath();ctx.arc(mx,my,17,0,7);ctx.clip();ctx.fillStyle='rgba(255,236,150,.97)';ctx.beginPath();ctx.rect(mx-20,my-20,40,40);ctx.arc(mx+8,my-5,15,0,7);ctx.fill('evenodd');ctx.restore();
+  }
   for(let i=0;i<12;i++){const sp=16+i*4,x=((t*sp+i*VW*.37)%(VW+80))-40,y=VH*(.08+.07*(i%3))+Math.sin(t*.9+i)*14;drawBatHW(ctx,x,y,.7+(i%3)*.2,t,i)}
+}}
+// ---- 小物の絵 ----
+function hwStar(g,x,y,r,col){g.fillStyle=col;g.beginPath();for(let i=0;i<10;i++){const a=-1.5708+i*.6283,rr=i%2?r*.45:r;g.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr)}g.closePath();g.fill()}
+// かぼちゃにかぶせる魔女の帽子（y＝かぶる所）
+function drawWitchHat(g,x,y,s){
+  g.save();g.translate(x,y);g.scale(s,s);ell(g,0,0,11,3,'#4b2f7a');
+  g.fillStyle='#6a44a8';g.beginPath();g.moveTo(-6.5,-1);g.quadraticCurveTo(-3,-10,1,-18);g.quadraticCurveTo(4,-21,7,-19);g.quadraticCurveTo(3,-16,6,-1);g.closePath();g.fill();
+  g.fillStyle='#f08a2c';g.fillRect(-6.4,-4,12.6,2.6);rrect(g,-1.3,-4.2,2.6,3,.5,'#ffd84a');g.restore();
+}
+// お菓子：0 ぐるぐるキャンディ、1 つつみキャンディ、2 キャンディコーン、3 しましまの杖
+function drawCandy(g,x,y,k,t){
+  g.save();g.translate(x,y);ell(g,0,1,6,1.8,'rgba(30,20,10,.2)');
+  if(k===0){g.strokeStyle='#e8d6b0';g.lineWidth=1.6;g.beginPath();g.moveTo(0,0);g.lineTo(0,-10);g.stroke();circ(g,0,-14,5,'#f6f0ff');g.strokeStyle='#8a5cc8';g.lineWidth=1.5;g.beginPath();for(let a=0;a<12;a+=.3)g.lineTo(Math.cos(a)*a*.38,-14+Math.sin(a)*a*.38);g.stroke()}
+  else if(k===1){g.fillStyle='#f08a2c';g.beginPath();g.moveTo(-8,-6);g.lineTo(-4,-3);g.lineTo(-8,0);g.closePath();g.moveTo(8,-6);g.lineTo(4,-3);g.lineTo(8,0);g.closePath();g.fill();ell(g,0,-3,4.6,3.4,'#8a5cc8');circ(g,-1.5,-4,1,'#e8c8ff');circ(g,1.8,-2,1,'#e8c8ff')}
+  else if(k===2){g.fillStyle='#fff6e0';g.beginPath();g.moveTo(0,-11);g.lineTo(4,0);g.lineTo(-4,0);g.closePath();g.fill();g.fillStyle='#f6b23a';g.beginPath();g.moveTo(-2.9,-3);g.lineTo(2.9,-3);g.lineTo(4,0);g.lineTo(-4,0);g.closePath();g.fill();g.fillStyle='#f08a2c';g.beginPath();g.moveTo(-1.8,-6);g.lineTo(1.8,-6);g.lineTo(2.9,-3);g.lineTo(-2.9,-3);g.closePath();g.fill()}
+  else{g.lineCap='round';for(const [c,o] of [['#f6f0ff',0],['#8a5cc8',1]]){g.strokeStyle=c;g.lineWidth=2.6;g.setLineDash(o?[2.4,2.4]:[]);g.beginPath();g.moveTo(1,0);g.lineTo(1,-11);g.arc(-2,-11,3,0,Math.PI,true);g.stroke()}g.setLineDash([])}
+  g.restore();
+}
+// お店の前のお菓子のテーブル（カップケーキ・市松のクッキー・キャンディ）
+function drawTreatTable(g,x,y){
+  g.save();g.translate(x,y);ell(g,0,1,16,4,'rgba(30,20,10,.22)');
+  rrect(g,-12,-12,2.4,12,1,'#8a5a34');rrect(g,9.6,-12,2.4,12,1,'#8a5a34');ell(g,0,-13,16,5,'#f08a2c');ell(g,0,-14,15,4,'#fff3dc');
+  g.fillStyle='#f08a2c';for(let i=-14;i<=12;i+=5){g.beginPath();g.moveTo(i,-12);g.lineTo(i+2.5,-8);g.lineTo(i+5,-12);g.fill()}
+  g.fillStyle='#8a5cc8';g.beginPath();g.moveTo(-9,-15);g.lineTo(-1,-15);g.lineTo(-2,-21);g.lineTo(-8,-21);g.closePath();g.fill();ell(g,-5,-23,4.6,3.4,'#f6a23a');circ(g,-5,-26,1.4,'#e2412f');
+  for(const [cx,cy] of [[5,-15],[9,-17]]){circ(g,cx,cy,3.4,'#d8a868');g.fillStyle='#7a4a2a';g.fillRect(cx-3.4,cy-.2,3.4,3.2);g.fillRect(cx,cy-3.2,3.4,3)}
+  drawCandy(g,1,-14,1,0);g.restore();
+}
+function drawBroom(g,x,y){
+  g.save();g.translate(x,y);g.strokeStyle='#8a5a34';g.lineWidth=2.4;g.lineCap='round';g.beginPath();g.moveTo(-4,-34);g.lineTo(2,-8);g.stroke();
+  g.fillStyle='#d9b26a';g.beginPath();g.moveTo(0,-10);g.lineTo(5,-10);g.lineTo(10,1);g.lineTo(-4,1);g.closePath();g.fill();
+  g.strokeStyle='#a8823e';g.lineWidth=.8;for(const d of [-1,2,5]){g.beginPath();g.moveTo(d+1,-9);g.lineTo(d+2.5,1);g.stroke()}
+  g.fillStyle='#8a5cc8';g.fillRect(-.5,-11.5,6.5,2.2);g.restore();
+}
+// すわっている黒ネコ（しっぽがゆれて、ときどきまばたき）
+function drawCatHW(g,x,y,t){
+  g.save();g.translate(x,y);ell(g,0,1,10,3,'rgba(20,15,10,.25)');const sw=Math.sin(t*1.6)*4;
+  g.strokeStyle='#26222c';g.lineWidth=3;g.lineCap='round';g.beginPath();g.moveTo(6,-3);g.quadraticCurveTo(14,-4,13+sw*.5,-14);g.quadraticCurveTo(12+sw,-20,9+sw,-19);g.stroke();
+  ell(g,0,-7,7.5,7,'#26222c');circ(g,0,-17,6.5,'#26222c');
+  g.fillStyle='#26222c';g.beginPath();g.moveTo(-6,-19);g.lineTo(-5,-26);g.lineTo(-1.5,-22);g.closePath();g.moveTo(6,-19);g.lineTo(5,-26);g.lineTo(1.5,-22);g.closePath();g.fill();
+  const bl=(t%4)<.15;ell(g,-2.6,-17.5,1.7,bl?.3:1.9,'#ffd84a');ell(g,2.6,-17.5,1.7,bl?.3:1.9,'#ffd84a');if(!bl){ell(g,-2.6,-17.5,.5,1.5,'#1a1a1a');ell(g,2.6,-17.5,.5,1.5,'#1a1a1a')}
+  circ(g,0,-15,.7,'#f49ac1');ell(g,-3,-1,2.4,1.4,'#26222c');ell(g,3,-1,2.4,1.4,'#26222c');g.restore();
+}
+// こわくない丸い石（BOO!）
+function drawGraveHW(g,x,y,i){
+  g.save();g.translate(x,y);ell(g,0,1,11,3,'rgba(20,20,20,.22)');
+  g.fillStyle=['#a8adb5','#9aa0a8','#b3b7bd'][i%3];g.beginPath();g.moveTo(-9,0);g.lineTo(-9,-14);g.arc(0,-14,9,Math.PI,0);g.lineTo(9,0);g.closePath();g.fill();
+  g.fillStyle='rgba(255,255,255,.25)';g.fillRect(-7,-18,3,12);g.fillStyle='#5a5f68';g.font='bold 6px sans-serif';g.textAlign='center';g.fillText('BOO!',0,-10);
+  ell(g,-7,0,4,1.6,'#6fae4e');ell(g,7,-.5,3,1.4,'#5a9a40');g.restore();
+}
+// 木から糸でぶら下がるクモ（ゆっくり上下する）
+function drawSpiderHW(g,x,y0,len,t,i){
+  const L=len+Math.sin(t*1.1+i)*5,y=y0+L;g.strokeStyle='rgba(240,240,250,.75)';g.lineWidth=.6;g.beginPath();g.moveTo(x,y0);g.lineTo(x,y-3);g.stroke();
+  g.save();g.translate(x,y);g.strokeStyle='#1e1a24';g.lineWidth=1.1;
+  for(const s of [-1,1])for(let k=0;k<4;k++){const a=(k-1.5)*.45;g.beginPath();g.moveTo(0,0);g.quadraticCurveTo(s*5,-3+k*1.5,s*(7+Math.sin(t*6+k)*.6),2+a*5);g.stroke()}
+  circ(g,0,0,3.6,'#1e1a24');circ(g,0,-3.4,2.4,'#1e1a24');circ(g,-.9,-3.6,.7,'#fff');circ(g,.9,-3.6,.7,'#fff');g.restore();
+}
+// 広場の文字の旗（柱2本の上に小さなかぼちゃ）
+function drawBannerHW(g,x0,x1,yg,t){
+  const top=yg-46,sag=10,py=u=>top+6+sag*4*u*(1-u);
+  for(const x of [x0,x1]){rrect(g,x-2,top,4,46,1.5,'#7a5030');ell(g,x,yg,5,1.6,'rgba(20,15,10,.25)');g.save();g.translate(x,top+2);g.scale(.55,.55);drawPumpkin(g,0,0,1,t);g.restore()}
+  g.strokeStyle='rgba(60,40,30,.85)';g.lineWidth=1;g.beginPath();for(let i=0;i<=24;i++){const u=i/24;g.lineTo(x0+(x1-x0)*u,py(u))}g.stroke();
+  const W2='HALLOWEEN',n=W2.length,cols=['#f08a2c','#2c2433','#8a5cc8'];
+  for(let i=0;i<n;i++){const u=(i+.5)/n,xm=x0+(x1-x0)*u,ym=py(u),w=Math.min(13,(x1-x0)/n*.86),sw=Math.sin(t*2+i)*.06;
+    g.save();g.translate(xm,ym);g.rotate(sw);g.fillStyle=cols[i%3];g.beginPath();g.moveTo(-w/2,0);g.lineTo(w/2,0);g.lineTo(0,w*1.35);g.closePath();g.fill();
+    g.fillStyle=i%3===1?'#f6a23a':'#fffaf0';g.font='bold 8px sans-serif';g.textAlign='center';g.fillText(W2[i],0,w*.62);g.restore()}
+}
+// ---- 小物の場所（島ごとに決まる。かぼちゃの場所とは重ねない） ----
+let HW_PROPS=null,HW_PKEY='';
+function hwProps(){
+  const key=S.seed+':'+ISL.bld.length+':'+MW;if(HW_PROPS&&HW_PKEY===key)return HW_PROPS;
+  const P=hwSpots(),used=new Set(P.map(p=>p[0]+','+p[1]));
+  const free=(x,y)=>inMap(x,y)&&(tileAt(x,y)===2||tileAt(x,y)===1)&&!ISL.block[ti(x,y)]&&!used.has(x+','+y)&&!ISL.bld.some(b=>b.door.x===x&&(b.door.y===y||b.door.y+1===y));
+  const take=list=>{for(const [x,y] of list)if(free(x,y)){used.add(x+','+y);return [x,y]}return null};
+  const out={graves:[]},shop=ISL.bld.find(b=>b.type==='shop'),mus=ISL.bld.find(b=>b.type==='museum'),cave=ISL.bld.find(b=>b.type==='cave');
+  if(shop){out.banner=[(shop.x-.4)*T,(shop.x+shop.w+.4)*T,(shop.y+shop.h+3.4)*T];
+    out.table=take([[shop.door.x-2,shop.door.y+1],[shop.door.x+2,shop.door.y+1],[shop.door.x-3,shop.door.y+1]]);
+    out.broom=[(shop.door.x+1.35)*T,(shop.y+shop.h)*T-1]}
+  // 黒ネコ：博物館の前（まだ博物館が無い島は、主人公の家の前）
+  const cb=mus||ISL.bld.find(b=>b.type==='house');
+  // すぐ手前（下の2マス）に木があると、木の上に座っているように見えるので、その場所はさける
+  const noTree=([x,y])=>![1,2].some(d=>inMap(x,y+d)&&ISL.treeAt.get(ti(x,y+d))!==undefined);
+  if(cb)out.cat=take([[cb.door.x+2,cb.door.y+1],[cb.door.x-2,cb.door.y+1],[cb.door.x+2,cb.door.y+2],[cb.door.x-2,cb.door.y+2],[cb.door.x+3,cb.door.y+1],[cb.door.x-3,cb.door.y+1]].filter(noTree));
+  if(cave)for(const p of [[cave.door.x-3,cave.door.y+2],[cave.door.x-4,cave.door.y+3],[cave.door.x+3,cave.door.y+2],[cave.door.x+4,cave.door.y+3],[cave.door.x-2,cave.door.y+4]]){if(out.graves.length>=3)break;const q=take([p]);if(q)out.graves.push(q)}
+  out.candies=P.filter(p=>p[2]>0).filter((p,i)=>i%2===0).map((p,i)=>[p[0],p[1],i%4]);
+  out.spiders=ISL.trees.map((tr,i)=>i).filter(i=>i%7===3);
+  HW_PKEY=key;HW_PROPS=out;return out;
+}
+{const _so2=surpriseObjects;surpriseObjects=function(D,ctx,t){
+  _so2(D,ctx,t);if(!HW())return;
+  const Pr=hwProps();
+  if(Pr.banner){const [a,b,yg]=Pr.banner;D.push([yg,()=>drawBannerHW(ctx,a,b,yg,t)])}
+  if(Pr.table&&!objAt(Pr.table[0],Pr.table[1]))D.push([(Pr.table[1]+1)*T-6,()=>drawTreatTable(ctx,(Pr.table[0]+.5)*T,(Pr.table[1]+1)*T-6)]);
+  if(Pr.broom)D.push([Pr.broom[1]+1,()=>drawBroom(ctx,Pr.broom[0],Pr.broom[1])]);
+  if(Pr.cat&&!objAt(Pr.cat[0],Pr.cat[1]))D.push([(Pr.cat[1]+1)*T-6,()=>drawCatHW(ctx,(Pr.cat[0]+.5)*T,(Pr.cat[1]+1)*T-6,t)]);
+  Pr.graves.forEach(([x,y],i)=>{if(!objAt(x,y))D.push([(y+1)*T-6,()=>drawGraveHW(ctx,(x+.5)*T,(y+1)*T-6,i)])});
+  for(const [x,y,k] of Pr.candies)if(!objAt(x,y))D.push([(y+1)*T-4,()=>drawCandy(ctx,(x+.5)*T+12,(y+1)*T-4,k,t)]);
+  for(const i of Pr.spiders){const tr=ISL.trees[i];if(!tr||(S.cleared&&S.cleared[i])||S.stumps[i])continue;D.push([(tr.y+1)*T-2,()=>drawSpiderHW(ctx,(tr.x+.5)*T+11,(tr.y+1)*T-44,20,t,i)])}
 }}
 // ---- ゲームを開いたら一度だけ知らせる ----
 setTimeout(function hwTip(){if(!S||RT.title){setTimeout(hwTip,3000);return}if(hwOn()){toast(`🎃 島はハロウィンの飾りつけ中！（10/31まで）`,true)}},5000);
