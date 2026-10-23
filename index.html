@@ -563,7 +563,7 @@ kbd{font-family:var(--f-body);background:#fff;border:1px solid var(--line);borde
 const hide=()=>{if(done)return;done=true;sp.classList.add("out");ti&&ti.classList.add("ready");setTimeout(()=>sp.remove(),950)};
 setTimeout(hide,1000);sp.addEventListener("pointerdown",hide);addEventListener("keydown",hide,{once:true});})();
 </script>
-<script>const GAME_VERSION="1.149";</script>
+<script>const GAME_VERSION="1.150";</script>
 <script>
 "use strict";
 // ===================== 基本データ =====================
@@ -2017,8 +2017,8 @@ const cv=document.getElementById('cv');let ctx=cv.getContext('2d');   // let：�
 let VW=800,VH=600,DPR=1,Z=2;
 function resize(){DPR=Math.min(2,window.devicePixelRatio||1);VW=cv.clientWidth||innerWidth;VH=cv.clientHeight||innerHeight;cv.width=Math.round(VW*DPR);cv.height=Math.round(VH*DPR);Z=clamp(Math.min(VW/(16*T),VH/(11.5*T)),1.15,2.6)}
 addEventListener('resize',resize);
-// 夜に画面へ重ねる暗い色の濃さの倍率（2026-10-23 ユーザーの指示「夜はもう少し暗く」で 1 → 1.3。音楽・明かりなどの判定は skyTint().night のまま）
-let NIGHT_DARK=1.3;
+// 夜に画面へ重ねる暗い色の濃さの倍率（2026-10-23 ユーザーの指示「夜はもう少し暗く」で 1 → 1.3 → 1.6（10/24「もう少し暗く」）。音楽・明かりなどの判定は skyTint().night のまま）
+let NIGHT_DARK=1.6;
 function skyTint(){
   const hh=S.min/60;let sun=0,night=0;
   if(hh<7){night=.42*(7-hh);sun=.12}
